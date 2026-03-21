@@ -1,12 +1,12 @@
 'use client';
 
-import { createClient } from '@/lib/supabase/browser';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/browser';
 
 export function SignOutButton() {
   const router = useRouter();
 
-  async function signOut() {
+  async function handleSignOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push('/login');
@@ -14,7 +14,22 @@ export function SignOutButton() {
   }
 
   return (
-    <button onClick={signOut} className="w-full rounded-[24px] app-card px-5 py-4 text-left font-semibold text-slate-900">
+    <button
+      type="button"
+      onClick={handleSignOut}
+      style={{
+        width: '100%',
+        borderRadius: 18,
+        border: 'none',
+        background: 'linear-gradient(180deg, #8b1538 0%, #6f102d 100%)',
+        color: '#ffffff',
+        padding: '15px 18px',
+        fontSize: 15,
+        fontWeight: 700,
+        cursor: 'pointer',
+        boxShadow: '0 14px 30px rgba(139,21,56,0.28)',
+      }}
+    >
       Sign Out
     </button>
   );

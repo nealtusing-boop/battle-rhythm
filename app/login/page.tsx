@@ -91,22 +91,9 @@ export default function LoginPage() {
             padding: '8px 4px',
           }}
         >
-          <p
-            style={{
-              margin: 0,
-              fontSize: 12,
-              fontWeight: 800,
-              textTransform: 'uppercase',
-              letterSpacing: '0.18em',
-              color: 'rgba(255,255,255,0.72)',
-            }}
-          >
-            Platoon Operations Hub
-          </p>
-
           <h1
             style={{
-              marginTop: 14,
+              marginTop: 0,
               marginBottom: 0,
               fontSize: 44,
               lineHeight: 0.96,
@@ -117,19 +104,6 @@ export default function LoginPage() {
           >
             Battle Rhythm
           </h1>
-
-          <p
-            style={{
-              marginTop: 14,
-              marginBottom: 0,
-              fontSize: 16,
-              lineHeight: 1.55,
-              color: 'rgba(255,255,255,0.84)',
-              maxWidth: 420,
-            }}
-          >
-            Fast, clean platoon scheduling for training, CQ, alerts, leave, DONSAs, and jump operations.
-          </p>
         </section>
 
         <section

@@ -2,7 +2,16 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, X, House, CalendarDays, CalendarRange, Plane, ClipboardList, Ellipsis } from 'lucide-react';
+import {
+  Menu,
+  X,
+  House,
+  CalendarDays,
+  CalendarRange,
+  Plane,
+  ClipboardList,
+  Ellipsis,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { Profile } from '@/lib/types';
 
@@ -54,8 +63,10 @@ export function AppShell({
           zIndex: 40,
           backdropFilter: 'blur(16px)',
           WebkitBackdropFilter: 'blur(16px)',
-          background: 'rgba(122, 15, 47, 0.76)',
+          background:
+            'linear-gradient(180deg, rgba(10,10,12,0.96) 0%, rgba(22,22,26,0.92) 100%)',
           borderBottom: '1px solid rgba(255,255,255,0.08)',
+          boxShadow: '0 14px 30px rgba(0,0,0,0.28)',
         }}
       >
         <div
@@ -78,14 +89,14 @@ export function AppShell({
               width: 46,
               height: 46,
               borderRadius: 16,
-              border: '1px solid rgba(255,255,255,0.18)',
-              background: 'rgba(255,255,255,0.12)',
+              border: '1px solid rgba(255,255,255,0.10)',
+              background: 'linear-gradient(180deg, #8b1538 0%, #6f102d 100%)',
               color: '#ffffff',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              boxShadow: '0 12px 28px rgba(0,0,0,0.16)',
+              boxShadow: '0 14px 30px rgba(139,21,56,0.32)',
             }}
           >
             {open ? <X size={20} color="#ffffff" /> : <Menu size={20} color="#ffffff" />}
@@ -108,7 +119,7 @@ export function AppShell({
                 marginTop: 6,
                 fontSize: 12,
                 fontWeight: 500,
-                color: 'rgba(255,255,255,0.74)',
+                color: 'rgba(255,255,255,0.78)',
               }}
             >
               {fullName}
