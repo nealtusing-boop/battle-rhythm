@@ -85,7 +85,7 @@ export function EnablePushCard() {
           color: '#64748b',
         }}
       >
-        Enable notifications on this device to receive new alerts as soon as they are posted.
+        
       </p>
 
       <button
