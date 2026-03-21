@@ -19,8 +19,16 @@ export function EnablePushCard() {
       return;
     }
 
+    const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+
+    if (!publicKey) {
+      setStatus('Push notifications are not configured yet.');
+      return;
+    }
+
     try {
       setLoading(true);
+
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
         setStatus('Notification permission was not granted.');
@@ -28,10 +36,15 @@ export function EnablePushCard() {
       }
 
       const registration = await navigator.serviceWorker.register('/sw.js');
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!),
-      });
+
+      let subscription = await registration.pushManager.getSubscription();
+
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey),
+        });
+      }
 
       const response = await fetch('/api/push/subscribe', {
         method: 'POST',
@@ -39,7 +52,10 @@ export function EnablePushCard() {
         body: JSON.stringify(subscription),
       });
 
-      if (!response.ok) throw new Error('Subscription save failed');
+      if (!response.ok) {
+        throw new Error('Subscription save failed.');
+      }
+
       setStatus('Push notifications enabled. New alerts will notify this device.');
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Failed to enable notifications.');
@@ -51,8 +67,14 @@ export function EnablePushCard() {
   return (
     <div className="app-card rounded-[24px] p-5">
       <h3 className="text-lg font-semibold">Push Notifications</h3>
-      <p className="mt-2 text-sm text-slate-600"></p>
-      <button onClick={enablePush} disabled={loading} className="premium-button mt-4 rounded-2xl px-4 py-3 font-semibold disabled:opacity-60">
+      <p className="mt-2 text-sm text-slate-600">
+        Enable notifications on this device to receive new alerts.
+      </p>
+      <button
+        onClick={enablePush}
+        disabled={loading}
+        className="premium-button mt-4 rounded-2xl px-4 py-3 font-semibold disabled:opacity-60"
+      >
         {loading ? 'Enabling...' : 'Enable Notifications'}
       </button>
       {status && <p className="mt-3 text-sm text-slate-600">{status}</p>}

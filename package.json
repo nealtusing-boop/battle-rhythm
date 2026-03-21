@@ -18,9 +18,10 @@
     "react": "latest",
     "react-dom": "latest",
     "tailwind-merge": "latest",
-    "web-push": "latest"
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "latest",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
@@ -28,7 +29,6 @@
     "eslint": "latest",
     "eslint-config-next": "latest",
     "tailwindcss": "latest",
-    "typescript": "latest",
-    "@tailwindcss/postcss": "latest"
+    "typescript": "latest"
   }
 }
