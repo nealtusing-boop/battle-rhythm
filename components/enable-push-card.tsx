@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -12,6 +12,30 @@ function urlBase64ToUint8Array(base64String: string) {
 export function EnablePushCard() {
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    checkExistingSubscription();
+  }, []);
+
+  async function checkExistingSubscription() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      return;
+    }
+
+    try {
+      const registration = await navigator.serviceWorker.getRegistration();
+      if (!registration) return;
+
+      const subscription = await registration.pushManager.getSubscription();
+      if (subscription) {
+        setEnabled(true);
+        setStatus('Notifications are enabled on this device.');
+      }
+    } catch {
+      // silently ignore
+    }
+  }
 
   async function enablePush() {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
@@ -56,7 +80,8 @@ export function EnablePushCard() {
         throw new Error('Subscription save failed.');
       }
 
-      setStatus('Push notifications enabled. New alerts will notify this device.');
+      setEnabled(true);
+      setStatus('Notifications are enabled on this device.');
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Failed to enable notifications.');
     } finally {
@@ -85,36 +110,52 @@ export function EnablePushCard() {
           color: '#64748b',
         }}
       >
-        
+        Receive new alerts instantly on this device.
       </p>
 
-      <button
-        type="button"
-        onClick={enablePush}
-        disabled={loading}
-        style={{
-          width: '100%',
-          borderRadius: 18,
-          border: 'none',
-          background: 'linear-gradient(180deg, #8b1538 0%, #6f102d 100%)',
-          color: '#ffffff',
-          padding: '14px 18px',
-          fontSize: 15,
-          fontWeight: 700,
-          cursor: 'pointer',
-          boxShadow: '0 14px 30px rgba(139,21,56,0.28)',
-          opacity: loading ? 0.7 : 1,
-        }}
-      >
-        {loading ? 'Enabling...' : 'Enable Notifications'}
-      </button>
+      {!enabled && (
+        <button
+          type="button"
+          onClick={enablePush}
+          disabled={loading}
+          style={{
+            width: '100%',
+            borderRadius: 18,
+            border: 'none',
+            background: 'linear-gradient(180deg, #8b1538 0%, #6f102d 100%)',
+            color: '#ffffff',
+            padding: '14px 18px',
+            fontSize: 15,
+            fontWeight: 700,
+            cursor: 'pointer',
+            boxShadow: '0 14px 30px rgba(139,21,56,0.28)',
+            opacity: loading ? 0.7 : 1,
+          }}
+        >
+          {loading ? 'Enabling...' : 'Enable Notifications'}
+        </button>
+      )}
 
-      {status && (
+      {enabled && (
+        <div
+          style={{
+            borderRadius: 18,
+            background: '#ecfdf5',
+            color: '#065f46',
+            padding: '12px 14px',
+            fontSize: 14,
+            fontWeight: 600,
+          }}
+        >
+          Notifications enabled on this device.
+        </div>
+      )}
+
+      {status && !enabled && (
         <p
           style={{
             margin: 0,
             fontSize: 14,
-            lineHeight: 1.5,
             color: '#64748b',
           }}
         >
