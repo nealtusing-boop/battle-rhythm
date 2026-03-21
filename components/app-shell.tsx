@@ -11,12 +11,14 @@ import {
   Plane,
   ClipboardList,
   Ellipsis,
+  Bell,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { Profile } from '@/lib/types';
 
 const navItems = [
   { href: '/home', label: 'Home', icon: House },
+  { href: '/alerts', label: 'Alerts', icon: Bell },
   { href: '/weekly-schedule', label: 'Weekly Schedule', icon: CalendarDays },
   { href: '/long-range-calendar', label: 'Long Range Calendar', icon: CalendarRange },
   { href: '/leave-donsa', label: 'Leave & DONSAs', icon: ClipboardList },

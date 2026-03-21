@@ -65,19 +65,62 @@ export function EnablePushCard() {
   }
 
   return (
-    <div className="app-card rounded-[24px] p-5">
-      <h3 className="text-lg font-semibold">Push Notifications</h3>
-      <p className="mt-2 text-sm text-slate-600">
-        Enable notifications on this device to receive new alerts.
+    <div style={{ display: 'grid', gap: 12 }}>
+      <h3
+        style={{
+          margin: 0,
+          fontSize: 18,
+          fontWeight: 700,
+          color: '#0f172a',
+        }}
+      >
+        Push Notifications
+      </h3>
+
+      <p
+        style={{
+          margin: 0,
+          fontSize: 14,
+          lineHeight: 1.5,
+          color: '#64748b',
+        }}
+      >
+        Enable notifications on this device to receive new alerts as soon as they are posted.
       </p>
+
       <button
+        type="button"
         onClick={enablePush}
         disabled={loading}
-        className="premium-button mt-4 rounded-2xl px-4 py-3 font-semibold disabled:opacity-60"
+        style={{
+          width: '100%',
+          borderRadius: 18,
+          border: 'none',
+          background: 'linear-gradient(180deg, #8b1538 0%, #6f102d 100%)',
+          color: '#ffffff',
+          padding: '14px 18px',
+          fontSize: 15,
+          fontWeight: 700,
+          cursor: 'pointer',
+          boxShadow: '0 14px 30px rgba(139,21,56,0.28)',
+          opacity: loading ? 0.7 : 1,
+        }}
       >
         {loading ? 'Enabling...' : 'Enable Notifications'}
       </button>
-      {status && <p className="mt-3 text-sm text-slate-600">{status}</p>}
+
+      {status && (
+        <p
+          style={{
+            margin: 0,
+            fontSize: 14,
+            lineHeight: 1.5,
+            color: '#64748b',
+          }}
+        >
+          {status}
+        </p>
+      )}
     </div>
   );
 }
