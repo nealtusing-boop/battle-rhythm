@@ -85,7 +85,7 @@ export default async function JumpSchedulePage() {
             color: 'rgba(255,255,255,0.82)',
           }}
         >
-          Upcoming jumps with type, equipment, and running manifest.
+          
         </p>
       </section>
 

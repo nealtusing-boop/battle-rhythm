@@ -26,7 +26,7 @@ export default async function AdminPage() {
             color: 'rgba(255,255,255,0.82)',
           }}
         >
-          Manage schedules, alerts, leave, jumps, manifests, and CQ for the platoon.
+          
         </p>
       </section>
 

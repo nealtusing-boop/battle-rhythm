@@ -72,7 +72,7 @@ export default async function WeeklySchedulePage({
             color: 'rgba(255,255,255,0.82)',
           }}
         >
-          Move left or right through the week, then tap a day to view that day’s training.
+          
         </p>
       </section>
 

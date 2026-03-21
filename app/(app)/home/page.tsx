@@ -244,7 +244,7 @@ export default async function HomePage() {
                   color: '#64748b',
                 }}
               >
-                Your platoon snapshot for today
+                
               </p>
             </div>
 
@@ -392,7 +392,7 @@ export default async function HomePage() {
                 color: '#64748b',
               }}
             >
-              Countdown and partner information
+              
             </p>
 
             <div
@@ -458,7 +458,7 @@ export default async function HomePage() {
                 color: '#64748b',
               }}
             >
-              Latest pushed updates
+             
             </p>
 
             <div style={{ marginTop: 16, display: 'grid', gap: 12 }}>

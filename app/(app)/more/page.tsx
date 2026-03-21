@@ -126,7 +126,7 @@ export default async function MorePage() {
                   color: '#64748b',
                 }}
               >
-                Signed in
+                
               </p>
             )}
           </div>
@@ -256,7 +256,7 @@ export default async function MorePage() {
                   color: '#64748b',
                 }}
               >
-                Manage alerts, schedules, jumps, manifests, and CQ.
+                
               </div>
             </div>
 

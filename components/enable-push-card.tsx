@@ -51,7 +51,7 @@ export function EnablePushCard() {
   return (
     <div className="app-card rounded-[24px] p-5">
       <h3 className="text-lg font-semibold">Push Notifications</h3>
-      <p className="mt-2 text-sm text-slate-600">Install the app to your phone home screen and allow notifications so new alerts appear immediately.</p>
+      <p className="mt-2 text-sm text-slate-600"></p>
       <button onClick={enablePush} disabled={loading} className="premium-button mt-4 rounded-2xl px-4 py-3 font-semibold disabled:opacity-60">
         {loading ? 'Enabling...' : 'Enable Notifications'}
       </button>

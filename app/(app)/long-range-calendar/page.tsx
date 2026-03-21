@@ -58,7 +58,7 @@ export default async function LongRangeCalendarPage({
             color: 'rgba(255,255,255,0.82)',
           }}
         >
-          Move month to month and view every posted event for that month.
+          
         </p>
       </section>
 
@@ -117,7 +117,7 @@ export default async function LongRangeCalendarPage({
                 color: '#64748b',
               }}
             >
-              Monthly long-range view
+              
             </div>
           </div>
 

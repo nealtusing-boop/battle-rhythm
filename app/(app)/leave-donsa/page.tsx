@@ -170,13 +170,13 @@ export default async function LeaveDonsaPage() {
             color: 'rgba(255,255,255,0.82)',
           }}
         >
-          Upcoming leave windows and long weekends in a clean two-section view.
+          
         </p>
       </section>
 
       {renderPeriodCard(
         'Leave',
-        'Upcoming leave periods',
+        'Upcoming',
         'Leave',
         '#dbeafe',
         '#1d4ed8',
@@ -185,7 +185,7 @@ export default async function LeaveDonsaPage() {
 
       {renderPeriodCard(
         'DONSAs',
-        'Upcoming DONSAs and long weekends',
+        'Upcoming',
         'DONSA',
         '#ecfccb',
         '#3f6212',

@@ -96,12 +96,19 @@ function sectionStyle() {
     padding: 22,
     boxShadow: '0 18px 44px rgba(15,23,42,0.14)',
     color: '#0f172a',
+    width: '100%',
+    maxWidth: '100%',
+    overflowX: 'hidden',
+    boxSizing: 'border-box',
   } as const;
 }
 
 function inputStyle() {
   return {
     width: '100%',
+    maxWidth: '100%',
+    minWidth: 0,
+    boxSizing: 'border-box',
     borderRadius: 18,
     border: '1px solid rgba(15,23,42,0.10)',
     background: '#f8fafc',
@@ -131,6 +138,7 @@ function buttonStyle(primary = true, danger = false) {
       : primary
         ? '0 14px 30px rgba(139,21,56,0.28)'
         : 'none',
+    maxWidth: '100%',
   } as const;
 }
 
@@ -144,6 +152,7 @@ function secondaryButtonStyle() {
     fontSize: 15,
     fontWeight: 700,
     cursor: 'pointer',
+    maxWidth: '100%',
   } as const;
 }
 
@@ -192,7 +201,7 @@ type JumpFormSetter = Dispatch<SetStateAction<JumpFormState | null>>;
 
 function renderJumpForm(form: JumpFormState, setForm: JumpFormSetter, soldiers: Profile[]) {
   return (
-    <div style={{ display: 'grid', gap: 14 }}>
+    <div style={{ display: 'grid', gap: 14, minWidth: 0 }}>
       <input
         value={form.name}
         onChange={(e) =>
@@ -241,7 +250,7 @@ function renderJumpForm(form: JumpFormState, setForm: JumpFormSetter, soldiers: 
         />
       )}
 
-      <div>
+      <div style={{ minWidth: 0 }}>
         <div
           style={{
             marginBottom: 10,
@@ -261,7 +270,9 @@ function renderJumpForm(form: JumpFormState, setForm: JumpFormSetter, soldiers: 
             gap: 10,
             maxHeight: 280,
             overflowY: 'auto',
+            overflowX: 'hidden',
             paddingRight: 2,
+            minWidth: 0,
           }}
         >
           {soldiers.map((soldier) => {
@@ -279,6 +290,7 @@ function renderJumpForm(form: JumpFormState, setForm: JumpFormSetter, soldiers: 
                   border: '1px solid rgba(15,23,42,0.08)',
                   padding: '12px 14px',
                   cursor: 'pointer',
+                  minWidth: 0,
                 }}
               >
                 <input
@@ -302,7 +314,14 @@ function renderJumpForm(form: JumpFormState, setForm: JumpFormSetter, soldiers: 
                     });
                   }}
                 />
-                <span style={{ fontSize: 15, color: '#0f172a' }}>
+                <span
+                  style={{
+                    fontSize: 15,
+                    color: '#0f172a',
+                    minWidth: 0,
+                    overflowWrap: 'anywhere',
+                  }}
+                >
                   {soldier.rank} {soldier.full_name}
                 </span>
               </label>
@@ -952,9 +971,9 @@ export function AdminClient() {
 
   return (
     <>
-      <div style={{ display: 'grid', gap: 20 }}>
+      <div style={{ display: 'grid', gap: 20, width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
         <section style={sectionStyle()}>
-          <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 16, minWidth: 0 }}>
             <h2
               style={{
                 margin: 0,
@@ -962,6 +981,8 @@ export function AdminClient() {
                 fontWeight: 800,
                 letterSpacing: '-0.04em',
                 color: '#0f172a',
+                minWidth: 0,
+                overflowWrap: 'anywhere',
               }}
             >
               Admin Controls
@@ -972,6 +993,8 @@ export function AdminClient() {
                 marginBottom: 0,
                 fontSize: 14,
                 color: '#64748b',
+                minWidth: 0,
+                overflowWrap: 'anywhere',
               }}
             >
               Manage alerts, schedules, leave, jumps, manifests, and CQ in one place.
@@ -983,7 +1006,9 @@ export function AdminClient() {
               display: 'flex',
               gap: 8,
               overflowX: 'auto',
+              overflowY: 'hidden',
               paddingBottom: 2,
+              WebkitOverflowScrolling: 'touch',
             }}
           >
             {tabs.map((tab) => {
@@ -1005,6 +1030,7 @@ export function AdminClient() {
                     whiteSpace: 'nowrap',
                     cursor: 'pointer',
                     boxShadow: activeTab ? '0 14px 28px rgba(139,21,56,0.24)' : 'none',
+                    flexShrink: 0,
                   }}
                 >
                   {tab.label}
@@ -1022,6 +1048,10 @@ export function AdminClient() {
               padding: '14px 16px',
               color: '#334155',
               boxShadow: '0 10px 24px rgba(15,23,42,0.10)',
+              width: '100%',
+              maxWidth: '100%',
+              boxSizing: 'border-box',
+              overflowWrap: 'anywhere',
             }}
           >
             {status}
@@ -1035,7 +1065,7 @@ export function AdminClient() {
                 Send Alert
               </h2>
 
-              <div style={{ display: 'grid', gap: 14 }}>
+              <div style={{ display: 'grid', gap: 14, minWidth: 0 }}>
                 <textarea
                   value={alertMessage}
                   onChange={(e) => setAlertMessage(e.target.value)}
@@ -1064,7 +1094,7 @@ export function AdminClient() {
                 Existing Alerts
               </h2>
 
-              <div style={{ display: 'grid', gap: 12 }}>
+              <div style={{ display: 'grid', gap: 12, minWidth: 0 }}>
                 {existingAlerts.length === 0 && (
                   <div
                     style={{
@@ -1091,6 +1121,7 @@ export function AdminClient() {
                         background: '#f8fafc',
                         padding: 18,
                         border: '1px solid rgba(15,23,42,0.08)',
+                        minWidth: 0,
                       }}
                     >
                       <div
@@ -1100,9 +1131,10 @@ export function AdminClient() {
                           justifyContent: 'space-between',
                           gap: 16,
                           flexWrap: 'wrap',
+                          minWidth: 0,
                         }}
                       >
-                        <div style={{ flex: 1, minWidth: 220 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
                           <div
                             style={{
                               display: 'inline-flex',
@@ -1126,6 +1158,7 @@ export function AdminClient() {
                               fontSize: 15,
                               lineHeight: 1.55,
                               color: '#0f172a',
+                              overflowWrap: 'anywhere',
                             }}
                           >
                             {alert.message}
@@ -1137,6 +1170,7 @@ export function AdminClient() {
                               marginBottom: 0,
                               fontSize: 12,
                               color: '#64748b',
+                              overflowWrap: 'anywhere',
                             }}
                           >
                             {new Date(alert.created_at).toLocaleString()}
@@ -1170,7 +1204,7 @@ export function AdminClient() {
                 Add or Edit Weekly Training Event
               </h2>
 
-              <div style={{ display: 'grid', gap: 14 }}>
+              <div style={{ display: 'grid', gap: 14, minWidth: 0 }}>
                 <input
                   value={weeklyForm.title}
                   onChange={(e) => setWeeklyForm({ ...weeklyForm, title: e.target.value })}
@@ -1185,7 +1219,7 @@ export function AdminClient() {
                   style={inputStyle()}
                 />
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
                   <input
                     value={weeklyForm.start_time}
                     onChange={(e) => setWeeklyForm({ ...weeklyForm, start_time: e.target.value })}
@@ -1282,6 +1316,7 @@ export function AdminClient() {
                       background: '#f8fafc',
                       padding: 18,
                       border: '1px solid rgba(15,23,42,0.08)',
+                      minWidth: 0,
                     }}
                   >
                     <div
@@ -1291,15 +1326,17 @@ export function AdminClient() {
                         justifyContent: 'space-between',
                         gap: 16,
                         flexWrap: 'wrap',
+                        minWidth: 0,
                       }}
                     >
-                      <div style={{ flex: 1, minWidth: 240 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <p
                           style={{
                             margin: 0,
                             fontSize: 17,
                             fontWeight: 700,
                             color: '#0f172a',
+                            overflowWrap: 'anywhere',
                           }}
                         >
                           {event.title}
@@ -1311,6 +1348,7 @@ export function AdminClient() {
                             marginBottom: 0,
                             fontSize: 14,
                             color: '#64748b',
+                            overflowWrap: 'anywhere',
                           }}
                         >
                           {event.event_date}
@@ -1327,6 +1365,7 @@ export function AdminClient() {
                               fontSize: 14,
                               color: '#475569',
                               lineHeight: 1.55,
+                              overflowWrap: 'anywhere',
                             }}
                           >
                             {event.description}
@@ -1370,7 +1409,7 @@ export function AdminClient() {
                 Add or Edit Long Range Event
               </h2>
 
-              <div style={{ display: 'grid', gap: 14 }}>
+              <div style={{ display: 'grid', gap: 14, minWidth: 0 }}>
                 <input
                   value={calendarForm.title}
                   onChange={(e) => setCalendarForm({ ...calendarForm, title: e.target.value })}
@@ -1450,6 +1489,7 @@ export function AdminClient() {
                       background: '#f8fafc',
                       padding: 18,
                       border: '1px solid rgba(15,23,42,0.08)',
+                      minWidth: 0,
                     }}
                   >
                     <div
@@ -1459,15 +1499,17 @@ export function AdminClient() {
                         justifyContent: 'space-between',
                         gap: 16,
                         flexWrap: 'wrap',
+                        minWidth: 0,
                       }}
                     >
-                      <div style={{ flex: 1, minWidth: 240 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <p
                           style={{
                             margin: 0,
                             fontSize: 17,
                             fontWeight: 700,
                             color: '#0f172a',
+                            overflowWrap: 'anywhere',
                           }}
                         >
                           {event.title}
@@ -1479,6 +1521,7 @@ export function AdminClient() {
                             marginBottom: 0,
                             fontSize: 14,
                             color: '#64748b',
+                            overflowWrap: 'anywhere',
                           }}
                         >
                           {event.event_date}
@@ -1493,6 +1536,7 @@ export function AdminClient() {
                               fontSize: 14,
                               color: '#475569',
                               lineHeight: 1.55,
+                              overflowWrap: 'anywhere',
                             }}
                           >
                             {event.description}
@@ -1536,7 +1580,7 @@ export function AdminClient() {
                 Add or Edit Leave / DONSA
               </h2>
 
-              <div style={{ display: 'grid', gap: 14 }}>
+              <div style={{ display: 'grid', gap: 14, minWidth: 0 }}>
                 <input
                   value={periodForm.title}
                   onChange={(e) => setPeriodForm({ ...periodForm, title: e.target.value })}
@@ -1556,7 +1600,7 @@ export function AdminClient() {
                   <option value="leave">Leave</option>
                   <option value="donsa">DONSA</option>
                 </select>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
                   <input
                     value={periodForm.start_date}
                     onChange={(e) => setPeriodForm({ ...periodForm, start_date: e.target.value })}
@@ -1625,6 +1669,7 @@ export function AdminClient() {
                       background: '#f8fafc',
                       padding: 18,
                       border: '1px solid rgba(15,23,42,0.08)',
+                      minWidth: 0,
                     }}
                   >
                     <div
@@ -1634,9 +1679,10 @@ export function AdminClient() {
                         justifyContent: 'space-between',
                         gap: 16,
                         flexWrap: 'wrap',
+                        minWidth: 0,
                       }}
                     >
-                      <div style={{ flex: 1, minWidth: 220 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <div
                           style={{
                             display: 'inline-flex',
@@ -1660,6 +1706,7 @@ export function AdminClient() {
                             fontSize: 17,
                             fontWeight: 700,
                             color: '#0f172a',
+                            overflowWrap: 'anywhere',
                           }}
                         >
                           {period.title}
@@ -1671,6 +1718,7 @@ export function AdminClient() {
                             marginBottom: 0,
                             fontSize: 14,
                             color: '#64748b',
+                            overflowWrap: 'anywhere',
                           }}
                         >
                           {period.start_date} - {period.end_date}
@@ -1751,6 +1799,7 @@ export function AdminClient() {
                       background: '#f8fafc',
                       border: '1px solid rgba(15,23,42,0.08)',
                       padding: '16px 18px',
+                      minWidth: 0,
                     }}
                   >
                     <div
@@ -1760,14 +1809,16 @@ export function AdminClient() {
                         justifyContent: 'space-between',
                         gap: 16,
                         flexWrap: 'wrap',
+                        minWidth: 0,
                       }}
                     >
-                      <div style={{ flex: 1, minWidth: 240 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <div
                           style={{
                             fontSize: 17,
                             fontWeight: 700,
                             color: '#0f172a',
+                            overflowWrap: 'anywhere',
                           }}
                         >
                           {jump.name}
@@ -1777,6 +1828,7 @@ export function AdminClient() {
                             marginTop: 6,
                             fontSize: 14,
                             color: '#64748b',
+                            overflowWrap: 'anywhere',
                           }}
                         >
                           {jump.location} • {jump.jump_date} • {jump.jump_type}
@@ -1819,7 +1871,7 @@ export function AdminClient() {
                 Add or Edit CQ Shift
               </h2>
 
-              <div style={{ display: 'grid', gap: 14 }}>
+              <div style={{ display: 'grid', gap: 14, minWidth: 0 }}>
                 <input
                   value={cqForm.shift_date}
                   onChange={(e) => setCqForm({ ...cqForm, shift_date: e.target.value })}
@@ -1910,6 +1962,7 @@ export function AdminClient() {
                         background: '#f8fafc',
                         padding: 18,
                         border: '1px solid rgba(15,23,42,0.08)',
+                        minWidth: 0,
                       }}
                     >
                       <div
@@ -1919,15 +1972,17 @@ export function AdminClient() {
                           justifyContent: 'space-between',
                           gap: 16,
                           flexWrap: 'wrap',
+                          minWidth: 0,
                         }}
                       >
-                        <div style={{ flex: 1, minWidth: 240 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
                           <p
                             style={{
                               margin: 0,
                               fontSize: 17,
                               fontWeight: 700,
                               color: '#0f172a',
+                              overflowWrap: 'anywhere',
                             }}
                           >
                             {shift.shift_date}
@@ -1939,6 +1994,7 @@ export function AdminClient() {
                               marginBottom: 0,
                               fontSize: 14,
                               color: '#475569',
+                              overflowWrap: 'anywhere',
                             }}
                           >
                             Soldier One:{' '}
@@ -1953,6 +2009,7 @@ export function AdminClient() {
                               marginBottom: 0,
                               fontSize: 14,
                               color: '#475569',
+                              overflowWrap: 'anywhere',
                             }}
                           >
                             Soldier Two:{' '}
@@ -2014,10 +2071,12 @@ export function AdminClient() {
               maxWidth: 560,
               maxHeight: '90vh',
               overflowY: 'auto',
+              overflowX: 'hidden',
               background: '#ffffff',
               borderRadius: 30,
               padding: 22,
               boxShadow: '0 24px 60px rgba(15,23,42,0.28)',
+              boxSizing: 'border-box',
             }}
           >
             <div
@@ -2027,9 +2086,10 @@ export function AdminClient() {
                 justifyContent: 'space-between',
                 gap: 16,
                 marginBottom: 16,
+                flexWrap: 'wrap',
               }}
             >
-              <div>
+              <div style={{ minWidth: 0 }}>
                 <h2 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: '#0f172a' }}>
                   Edit Jump
                 </h2>
@@ -2039,6 +2099,7 @@ export function AdminClient() {
                     marginBottom: 0,
                     fontSize: 14,
                     color: '#64748b',
+                    overflowWrap: 'anywhere',
                   }}
                 >
                   Update jump details and manifest without changing the main add form.

@@ -73,7 +73,7 @@ export default async function CqRosterPage() {
             color: 'rgba(255,255,255,0.82)',
           }}
         >
-          Upcoming CQ shifts with both assigned soldiers in a clean monthly list.
+          
         </p>
       </section>
 
@@ -115,7 +115,7 @@ export default async function CqRosterPage() {
                 color: '#64748b',
               }}
             >
-              {monthLabel} and beyond
+              
             </p>
           </div>
 
@@ -193,7 +193,7 @@ export default async function CqRosterPage() {
                         color: '#64748b',
                       }}
                     >
-                      Two-soldier CQ assignment
+                      
                     </div>
                   </div>
 
