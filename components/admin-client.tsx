@@ -1003,12 +1003,10 @@ export function AdminClient() {
 
           <div
             style={{
-              display: 'flex',
-              gap: 8,
-              overflowX: 'auto',
-              overflowY: 'hidden',
-              paddingBottom: 2,
-              WebkitOverflowScrolling: 'touch',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+              gap: 10,
+              width: '100%',
             }}
           >
             {tabs.map((tab) => {
@@ -1018,19 +1016,23 @@ export function AdminClient() {
                   key={tab.id}
                   onClick={() => setActive(tab.id)}
                   style={{
+                    width: '100%',
+                    minWidth: 0,
                     borderRadius: 18,
                     border: activeTab ? 'none' : '1px solid rgba(15,23,42,0.08)',
                     background: activeTab
                       ? 'linear-gradient(180deg, #8b1538 0%, #6f102d 100%)'
                       : '#f8fafc',
                     color: activeTab ? '#ffffff' : '#334155',
-                    padding: '12px 16px',
-                    fontSize: 14,
+                    padding: '12px 14px',
+                    fontSize: 13,
                     fontWeight: 700,
-                    whiteSpace: 'nowrap',
+                    lineHeight: 1.2,
+                    textAlign: 'center',
                     cursor: 'pointer',
                     boxShadow: activeTab ? '0 14px 28px rgba(139,21,56,0.24)' : 'none',
-                    flexShrink: 0,
+                    whiteSpace: 'normal',
+                    overflowWrap: 'anywhere',
                   }}
                 >
                   {tab.label}
