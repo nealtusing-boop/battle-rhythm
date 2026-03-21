@@ -67,6 +67,7 @@ export function AppShell({
             'linear-gradient(180deg, rgba(10,10,12,0.96) 0%, rgba(22,22,26,0.92) 100%)',
           borderBottom: '1px solid rgba(255,255,255,0.08)',
           boxShadow: '0 14px 30px rgba(0,0,0,0.28)',
+          paddingTop: 'env(safe-area-inset-top)',
         }}
       >
         <div
@@ -74,7 +75,7 @@ export function AppShell({
             width: '100%',
             maxWidth: 760,
             margin: '0 auto',
-            padding: '16px 16px 14px 16px',
+            padding: '12px 16px 14px 16px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -97,12 +98,13 @@ export function AppShell({
               justifyContent: 'center',
               cursor: 'pointer',
               boxShadow: '0 14px 30px rgba(139,21,56,0.32)',
+              flexShrink: 0,
             }}
           >
             {open ? <X size={20} color="#ffffff" /> : <Menu size={20} color="#ffffff" />}
           </button>
 
-          <div style={{ textAlign: 'center', flex: 1 }}>
+          <div style={{ textAlign: 'center', flex: 1, minWidth: 0 }}>
             <div
               style={{
                 fontSize: 28,
@@ -110,6 +112,9 @@ export function AppShell({
                 letterSpacing: '-0.03em',
                 lineHeight: 1,
                 color: '#ffffff',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
               }}
             >
               Battle Rhythm
@@ -120,13 +125,16 @@ export function AppShell({
                 fontSize: 12,
                 fontWeight: 500,
                 color: 'rgba(255,255,255,0.78)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
               }}
             >
               {fullName}
             </div>
           </div>
 
-          <div style={{ width: 46, height: 46 }} />
+          <div style={{ width: 46, height: 46, flexShrink: 0 }} />
         </div>
       </header>
 
@@ -140,7 +148,7 @@ export function AppShell({
             background: 'rgba(15, 23, 42, 0.32)',
             backdropFilter: 'blur(10px)',
             WebkitBackdropFilter: 'blur(10px)',
-            padding: '88px 16px 16px 16px',
+            padding: 'calc(env(safe-area-inset-top) + 72px) 16px 16px 16px',
           }}
         >
           <div
@@ -199,7 +207,7 @@ export function AppShell({
           width: '100%',
           maxWidth: 760,
           margin: '0 auto',
-          padding: '24px 16px 40px 16px',
+          padding: '24px 16px calc(40px + env(safe-area-inset-bottom)) 16px',
         }}
       >
         {children}
