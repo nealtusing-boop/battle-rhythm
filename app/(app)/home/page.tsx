@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { format } from 'date-fns';
 
@@ -78,7 +79,7 @@ export default async function HomePage() {
 
   let profile: ProfileRow | null = null;
   let events: WeeklyEventRow[] = [];
-  let alerts: AlertRow[] = [];
+  let latestAlert: AlertRow | null = null;
   let cq: CqShiftRow[] = [];
 
   if (user?.id) {
@@ -99,7 +100,8 @@ export default async function HomePage() {
         .from('alerts')
         .select('id, message, priority, created_at')
         .order('created_at', { ascending: false })
-        .limit(3),
+        .limit(1)
+        .maybeSingle(),
 
       supabase
         .from('cq_shifts')
@@ -119,7 +121,7 @@ export default async function HomePage() {
 
     profile = (profileResult.data as ProfileRow | null) ?? null;
     events = (eventsResult.data as WeeklyEventRow[] | null) ?? [];
-    alerts = (alertsResult.data as AlertRow[] | null) ?? [];
+    latestAlert = (alertsResult.data as AlertRow | null) ?? null;
     cq = (cqResult.data as CqShiftRow[] | null) ?? [];
   }
 
@@ -244,7 +246,7 @@ export default async function HomePage() {
                   color: '#64748b',
                 }}
               >
-                
+                {displayName ? '' : ''}
               </p>
             </div>
 
@@ -392,7 +394,7 @@ export default async function HomePage() {
                 color: '#64748b',
               }}
             >
-              
+              {' '}
             </p>
 
             <div
@@ -438,101 +440,127 @@ export default async function HomePage() {
               color: '#0f172a',
             }}
           >
-            <h2
+            <div
               style={{
-                margin: 0,
-                fontSize: 30,
-                fontWeight: 800,
-                letterSpacing: '-0.04em',
-                color: '#0f172a',
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                gap: 12,
+                marginBottom: 16,
               }}
             >
-              Recent Alerts
-            </h2>
-
-            <p
-              style={{
-                marginTop: 6,
-                marginBottom: 0,
-                fontSize: 14,
-                color: '#64748b',
-              }}
-            >
-             
-            </p>
-
-            <div style={{ marginTop: 16, display: 'grid', gap: 12 }}>
-              {alerts.length === 0 && (
-                <div
+              <div>
+                <h2
                   style={{
-                    borderRadius: 22,
-                    background: '#f8fafc',
-                    padding: 18,
-                    border: '1px solid rgba(15,23,42,0.08)',
+                    margin: 0,
+                    fontSize: 30,
+                    fontWeight: 800,
+                    letterSpacing: '-0.04em',
+                    color: '#0f172a',
                   }}
                 >
-                  <p style={{ margin: 0, fontSize: 15, color: '#475569' }}>
-                    No active alerts.
-                  </p>
-                </div>
-              )}
+                  Latest Alert
+                </h2>
 
-              {alerts.map((alert) => {
-                const colors = priorityColors(alert.priority);
+                <p
+                  style={{
+                    marginTop: 6,
+                    marginBottom: 0,
+                    fontSize: 14,
+                    color: '#64748b',
+                  }}
+                >
+                  {' '}
+                </p>
+              </div>
 
-                return (
-                  <div
-                    key={alert.id}
-                    style={{
-                      borderRadius: 22,
-                      background: '#ffffff',
-                      padding: 18,
-                      border: '1px solid rgba(15,23,42,0.08)',
-                      boxShadow: '0 10px 24px rgba(15,23,42,0.06)',
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'inline-flex',
-                        borderRadius: 999,
-                        padding: '6px 10px',
-                        fontSize: 11,
-                        fontWeight: 800,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.12em',
-                        background: colors.bg,
-                        color: colors.text,
-                      }}
-                    >
-                      {colors.label}
-                    </div>
-
-                    <p
-                      style={{
-                        marginTop: 12,
-                        marginBottom: 0,
-                        fontSize: 15,
-                        color: '#0f172a',
-                        lineHeight: 1.55,
-                      }}
-                    >
-                      {alert.message}
-                    </p>
-
-                    <p
-                      style={{
-                        marginTop: 10,
-                        marginBottom: 0,
-                        fontSize: 12,
-                        color: '#64748b',
-                      }}
-                    >
-                      {new Date(alert.created_at).toLocaleString()}
-                    </p>
-                  </div>
-                );
-              })}
+              <Link
+                href="/alerts"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 999,
+                  background: '#8b1538',
+                  color: '#ffffff',
+                  padding: '10px 14px',
+                  fontSize: 12,
+                  fontWeight: 800,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  textDecoration: 'none',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                View All →
+              </Link>
             </div>
+
+            {!latestAlert && (
+              <div
+                style={{
+                  borderRadius: 22,
+                  background: '#f8fafc',
+                  padding: 18,
+                  border: '1px solid rgba(15,23,42,0.08)',
+                }}
+              >
+                <p style={{ margin: 0, fontSize: 15, color: '#475569' }}>
+                  No active alerts.
+                </p>
+              </div>
+            )}
+
+            {latestAlert && (
+              <div
+                style={{
+                  borderRadius: 22,
+                  background: '#ffffff',
+                  padding: 18,
+                  border: '1px solid rgba(15,23,42,0.08)',
+                  boxShadow: '0 10px 24px rgba(15,23,42,0.06)',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    borderRadius: 999,
+                    padding: '6px 10px',
+                    fontSize: 11,
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.12em',
+                    background: priorityColors(latestAlert.priority).bg,
+                    color: priorityColors(latestAlert.priority).text,
+                  }}
+                >
+                  {priorityColors(latestAlert.priority).label}
+                </div>
+
+                <p
+                  style={{
+                    marginTop: 12,
+                    marginBottom: 0,
+                    fontSize: 15,
+                    color: '#0f172a',
+                    lineHeight: 1.55,
+                  }}
+                >
+                  {latestAlert.message}
+                </p>
+
+                <p
+                  style={{
+                    marginTop: 10,
+                    marginBottom: 0,
+                    fontSize: 12,
+                    color: '#64748b',
+                  }}
+                >
+                  {new Date(latestAlert.created_at).toLocaleString()}
+                </p>
+              </div>
+            )}
           </section>
         </section>
       </section>
