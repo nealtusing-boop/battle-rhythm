@@ -19,6 +19,7 @@ const tabs = [
   { id: 'leave', label: 'Leave & DONSAs' },
   { id: 'jump', label: 'Jump Schedule' },
   { id: 'cq', label: 'CQ Roster' },
+  { id: 'details', label: 'Details' },
   { id: 'users', label: 'Users' },
 ] as const;
 
@@ -85,6 +86,25 @@ type ExistingLongRangeEvent = {
   description: string | null;
 };
 
+type DetailAssignment = {
+  id: string;
+  detail_id: string;
+  user_id: string;
+  user?: Profile | Profile[] | null;
+};
+
+type ExistingDetail = {
+  id: string;
+  title: string;
+  detail_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  location: string | null;
+  leader: string | null;
+  notes: string | null;
+  assignments?: DetailAssignment[] | null;
+};
+
 type JumpManifestEntry = {
   id: string;
   soldier_id: string;
@@ -144,11 +164,24 @@ type CqFormState = {
   soldier_two_id: string;
 };
 
+type DetailFormState = {
+  id: string;
+  title: string;
+  detail_date: string;
+  start_time: string;
+  end_time: string;
+  location: string;
+  leader: string;
+  notes: string;
+  assignmentIds: string[];
+};
+
 type JumpFormSetter = Dispatch<SetStateAction<JumpFormState>>;
 type WeeklyFormSetter = Dispatch<SetStateAction<WeeklyFormState>>;
 type CalendarFormSetter = Dispatch<SetStateAction<CalendarFormState>>;
 type PeriodFormSetter = Dispatch<SetStateAction<PeriodFormState>>;
 type CqFormSetter = Dispatch<SetStateAction<CqFormState>>;
+type DetailFormSetter = Dispatch<SetStateAction<DetailFormState>>;
 
 function normalizeProfile(value: Profile | Profile[] | null | undefined): Profile | null {
   if (!value) return null;
@@ -286,6 +319,34 @@ function emptyCqForm(): CqFormState {
     shift_date: '',
     soldier_one_id: '',
     soldier_two_id: '',
+  };
+}
+
+function emptyDetailForm(): DetailFormState {
+  return {
+    id: '',
+    title: '',
+    detail_date: '',
+    start_time: '',
+    end_time: '',
+    location: '',
+    leader: '',
+    notes: '',
+    assignmentIds: [],
+  };
+}
+
+function buildDetailForm(detail: ExistingDetail): DetailFormState {
+  return {
+    id: detail.id,
+    title: detail.title,
+    detail_date: detail.detail_date,
+    start_time: detail.start_time ?? '',
+    end_time: detail.end_time ?? '',
+    location: detail.location ?? '',
+    leader: detail.leader ?? '',
+    notes: detail.notes ?? '',
+    assignmentIds: (detail.assignments ?? []).map((assignment) => assignment.user_id),
   };
 }
 
@@ -681,6 +742,169 @@ function renderCqForm(form: CqFormState, setForm: CqFormSetter, soldiers: Profil
   );
 }
 
+function renderDetailForm(form: DetailFormState, setForm: DetailFormSetter, soldiers: Profile[]) {
+  return (
+    <div style={{ display: 'grid', gap: 14, minWidth: 0 }}>
+      <input
+        value={form.title}
+        onChange={(e) =>
+          setForm((current) => ({ ...current, title: e.target.value }))
+        }
+        placeholder="Detail title"
+        style={inputStyle()}
+      />
+
+      <input
+        value={form.detail_date}
+        onChange={(e) =>
+          setForm((current) => ({ ...current, detail_date: e.target.value }))
+        }
+        type="date"
+        style={inputStyle()}
+      />
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+        <input
+          value={form.start_time}
+          onChange={(e) =>
+            setForm((current) => ({ ...current, start_time: e.target.value }))
+          }
+          placeholder="HH:MM"
+          inputMode="numeric"
+          style={inputStyle()}
+        />
+
+        <input
+          value={form.end_time}
+          onChange={(e) =>
+            setForm((current) => ({ ...current, end_time: e.target.value }))
+          }
+          placeholder="HH:MM"
+          inputMode="numeric"
+          style={inputStyle()}
+        />
+      </div>
+
+      <div
+        style={{
+          marginTop: -4,
+          fontSize: 13,
+          color: '#64748b',
+        }}
+      >
+        Use 24-hour time format like 06:30, 13:00, or 18:45.
+      </div>
+
+      <input
+        value={form.location}
+        onChange={(e) =>
+          setForm((current) => ({ ...current, location: e.target.value }))
+        }
+        placeholder="Location"
+        style={inputStyle()}
+      />
+
+      <input
+        value={form.leader}
+        onChange={(e) =>
+          setForm((current) => ({ ...current, leader: e.target.value }))
+        }
+        placeholder="OIC / NCOIC"
+        style={inputStyle()}
+      />
+
+      <textarea
+        value={form.notes}
+        onChange={(e) =>
+          setForm((current) => ({ ...current, notes: e.target.value }))
+        }
+        placeholder="Notes"
+        style={{ ...inputStyle(), minHeight: 110, resize: 'vertical' }}
+      />
+
+      <div style={{ minWidth: 0 }}>
+        <div
+          style={{
+            marginBottom: 10,
+            fontSize: 13,
+            fontWeight: 800,
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase',
+            color: '#64748b',
+          }}
+        >
+          Assigned Personnel
+        </div>
+
+        <div
+          style={{
+            display: 'grid',
+            gap: 10,
+            maxHeight: 280,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            paddingRight: 2,
+            minWidth: 0,
+          }}
+        >
+          {soldiers
+            .filter((soldier) => soldier.is_active !== false)
+            .map((soldier) => {
+              const checked = form.assignmentIds.includes(soldier.id);
+
+              return (
+                <label
+                  key={soldier.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    borderRadius: 18,
+                    background: '#f8fafc',
+                    border: '1px solid rgba(15,23,42,0.08)',
+                    padding: '12px 14px',
+                    cursor: 'pointer',
+                    minWidth: 0,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={(e) => {
+                      setForm((current) => {
+                        if (e.target.checked) {
+                          return {
+                            ...current,
+                            assignmentIds: [...current.assignmentIds, soldier.id],
+                          };
+                        }
+
+                        return {
+                          ...current,
+                          assignmentIds: current.assignmentIds.filter((id) => id !== soldier.id),
+                        };
+                      });
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontSize: 15,
+                      color: '#0f172a',
+                      minWidth: 0,
+                      overflowWrap: 'anywhere',
+                    }}
+                  >
+                    {soldier.rank} {soldier.full_name}
+                  </span>
+                </label>
+              );
+            })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ModalShell({
   title,
   description,
@@ -781,6 +1005,7 @@ export function AdminClient() {
   const [existingLongRangeEvents, setExistingLongRangeEvents] = useState<ExistingLongRangeEvent[]>(
     []
   );
+  const [existingDetails, setExistingDetails] = useState<ExistingDetail[]>([]);
 
   const [status, setStatus] = useState<string | null>(null);
   const [busyDeletingAlertId, setBusyDeletingAlertId] = useState<string | null>(null);
@@ -795,6 +1020,8 @@ export function AdminClient() {
   const [busySavingPeriodEdit, setBusySavingPeriodEdit] = useState(false);
   const [busySavingCqEdit, setBusySavingCqEdit] = useState(false);
   const [busySavingJumpEdit, setBusySavingJumpEdit] = useState(false);
+  const [busyDeletingDetailId, setBusyDeletingDetailId] = useState<string | null>(null);
+  const [busySavingDetailEdit, setBusySavingDetailEdit] = useState(false);
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [alertRequiresAck, setAlertRequiresAck] = useState(false);
@@ -810,12 +1037,14 @@ export function AdminClient() {
   const [periodForm, setPeriodForm] = useState<PeriodFormState>(emptyPeriodForm());
   const [cqForm, setCqForm] = useState<CqFormState>(emptyCqForm());
   const [jumpForm, setJumpForm] = useState<JumpFormState>(emptyJumpForm());
+  const [detailForm, setDetailForm] = useState<DetailFormState>(emptyDetailForm());
 
   const [editingWeeklyForm, setEditingWeeklyForm] = useState<WeeklyFormState | null>(null);
   const [editingCalendarForm, setEditingCalendarForm] = useState<CalendarFormState | null>(null);
   const [editingPeriodForm, setEditingPeriodForm] = useState<PeriodFormState | null>(null);
   const [editingCqForm, setEditingCqForm] = useState<CqFormState | null>(null);
   const [editingJumpForm, setEditingJumpForm] = useState<JumpFormState | null>(null);
+  const [editingDetailForm, setEditingDetailForm] = useState<DetailFormState | null>(null);
 
   useEffect(() => {
     void loadInitial();
@@ -834,6 +1063,7 @@ export function AdminClient() {
       { data: cqShifts },
       { data: weeklyEvents },
       { data: longRangeEvents },
+      { data: details },
     ] = await Promise.all([
       supabase.auth.getUser(),
       supabase
@@ -881,6 +1111,28 @@ export function AdminClient() {
         .from('long_range_events')
         .select('id, title, event_date, location, description')
         .order('event_date', { ascending: true }),
+      supabase
+        .from('details')
+        .select(
+          `
+            id,
+            title,
+            detail_date,
+            start_time,
+            end_time,
+            location,
+            leader,
+            notes,
+            assignments:detail_assignments(
+              id,
+              detail_id,
+              user_id,
+              user:profiles(id, full_name, rank, role)
+            )
+          `
+        )
+        .order('detail_date', { ascending: true })
+        .order('start_time', { ascending: true }),
     ]);
 
     const safeProfiles = ((profiles ?? []) as ManagedProfile[]).map((profile) => ({
@@ -926,6 +1178,7 @@ export function AdminClient() {
     setExistingCqShifts((cqShifts ?? []) as ExistingCqShift[]);
     setExistingWeeklyEvents((weeklyEvents ?? []) as ExistingWeeklyEvent[]);
     setExistingLongRangeEvents((longRangeEvents ?? []) as ExistingLongRangeEvent[]);
+    setExistingDetails((details ?? []) as ExistingDetail[]);
   }
 
   async function createAlert() {
@@ -1501,7 +1754,136 @@ export function AdminClient() {
     router.refresh();
   }
 
-  const jumpFormAdapter: JumpFormSetter = (value) => {
+    async function saveDetail(formOverride?: DetailFormState) {
+    setStatus(null);
+
+    const form = formOverride ?? detailForm;
+    let detailId = form.id;
+
+    if (form.start_time && !isValid24HourTime(form.start_time)) {
+      setStatus('Start time must be in 24-hour HH:MM format.');
+      return false;
+    }
+
+    if (form.end_time && !isValid24HourTime(form.end_time)) {
+      setStatus('End time must be in 24-hour HH:MM format.');
+      return false;
+    }
+
+    const payload = {
+      title: form.title,
+      detail_date: form.detail_date,
+      start_time: form.start_time || null,
+      end_time: form.end_time || null,
+      location: form.location || null,
+      leader: form.leader || null,
+      notes: form.notes || null,
+    };
+
+    if (detailId) {
+      const { error } = await supabase.from('details').update(payload).eq('id', detailId);
+      if (error) {
+        setStatus(error.message);
+        return false;
+      }
+
+      const { error: assignmentDeleteError } = await supabase
+        .from('detail_assignments')
+        .delete()
+        .eq('detail_id', detailId);
+
+      if (assignmentDeleteError) {
+        setStatus(assignmentDeleteError.message);
+        return false;
+      }
+    } else {
+      const { data, error } = await supabase.from('details').insert(payload).select('id').single();
+      if (error) {
+        setStatus(error.message);
+        return false;
+      }
+      detailId = data.id;
+    }
+
+    if (form.assignmentIds.length > 0) {
+      const { error } = await supabase.from('detail_assignments').insert(
+        form.assignmentIds.map((user_id) => ({
+          detail_id: detailId,
+          user_id,
+        }))
+      );
+
+      if (error) {
+        setStatus(error.message);
+        return false;
+      }
+    }
+
+    setStatus(form.id ? 'Detail updated.' : 'Detail created.');
+
+    if (!formOverride) {
+      setDetailForm(emptyDetailForm());
+    }
+
+    await loadInitial();
+    router.refresh();
+    return true;
+  }
+
+  function openDetailEditor(detail: ExistingDetail) {
+    setEditingDetailForm(buildDetailForm(detail));
+  }
+
+  function closeDetailEditor() {
+    setEditingDetailForm(null);
+  }
+
+  async function saveEditingDetail() {
+    if (!editingDetailForm) return;
+
+    setBusySavingDetailEdit(true);
+    const ok = await saveDetail(editingDetailForm);
+    setBusySavingDetailEdit(false);
+
+    if (ok) {
+      closeDetailEditor();
+    }
+  }
+
+  async function deleteDetail(detailId: string) {
+    setStatus(null);
+    setBusyDeletingDetailId(detailId);
+
+    const { error: assignmentsDeleteError } = await supabase
+      .from('detail_assignments')
+      .delete()
+      .eq('detail_id', detailId);
+
+    if (assignmentsDeleteError) {
+      setStatus(assignmentsDeleteError.message);
+      setBusyDeletingDetailId(null);
+      return;
+    }
+
+    const { error } = await supabase.from('details').delete().eq('id', detailId);
+
+    if (error) {
+      setStatus(error.message);
+      setBusyDeletingDetailId(null);
+      return;
+    }
+
+    if (editingDetailForm?.id === detailId) {
+      setEditingDetailForm(null);
+    }
+
+    setStatus('Detail deleted.');
+    setBusyDeletingDetailId(null);
+    await loadInitial();
+    router.refresh();
+  }
+
+const jumpFormAdapter: JumpFormSetter = (value) => {
     setJumpForm((current) => {
       if (typeof value === 'function') {
         return value(current);
@@ -1552,6 +1934,25 @@ export function AdminClient() {
 
   const editingJumpFormAdapter: JumpFormSetter = (value) => {
     setEditingJumpForm((current) => {
+      if (!current) return current;
+      if (typeof value === 'function') {
+        return value(current);
+      }
+      return value;
+    });
+  };
+
+  const detailFormAdapter: DetailFormSetter = (value) => {
+    setDetailForm((current) => {
+      if (typeof value === 'function') {
+        return value(current);
+      }
+      return value;
+    });
+  };
+
+  const editingDetailFormAdapter: DetailFormSetter = (value) => {
+    setEditingDetailForm((current) => {
       if (!current) return current;
       if (typeof value === 'function') {
         return value(current);
@@ -1861,6 +2262,186 @@ export function AdminClient() {
           </>
         )}
 
+
+        {active === 'details' && (
+          <>
+            <section style={sectionStyle()}>
+              <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 24, fontWeight: 800 }}>
+                Add Detail
+              </h2>
+
+              {renderDetailForm(detailForm, detailFormAdapter, soldiers)}
+
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 16 }}>
+                <button onClick={() => void saveDetail()} style={buttonStyle(true)}>
+                  Save Detail
+                </button>
+              </div>
+            </section>
+
+            <section style={sectionStyle()}>
+              <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 24, fontWeight: 800 }}>
+                Upcoming Details
+              </h2>
+
+              <div style={{ display: 'grid', gap: 12 }}>
+                {existingDetails.length === 0 && (
+                  <div
+                    style={{
+                      borderRadius: 22,
+                      background: '#f8fafc',
+                      padding: 16,
+                      border: '1px solid rgba(15,23,42,0.08)',
+                      fontSize: 14,
+                      color: '#475569',
+                    }}
+                  >
+                    No details posted yet.
+                  </div>
+                )}
+
+                {existingDetails.map((detail) => (
+                  <div
+                    key={detail.id}
+                    style={{
+                      borderRadius: 22,
+                      background: '#f8fafc',
+                      padding: 18,
+                      border: '1px solid rgba(15,23,42,0.08)',
+                      minWidth: 0,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        justifyContent: 'space-between',
+                        gap: 16,
+                        flexWrap: 'wrap',
+                        minWidth: 0,
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: 17,
+                            fontWeight: 700,
+                            color: '#0f172a',
+                            overflowWrap: 'anywhere',
+                          }}
+                        >
+                          {detail.title}
+                        </p>
+
+                        <p
+                          style={{
+                            marginTop: 8,
+                            marginBottom: 0,
+                            fontSize: 14,
+                            color: '#64748b',
+                            overflowWrap: 'anywhere',
+                          }}
+                        >
+                          {detail.detail_date}
+                          {(detail.start_time || detail.end_time) &&
+                            ` • ${[detail.start_time, detail.end_time].filter(Boolean).join(' - ')}`}
+                          {detail.location ? ` • ${detail.location}` : ''}
+                        </p>
+
+                        {detail.leader && (
+                          <p
+                            style={{
+                              marginTop: 10,
+                              marginBottom: 0,
+                              fontSize: 14,
+                              color: '#475569',
+                              overflowWrap: 'anywhere',
+                            }}
+                          >
+                            OIC / NCOIC: {detail.leader}
+                          </p>
+                        )}
+
+                        {detail.notes && (
+                          <p
+                            style={{
+                              marginTop: 10,
+                              marginBottom: 0,
+                              fontSize: 14,
+                              color: '#475569',
+                              lineHeight: 1.55,
+                              overflowWrap: 'anywhere',
+                            }}
+                          >
+                            {detail.notes}
+                          </p>
+                        )}
+
+                        <div
+                          style={{
+                            marginTop: 12,
+                            display: 'flex',
+                            gap: 8,
+                            flexWrap: 'wrap',
+                          }}
+                        >
+                          {(detail.assignments ?? []).map((assignment) => {
+                            const assignedProfile = normalizeProfile(assignment.user);
+
+                            return (
+                              <div
+                                key={assignment.id}
+                                style={{
+                                  display: 'inline-flex',
+                                  borderRadius: 999,
+                                  padding: '6px 10px',
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.12em',
+                                  background: '#ffffff',
+                                  color: '#334155',
+                                  border: '1px solid rgba(15,23,42,0.08)',
+                                }}
+                              >
+                                {assignedProfile
+                                  ? [assignedProfile.rank, assignedProfile.full_name].filter(Boolean).join(' ')
+                                  : 'Unknown'}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          onClick={() => openDetailEditor(detail)}
+                          style={secondaryButtonStyle()}
+                        >
+                          Edit
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => deleteDetail(detail.id)}
+                          disabled={busyDeletingDetailId === detail.id}
+                          style={{
+                            ...buttonStyle(true, true),
+                            opacity: busyDeletingDetailId === detail.id ? 0.7 : 1,
+                          }}
+                        >
+                          {busyDeletingDetailId === detail.id ? 'Deleting...' : 'Delete'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </>
+        )}
 
         {active === 'users' && (
           <>
@@ -2838,6 +3419,34 @@ export function AdminClient() {
             </button>
 
             <button type="button" onClick={closeCQEditor} style={secondaryButtonStyle()}>
+              Cancel
+            </button>
+          </div>
+        </ModalShell>
+      )}
+
+      {editingDetailForm && (
+        <ModalShell
+          title="Edit Detail"
+          description="Update detail information and assigned personnel without changing the main add form."
+          onClose={closeDetailEditor}
+        >
+          {renderDetailForm(editingDetailForm, editingDetailFormAdapter, soldiers)}
+
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 16 }}>
+            <button
+              type="button"
+              onClick={saveEditingDetail}
+              disabled={busySavingDetailEdit}
+              style={{
+                ...buttonStyle(true),
+                opacity: busySavingDetailEdit ? 0.7 : 1,
+              }}
+            >
+              {busySavingDetailEdit ? 'Saving...' : 'Save Changes'}
+            </button>
+
+            <button type="button" onClick={closeDetailEditor} style={secondaryButtonStyle()}>
               Cancel
             </button>
           </div>

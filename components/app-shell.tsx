@@ -12,6 +12,7 @@ import {
   ClipboardList,
   Ellipsis,
   Bell,
+  Users,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { Profile } from '@/lib/types';
@@ -24,6 +25,7 @@ const navItems = [
   { href: '/leave-donsa', label: 'Leave & DONSAs', icon: ClipboardList },
   { href: '/jump-schedule', label: 'Jump Schedule', icon: Plane },
   { href: '/cq-roster', label: 'CQ Roster', icon: ClipboardList },
+  { href: '/details', label: 'Details', icon: Users },
   { href: '/more', label: 'More', icon: Ellipsis },
 ];
 

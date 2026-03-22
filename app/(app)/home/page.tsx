@@ -44,6 +44,32 @@ type CqShiftRow = {
   soldier_two?: CqPartnerRow | CqPartnerRow[] | null;
 };
 
+type DetailAssignmentProfileRow = {
+  id: string;
+  full_name: string | null;
+  rank: string | null;
+  role: string | null;
+};
+
+type DetailAssignmentRow = {
+  id: string;
+  detail_id: string;
+  user_id: string;
+  user?: DetailAssignmentProfileRow | DetailAssignmentProfileRow[] | null;
+};
+
+type DetailRow = {
+  id: string;
+  title: string;
+  detail_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  location: string | null;
+  leader: string | null;
+  notes: string | null;
+  assignments?: DetailAssignmentRow[] | null;
+};
+
 function formatShortDate(dateString: string) {
   return format(new Date(`${dateString}T00:00:00`), 'MMM d, yyyy');
 }
@@ -69,6 +95,13 @@ function priorityColors(priority: AlertRow['priority']) {
   return { bg: '#dcfce7', text: '#166534', label: 'Low Priority' };
 }
 
+function formatTimeRange(startTime: string | null, endTime: string | null) {
+  if (startTime && endTime) return `${startTime} - ${endTime}`;
+  if (startTime) return startTime;
+  if (endTime) return `Until ${endTime}`;
+  return 'Time TBD';
+}
+
 export default async function HomePage() {
   const supabase = await createClient();
   const today = new Date().toISOString().slice(0, 10);
@@ -81,9 +114,10 @@ export default async function HomePage() {
   let events: WeeklyEventRow[] = [];
   let latestAlert: AlertRow | null = null;
   let cq: CqShiftRow[] = [];
+  let details: DetailRow[] = [];
 
   if (user?.id) {
-    const [profileResult, eventsResult, alertsResult, cqResult] = await Promise.all([
+    const [profileResult, eventsResult, alertsResult, cqResult, detailsResult] = await Promise.all([
       supabase
         .from('profiles')
         .select('id, full_name, rank, role')
@@ -117,12 +151,37 @@ export default async function HomePage() {
         )
         .gte('shift_date', today)
         .order('shift_date', { ascending: true }),
+
+      supabase
+        .from('details')
+        .select(
+          `
+            id,
+            title,
+            detail_date,
+            start_time,
+            end_time,
+            location,
+            leader,
+            notes,
+            assignments:detail_assignments(
+              id,
+              detail_id,
+              user_id,
+              user:profiles(id, full_name, rank, role)
+            )
+          `
+        )
+        .gte('detail_date', today)
+        .order('detail_date', { ascending: true })
+        .order('start_time', { ascending: true }),
     ]);
 
     profile = (profileResult.data as ProfileRow | null) ?? null;
     events = (eventsResult.data as WeeklyEventRow[] | null) ?? [];
     latestAlert = (alertsResult.data as AlertRow | null) ?? null;
     cq = (cqResult.data as CqShiftRow[] | null) ?? [];
+    details = (detailsResult.data as DetailRow[] | null) ?? [];
   }
 
   const myUpcomingShift =
@@ -153,6 +212,36 @@ export default async function HomePage() {
     else if (diffDays === 1) cqMessage = 'You have CQ duty tomorrow';
     else if (diffDays <= 3) cqMessage = `You have CQ duty in ${diffDays} days`;
     else cqMessage = `Next CQ duty is ${formatShortDate(myUpcomingShift.shift_date)}`;
+  }
+
+  const myUpcomingDetail =
+    details.find((detail) => {
+      if (!user?.id) return false;
+      return (detail.assignments ?? []).some((assignment) => assignment.user_id === user.id);
+    }) ?? null;
+
+  let detailMessage = 'No upcoming detail';
+  let detailDate = '';
+  let detailTime = '';
+  let detailLocation = '';
+  let detailLeader = '';
+  let detailTitle = '';
+
+  if (myUpcomingDetail) {
+    const now = new Date(`${today}T00:00:00`);
+    const detailDateValue = new Date(`${myUpcomingDetail.detail_date}T00:00:00`);
+    const diffDays = Math.round((detailDateValue.getTime() - now.getTime()) / 86400000);
+
+    detailDate = myUpcomingDetail.detail_date;
+    detailTime = formatTimeRange(myUpcomingDetail.start_time, myUpcomingDetail.end_time);
+    detailLocation = myUpcomingDetail.location ?? '';
+    detailLeader = myUpcomingDetail.leader ?? '';
+    detailTitle = myUpcomingDetail.title;
+
+    if (diffDays <= 0) detailMessage = 'You have a detail today';
+    else if (diffDays === 1) detailMessage = 'You have a detail tomorrow';
+    else if (diffDays <= 3) detailMessage = `You have a detail in ${diffDays} days`;
+    else detailMessage = `Next detail is ${formatShortDate(myUpcomingDetail.detail_date)}`;
   }
 
   const displayName =
@@ -426,6 +515,122 @@ export default async function HomePage() {
               {cqPartner && (
                 <div style={{ marginTop: 6, fontSize: 14, color: '#475569' }}>
                   Partner: {cqPartner}
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section
+            style={{
+              background: '#ffffff',
+              borderRadius: 30,
+              padding: 22,
+              boxShadow: '0 18px 44px rgba(15,23,42,0.14)',
+              color: '#0f172a',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                gap: 12,
+                marginBottom: 16,
+              }}
+            >
+              <div>
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: 30,
+                    fontWeight: 800,
+                    letterSpacing: '-0.04em',
+                    color: '#0f172a',
+                  }}
+                >
+                  Your Next Detail
+                </h2>
+
+                <p
+                  style={{
+                    marginTop: 6,
+                    marginBottom: 0,
+                    fontSize: 14,
+                    color: '#64748b',
+                  }}
+                >
+                  {' '}
+                </p>
+              </div>
+
+              <Link
+                href="/details"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 999,
+                  background: '#8b1538',
+                  color: '#ffffff',
+                  padding: '10px 14px',
+                  fontSize: 12,
+                  fontWeight: 800,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  textDecoration: 'none',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                View All →
+              </Link>
+            </div>
+
+            <div
+              style={{
+                borderRadius: 24,
+                background: 'linear-gradient(180deg, #fff1f2 0%, #ffffff 100%)',
+                padding: 16,
+                border: '1px solid #ffe4e6',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 22,
+                  fontWeight: 700,
+                  color: '#8b1538',
+                  letterSpacing: '-0.02em',
+                }}
+              >
+                {detailMessage}
+              </div>
+
+              {detailTitle && (
+                <div style={{ marginTop: 10, fontSize: 16, fontWeight: 700, color: '#0f172a' }}>
+                  {detailTitle}
+                </div>
+              )}
+
+              {detailDate && (
+                <div style={{ marginTop: 10, fontSize: 14, color: '#475569' }}>
+                  Date: {formatShortDate(detailDate)}
+                </div>
+              )}
+
+              {detailTime && (
+                <div style={{ marginTop: 6, fontSize: 14, color: '#475569' }}>
+                  Time: {detailTime}
+                </div>
+              )}
+
+              {detailLocation && (
+                <div style={{ marginTop: 6, fontSize: 14, color: '#475569' }}>
+                  Location: {detailLocation}
+                </div>
+              )}
+
+              {detailLeader && (
+                <div style={{ marginTop: 6, fontSize: 14, color: '#475569' }}>
+                  OIC / NCOIC: {detailLeader}
                 </div>
               )}
             </div>
