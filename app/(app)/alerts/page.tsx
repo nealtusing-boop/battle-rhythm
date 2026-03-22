@@ -1,6 +1,8 @@
 export const dynamic = 'force-dynamic';
 
+import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { getSessionProfile } from '@/lib/auth';
 import { AlertsBadgeClearer } from './alerts-badge-clearer';
 
 type Alert = {
@@ -8,6 +10,7 @@ type Alert = {
   message: string;
   priority: 'low' | 'medium' | 'high';
   created_at: string;
+  requires_ack: boolean | null;
 };
 
 function priorityStyle(priority: Alert['priority']) {
@@ -22,15 +25,52 @@ function priorityStyle(priority: Alert['priority']) {
   return { background: '#dcfce7', color: '#166534', label: 'Low' };
 }
 
-export default async function AlertsPage() {
+async function acknowledgeAlert(formData: FormData) {
+  'use server';
+
+  const alertId = formData.get('alert_id');
+
+  if (typeof alertId !== 'string' || !alertId) {
+    return;
+  }
+
+  const session = await getSessionProfile(true);
   const supabase = await createClient();
 
-  const { data } = await supabase
-    .from('alerts')
-    .select('id, message, priority, created_at')
-    .order('created_at', { ascending: false });
+  await supabase.from('alert_acknowledgements').upsert(
+    {
+      alert_id: alertId,
+      user_id: session!.user.id,
+    },
+    {
+      onConflict: 'alert_id,user_id',
+      ignoreDuplicates: false,
+    }
+  );
 
-  const alerts = (data ?? []) as Alert[];
+  revalidatePath('/alerts');
+  revalidatePath('/admin');
+}
+
+export default async function AlertsPage() {
+  const session = await getSessionProfile(true);
+  const supabase = await createClient();
+
+  const [{ data: alertsData }, { data: acknowledgementsData }] = await Promise.all([
+    supabase
+      .from('alerts')
+      .select('id, message, priority, created_at, requires_ack')
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('alert_acknowledgements')
+      .select('alert_id')
+      .eq('user_id', session!.user.id),
+  ]);
+
+  const alerts = (alertsData ?? []) as Alert[];
+  const acknowledgedAlertIds = new Set(
+    (acknowledgementsData ?? []).map((ack) => ack.alert_id as string)
+  );
 
   return (
     <div style={{ display: 'grid', gap: 20 }}>
@@ -82,6 +122,7 @@ export default async function AlertsPage() {
 
         {alerts.map((alert) => {
           const pill = priorityStyle(alert.priority);
+          const isAcknowledged = acknowledgedAlertIds.has(alert.id);
 
           return (
             <article
@@ -96,18 +137,46 @@ export default async function AlertsPage() {
             >
               <div
                 style={{
-                  display: 'inline-flex',
-                  borderRadius: 999,
-                  padding: '6px 10px',
-                  fontSize: 11,
-                  fontWeight: 800,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.12em',
-                  background: pill.background,
-                  color: pill.color,
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  flexWrap: 'wrap',
                 }}
               >
-                {pill.label}
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    borderRadius: 999,
+                    padding: '6px 10px',
+                    fontSize: 11,
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.12em',
+                    background: pill.background,
+                    color: pill.color,
+                  }}
+                >
+                  {pill.label}
+                </div>
+
+                {alert.requires_ack && (
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      borderRadius: 999,
+                      padding: '6px 10px',
+                      fontSize: 11,
+                      fontWeight: 800,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.12em',
+                      background: '#ede9fe',
+                      color: '#5b21b6',
+                    }}
+                  >
+                    Acknowledgement required
+                  </div>
+                )}
               </div>
 
               <p
@@ -134,6 +203,46 @@ export default async function AlertsPage() {
               >
                 {new Date(alert.created_at).toLocaleString()}
               </p>
+
+              {alert.requires_ack && (
+                <div style={{ marginTop: 14 }}>
+                  {isAcknowledged ? (
+                    <div
+                      style={{
+                        display: 'inline-flex',
+                        borderRadius: 999,
+                        padding: '10px 14px',
+                        fontSize: 13,
+                        fontWeight: 800,
+                        background: '#dcfce7',
+                        color: '#166534',
+                      }}
+                    >
+                      Acknowledged ✓
+                    </div>
+                  ) : (
+                    <form action={acknowledgeAlert}>
+                      <input type="hidden" name="alert_id" value={alert.id} />
+                      <button
+                        type="submit"
+                        style={{
+                          borderRadius: 18,
+                          border: 'none',
+                          background: 'linear-gradient(180deg, #8b1538 0%, #6f102d 100%)',
+                          color: '#ffffff',
+                          padding: '12px 16px',
+                          fontSize: 14,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          boxShadow: '0 14px 30px rgba(139,21,56,0.22)',
+                        }}
+                      >
+                        Acknowledge
+                      </button>
+                    </form>
+                  )}
+                </div>
+              )}
             </article>
           );
         })}

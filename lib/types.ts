@@ -8,6 +8,7 @@ export type Profile = {
   full_name: string;
   rank: string;
   role: AppRole;
+  is_active?: boolean;
   created_at?: string;
 };
 
@@ -17,6 +18,14 @@ export type AlertItem = {
   priority: AlertPriority;
   created_at: string;
   created_by?: string | null;
+  requires_ack?: boolean | null;
+};
+
+export type AlertAcknowledgement = {
+  id?: string;
+  alert_id: string;
+  user_id: string;
+  acknowledged_at?: string;
 };
 
 export type WeeklyTrainingEvent = {

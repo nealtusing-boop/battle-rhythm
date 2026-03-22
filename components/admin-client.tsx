@@ -10,10 +10,11 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/browser';
-import type { AlertPriority, JumpType, Profile } from '@/lib/types';
+import type { AlertPriority, AppRole, JumpType, Profile } from '@/lib/types';
 
 const tabs = [
   { id: 'alerts', label: 'Alerts' },
+  { id: 'users', label: 'Users' },
   { id: 'weekly', label: 'Weekly Schedule' },
   { id: 'calendar', label: 'Long Range' },
   { id: 'leave', label: 'Leave & DONSAs' },
@@ -28,6 +29,7 @@ type ExistingAlert = {
   message: string;
   priority: AlertPriority;
   created_at: string;
+  requires_ack: boolean | null;
 };
 
 type ExistingPeriod = {
@@ -63,6 +65,16 @@ type ExistingLongRangeEvent = {
   event_date: string;
   location: string | null;
   description: string | null;
+};
+
+type ExistingUser = Profile & {
+  is_active: boolean;
+};
+
+type AlertAcknowledgementRow = {
+  user_id: string;
+  acknowledged_at: string;
+  profile?: ExistingUser | ExistingUser[] | null;
 };
 
 type JumpManifestEntry = {
@@ -752,7 +764,9 @@ export function AdminClient() {
   const router = useRouter();
 
   const [active, setActive] = useState<TabId>('alerts');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [soldiers, setSoldiers] = useState<Profile[]>([]);
+  const [users, setUsers] = useState<ExistingUser[]>([]);
   const [upcomingJumps, setUpcomingJumps] = useState<ExistingJump[]>([]);
   const [existingAlerts, setExistingAlerts] = useState<ExistingAlert[]>([]);
   const [existingPeriods, setExistingPeriods] = useState<ExistingPeriod[]>([]);
@@ -769,6 +783,8 @@ export function AdminClient() {
   const [busyDeletingWeeklyId, setBusyDeletingWeeklyId] = useState<string | null>(null);
   const [busyDeletingCalendarId, setBusyDeletingCalendarId] = useState<string | null>(null);
   const [busyDeletingJumpId, setBusyDeletingJumpId] = useState<string | null>(null);
+  const [busyTogglingUserId, setBusyTogglingUserId] = useState<string | null>(null);
+  const [busyChangingRoleUserId, setBusyChangingRoleUserId] = useState<string | null>(null);
 
   const [busySavingWeeklyEdit, setBusySavingWeeklyEdit] = useState(false);
   const [busySavingCalendarEdit, setBusySavingCalendarEdit] = useState(false);
@@ -778,6 +794,10 @@ export function AdminClient() {
 
   const [alertMessage, setAlertMessage] = useState('');
   const [alertPriority, setAlertPriority] = useState<AlertPriority>('medium');
+  const [alertRequiresAck, setAlertRequiresAck] = useState(false);
+  const [selectedAlertForAck, setSelectedAlertForAck] = useState<ExistingAlert | null>(null);
+  const [alertAcknowledgements, setAlertAcknowledgements] = useState<AlertAcknowledgementRow[]>([]);
+  const [loadingAlertAcknowledgements, setLoadingAlertAcknowledgements] = useState(false);
 
   const [weeklyForm, setWeeklyForm] = useState<WeeklyFormState>(emptyWeeklyForm());
   const [calendarForm, setCalendarForm] = useState<CalendarFormState>(emptyCalendarForm());
@@ -796,6 +816,11 @@ export function AdminClient() {
   }, []);
 
   async function loadInitial() {
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser();
+    setCurrentUserId(authUser?.id ?? null);
+
     const [
       { data: profiles },
       { data: jumps },
@@ -807,7 +832,7 @@ export function AdminClient() {
     ] = await Promise.all([
       supabase
         .from('profiles')
-        .select('id, full_name, rank, role')
+        .select('id, full_name, rank, role, is_active')
         .order('rank', { ascending: true })
         .order('full_name', { ascending: true }),
       supabase
@@ -819,7 +844,7 @@ export function AdminClient() {
         .order('jump_date', { ascending: true }),
       supabase
         .from('alerts')
-        .select('id, message, priority, created_at')
+        .select('id, message, priority, created_at, requires_ack')
         .order('created_at', { ascending: false }),
       supabase
         .from('leave_donsa_periods')
@@ -849,7 +874,17 @@ export function AdminClient() {
         .order('event_date', { ascending: true }),
     ]);
 
-    setSoldiers((profiles ?? []) as Profile[]);
+    const allProfiles = ((profiles ?? []) as ExistingUser[]).map((profile) => ({
+      ...profile,
+      is_active: profile.is_active ?? true,
+    }));
+
+    setUsers(allProfiles);
+    setSoldiers(
+      allProfiles
+        .filter((profile) => profile.is_active)
+        .map(({ is_active: _isActive, ...profile }) => profile)
+    );
     setUpcomingJumps((jumps ?? []) as ExistingJump[]);
     setExistingAlerts((alerts ?? []) as ExistingAlert[]);
     setExistingPeriods((periods ?? []) as ExistingPeriod[]);
@@ -872,8 +907,9 @@ export function AdminClient() {
       .insert({
         message: trimmed,
         priority: alertPriority,
+        requires_ack: alertRequiresAck,
       })
-      .select('id, message, priority, created_at')
+      .select('id, message, priority, created_at, requires_ack')
       .single();
 
     if (error) {
@@ -893,6 +929,7 @@ export function AdminClient() {
 
     setAlertMessage('');
     setAlertPriority('medium');
+    setAlertRequiresAck(false);
     setStatus('Alert posted.');
     await loadInitial();
     router.refresh();
@@ -912,6 +949,81 @@ export function AdminClient() {
 
     setStatus('Alert deleted.');
     setBusyDeletingAlertId(null);
+    await loadInitial();
+    router.refresh();
+  }
+
+  async function openAlertAcknowledgements(alert: ExistingAlert) {
+    if (!alert.requires_ack) {
+      return;
+    }
+
+    setSelectedAlertForAck(alert);
+    setLoadingAlertAcknowledgements(true);
+    setAlertAcknowledgements([]);
+
+    const { data, error } = await supabase
+      .from('alert_acknowledgements')
+      .select(
+        'user_id, acknowledged_at, profile:profiles!alert_acknowledgements_user_id_fkey(id, full_name, rank, role, is_active)'
+      )
+      .eq('alert_id', alert.id)
+      .order('acknowledged_at', { ascending: true });
+
+    if (error) {
+      setStatus(error.message);
+      setLoadingAlertAcknowledgements(false);
+      return;
+    }
+
+    setAlertAcknowledgements((data ?? []) as AlertAcknowledgementRow[]);
+    setLoadingAlertAcknowledgements(false);
+  }
+
+  function closeAlertAcknowledgements() {
+    setSelectedAlertForAck(null);
+    setAlertAcknowledgements([]);
+    setLoadingAlertAcknowledgements(false);
+  }
+
+  async function toggleUserActive(userId: string, nextValue: boolean) {
+    setStatus(null);
+    setBusyTogglingUserId(userId);
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ is_active: nextValue })
+      .eq('id', userId);
+
+    if (error) {
+      setStatus(error.message);
+      setBusyTogglingUserId(null);
+      return;
+    }
+
+    setStatus(nextValue ? 'User enabled.' : 'User disabled.');
+    setBusyTogglingUserId(null);
+    await loadInitial();
+    router.refresh();
+  }
+
+  async function updateUserRole(userId: string, nextRole: AppRole) {
+    setStatus(null);
+    setBusyChangingRoleUserId(userId);
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ role: nextRole })
+      .eq('id', userId);
+
+    if (error) {
+      setStatus(error.message);
+      setBusyChangingRoleUserId(null);
+      return;
+    }
+
+    setStatus(nextRole === 'admin' ? 'User promoted to admin.' : 'User role set to soldier.');
+    setBusyChangingRoleUserId(null);
     await loadInitial();
     router.refresh();
   }
@@ -1451,6 +1563,18 @@ export function AdminClient() {
     });
   };
 
+  const acknowledgementMap = new Map(
+    alertAcknowledgements.map((entry) => [entry.user_id, entry])
+  );
+
+  const acknowledgedUsers = users
+    .filter((user) => user.is_active)
+    .filter((user) => acknowledgementMap.has(user.id));
+
+  const pendingUsers = users
+    .filter((user) => user.is_active)
+    .filter((user) => !acknowledgementMap.has(user.id));
+
   return (
     <>
       <div style={{ display: 'grid', gap: 20, width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
@@ -1479,7 +1603,7 @@ export function AdminClient() {
                 overflowWrap: 'anywhere',
               }}
             >
-              Manage alerts, schedules, leave, jumps, manifests, and CQ in one place.
+              Manage alerts, users, schedules, leave, jumps, manifests, and CQ in one place.
             </p>
           </div>
 
@@ -1566,6 +1690,28 @@ export function AdminClient() {
                   <option value="medium">Medium</option>
                   <option value="low">Low</option>
                 </select>
+
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    borderRadius: 18,
+                    border: '1px solid rgba(15,23,42,0.08)',
+                    background: '#f8fafc',
+                    padding: '14px 16px',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: '#334155',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={alertRequiresAck}
+                    onChange={(e) => setAlertRequiresAck(e.target.checked)}
+                  />
+                  Require acknowledgment
+                </label>
 
                 <button onClick={createAlert} style={buttonStyle(true)}>
                   Post Alert
@@ -1659,20 +1805,221 @@ export function AdminClient() {
                           >
                             {new Date(alert.created_at).toLocaleString()}
                           </p>
+
+                          {alert.requires_ack && (
+                            <div
+                              style={{
+                                marginTop: 12,
+                                display: 'inline-flex',
+                                borderRadius: 999,
+                                padding: '6px 10px',
+                                fontSize: 11,
+                                fontWeight: 800,
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.12em',
+                                background: '#ede9fe',
+                                color: '#5b21b6',
+                              }}
+                            >
+                              Acknowledgement required
+                            </div>
+                          )}
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => deleteAlert(alert.id)}
-                          disabled={busyDeletingAlertId === alert.id}
+                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                          {alert.requires_ack && (
+                            <button
+                              type="button"
+                              onClick={() => void openAlertAcknowledgements(alert)}
+                              style={secondaryButtonStyle()}
+                            >
+                              View acknowledgements
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => deleteAlert(alert.id)}
+                            disabled={busyDeletingAlertId === alert.id}
+                            style={{
+                              ...buttonStyle(true, true),
+                              opacity: busyDeletingAlertId === alert.id ? 0.7 : 1,
+                            }}
+                          >
+                            {busyDeletingAlertId === alert.id ? 'Deleting...' : 'Delete'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          </>
+        )}
+
+        {active === 'users' && (
+          <>
+            <section style={sectionStyle()}>
+              <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 24, fontWeight: 800 }}>
+                User Access
+              </h2>
+
+              <p
+                style={{
+                  marginTop: 0,
+                  marginBottom: 16,
+                  fontSize: 14,
+                  color: '#64748b',
+                }}
+              >
+                New users can enter immediately. Use this page to disable access later or change admin permissions.
+              </p>
+
+              <div style={{ display: 'grid', gap: 12 }}>
+                {users.length === 0 && (
+                  <div
+                    style={{
+                      borderRadius: 22,
+                      background: '#f8fafc',
+                      padding: 16,
+                      border: '1px solid rgba(15,23,42,0.08)',
+                      fontSize: 14,
+                      color: '#475569',
+                    }}
+                  >
+                    No users found.
+                  </div>
+                )}
+
+                {users.map((user) => {
+                  const isCurrentUser = user.id === currentUserId;
+                  const toggleBusy = busyTogglingUserId === user.id;
+                  const roleBusy = busyChangingRoleUserId === user.id;
+
+                  return (
+                    <div
+                      key={user.id}
+                      style={{
+                        borderRadius: 22,
+                        background: '#f8fafc',
+                        padding: 18,
+                        border: '1px solid rgba(15,23,42,0.08)',
+                        minWidth: 0,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          justifyContent: 'space-between',
+                          gap: 16,
+                          flexWrap: 'wrap',
+                          minWidth: 0,
+                        }}
+                      >
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p
+                            style={{
+                              margin: 0,
+                              fontSize: 17,
+                              fontWeight: 700,
+                              color: '#0f172a',
+                              overflowWrap: 'anywhere',
+                            }}
+                          >
+                            {[user.rank, user.full_name].filter(Boolean).join(' ')}
+                          </p>
+
+                          <div
+                            style={{
+                              display: 'flex',
+                              gap: 8,
+                              flexWrap: 'wrap',
+                              marginTop: 10,
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: 'inline-flex',
+                                borderRadius: 999,
+                                padding: '6px 10px',
+                                fontSize: 11,
+                                fontWeight: 800,
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.12em',
+                                background: user.role === 'admin' ? '#ede9fe' : '#e2e8f0',
+                                color: user.role === 'admin' ? '#5b21b6' : '#334155',
+                              }}
+                            >
+                              {user.role === 'admin' ? 'Admin' : 'Soldier'}
+                            </div>
+
+                            <div
+                              style={{
+                                display: 'inline-flex',
+                                borderRadius: 999,
+                                padding: '6px 10px',
+                                fontSize: 11,
+                                fontWeight: 800,
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.12em',
+                                background: user.is_active ? '#dcfce7' : '#fee2e2',
+                                color: user.is_active ? '#166534' : '#991b1b',
+                              }}
+                            >
+                              {user.is_active ? 'Active' : 'Disabled'}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            onClick={() => void updateUserRole(user.id, user.role === 'admin' ? 'soldier' : 'admin')}
+                            disabled={roleBusy || isCurrentUser}
+                            style={{
+                              ...secondaryButtonStyle(),
+                              opacity: roleBusy || isCurrentUser ? 0.7 : 1,
+                            }}
+                          >
+                            {roleBusy
+                              ? 'Saving...'
+                              : user.role === 'admin'
+                                ? 'Make Soldier'
+                                : 'Make Admin'}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => void toggleUserActive(user.id, !user.is_active)}
+                            disabled={toggleBusy || isCurrentUser}
+                            style={{
+                              ...(user.is_active ? buttonStyle(true, true) : buttonStyle(true)),
+                              opacity: toggleBusy || isCurrentUser ? 0.7 : 1,
+                            }}
+                          >
+                            {toggleBusy
+                              ? 'Saving...'
+                              : user.is_active
+                                ? 'Disable'
+                                : 'Enable'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {isCurrentUser && (
+                        <p
                           style={{
-                            ...buttonStyle(true, true),
-                            opacity: busyDeletingAlertId === alert.id ? 0.7 : 1,
+                            marginTop: 12,
+                            marginBottom: 0,
+                            fontSize: 12,
+                            color: '#64748b',
                           }}
                         >
-                          {busyDeletingAlertId === alert.id ? 'Deleting...' : 'Delete'}
-                        </button>
-                      </div>
+                          Your own account cannot be changed here.
+                        </p>
+                      )}
                     </div>
                   );
                 })}
@@ -2317,6 +2664,166 @@ export function AdminClient() {
           </>
         )}
       </div>
+
+      {selectedAlertForAck && (
+        <ModalShell
+          title="Alert acknowledgements"
+          description="See exactly who has and has not acknowledged this alert."
+          onClose={closeAlertAcknowledgements}
+        >
+          <div
+            style={{
+              display: 'inline-flex',
+              borderRadius: 999,
+              padding: '6px 10px',
+              fontSize: 11,
+              fontWeight: 800,
+              textTransform: 'uppercase',
+              letterSpacing: '0.12em',
+              background: '#ede9fe',
+              color: '#5b21b6',
+              marginBottom: 12,
+            }}
+          >
+            Acknowledgement required
+          </div>
+
+          <p
+            style={{
+              marginTop: 0,
+              marginBottom: 18,
+              fontSize: 14,
+              lineHeight: 1.6,
+              color: '#334155',
+              overflowWrap: 'anywhere',
+            }}
+          >
+            {selectedAlertForAck.message}
+          </p>
+
+          {loadingAlertAcknowledgements ? (
+            <div
+              style={{
+                borderRadius: 22,
+                background: '#f8fafc',
+                padding: 16,
+                border: '1px solid rgba(15,23,42,0.08)',
+                fontSize: 14,
+                color: '#475569',
+              }}
+            >
+              Loading acknowledgements...
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gap: 18 }}>
+              <div>
+                <h3
+                  style={{
+                    marginTop: 0,
+                    marginBottom: 10,
+                    fontSize: 15,
+                    fontWeight: 800,
+                    color: '#166534',
+                    letterSpacing: '0.04em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Acknowledged
+                </h3>
+
+                <div style={{ display: 'grid', gap: 10 }}>
+                  {acknowledgedUsers.length === 0 && (
+                    <div
+                      style={{
+                        borderRadius: 18,
+                        background: '#f8fafc',
+                        padding: 14,
+                        border: '1px solid rgba(15,23,42,0.08)',
+                        fontSize: 14,
+                        color: '#475569',
+                      }}
+                    >
+                      No acknowledgements yet.
+                    </div>
+                  )}
+
+                  {acknowledgedUsers.map((user) => {
+                    const ack = acknowledgementMap.get(user.id);
+
+                    return (
+                      <div
+                        key={user.id}
+                        style={{
+                          borderRadius: 18,
+                          background: '#f8fafc',
+                          padding: 14,
+                          border: '1px solid rgba(15,23,42,0.08)',
+                        }}
+                      >
+                        <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0f172a' }}>
+                          {[user.rank, user.full_name].filter(Boolean).join(' ')}
+                        </p>
+                        <p style={{ marginTop: 6, marginBottom: 0, fontSize: 12, color: '#64748b' }}>
+                          {ack ? new Date(ack.acknowledged_at).toLocaleString() : ''}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <h3
+                  style={{
+                    marginTop: 0,
+                    marginBottom: 10,
+                    fontSize: 15,
+                    fontWeight: 800,
+                    color: '#991b1b',
+                    letterSpacing: '0.04em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Not yet acknowledged
+                </h3>
+
+                <div style={{ display: 'grid', gap: 10 }}>
+                  {pendingUsers.length === 0 && (
+                    <div
+                      style={{
+                        borderRadius: 18,
+                        background: '#f8fafc',
+                        padding: 14,
+                        border: '1px solid rgba(15,23,42,0.08)',
+                        fontSize: 14,
+                        color: '#475569',
+                      }}
+                    >
+                      Everyone has acknowledged this alert.
+                    </div>
+                  )}
+
+                  {pendingUsers.map((user) => (
+                    <div
+                      key={user.id}
+                      style={{
+                        borderRadius: 18,
+                        background: '#f8fafc',
+                        padding: 14,
+                        border: '1px solid rgba(15,23,42,0.08)',
+                      }}
+                    >
+                      <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0f172a' }}>
+                        {[user.rank, user.full_name].filter(Boolean).join(' ')}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </ModalShell>
+      )}
 
       {editingWeeklyForm && (
         <ModalShell

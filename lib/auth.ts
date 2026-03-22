@@ -15,19 +15,34 @@ export async function getSessionProfile(redirectIfMissing = true) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, full_name, rank, role, created_at')
+    .select('id, full_name, rank, role, is_active, created_at')
     .eq('id', user.id)
     .single<Profile>();
 
-  if (!profile && redirectIfMissing) redirect('/login');
+  if (!profile) {
+    if (redirectIfMissing) redirect('/login');
+    return null;
+  }
+
+  if (profile.is_active === false) {
+    await supabase.auth.signOut();
+
+    if (redirectIfMissing) {
+      redirect('/login');
+    }
+
+    return null;
+  }
 
   return { user, profile };
 }
 
 export async function requireAdmin() {
   const session = await getSessionProfile(true);
+
   if (!session?.profile || session.profile.role !== 'admin') {
     redirect('/home');
   }
+
   return session;
 }
