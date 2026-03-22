@@ -25,6 +25,8 @@ const tabs = [
 
 type TabId = (typeof tabs)[number]['id'];
 
+type AlertExpirationOption = '24h' | '3d' | '7d' | 'never';
+
 type ExistingAlert = {
   id: string;
   message: string;
@@ -32,6 +34,8 @@ type ExistingAlert = {
   created_at: string;
   requires_ack: boolean | null;
   created_by: string | null;
+  expires_at: string | null;
+  is_active: boolean | null;
 };
 
 type ManagedProfile = Profile & {
@@ -263,6 +267,79 @@ function priorityStyle(priority: AlertPriority) {
     return { background: '#fef3c7', color: '#92400e', label: 'Medium' };
   }
   return { background: '#dcfce7', color: '#166534', label: 'Low' };
+}
+
+function getExpirationTimestamp(option: AlertExpirationOption) {
+  if (option === 'never') {
+    return null;
+  }
+
+  const now = Date.now();
+  const durations: Record<Exclude<AlertExpirationOption, 'never'>, number> = {
+    '24h': 24 * 60 * 60 * 1000,
+    '3d': 3 * 24 * 60 * 60 * 1000,
+    '7d': 7 * 24 * 60 * 60 * 1000,
+  };
+
+  return new Date(now + durations[option]).toISOString();
+}
+
+function expirationOptionLabel(option: AlertExpirationOption) {
+  if (option === '24h') return '24 Hours';
+  if (option === '3d') return '3 Days';
+  if (option === '7d') return '7 Days';
+  return 'Never';
+}
+
+function inferExpirationOption(expiresAt: string | null) {
+  if (!expiresAt) {
+    return 'never' as AlertExpirationOption;
+  }
+
+  const now = Date.now();
+  const diff = new Date(expiresAt).getTime() - now;
+  const hour = 60 * 60 * 1000;
+  const day = 24 * hour;
+
+  if (diff <= 36 * hour) return '24h';
+  if (diff <= 5 * day) return '3d';
+  return '7d';
+}
+
+function isAlertCurrentlyActive(alert: ExistingAlert) {
+  if (alert.is_active === false) {
+    return false;
+  }
+
+  if (!alert.expires_at) {
+    return true;
+  }
+
+  return new Date(alert.expires_at).getTime() > Date.now();
+}
+
+function alertExpirationSummary(alert: ExistingAlert) {
+  if (!alert.expires_at) {
+    return 'Never expires';
+  }
+
+  return `Expires ${new Date(alert.expires_at).toLocaleString()}`;
+}
+
+function alertInactiveReason(alert: ExistingAlert) {
+  if (alert.is_active === false && alert.expires_at) {
+    return `Expired ${new Date(alert.expires_at).toLocaleString()}`;
+  }
+
+  if (alert.is_active === false) {
+    return 'Inactive';
+  }
+
+  if (alert.expires_at && new Date(alert.expires_at).getTime() <= Date.now()) {
+    return `Expired ${new Date(alert.expires_at).toLocaleString()}`;
+  }
+
+  return 'Inactive';
 }
 
 
@@ -1038,6 +1115,14 @@ export function AdminClient() {
 
   const [alertMessage, setAlertMessage] = useState('');
   const [alertPriority, setAlertPriority] = useState<AlertPriority>('medium');
+  const [alertExpiration, setAlertExpiration] = useState<AlertExpirationOption>('24h');
+  const [reactivatingAlert, setReactivatingAlert] = useState<ExistingAlert | null>(null);
+  const [reactivationMessage, setReactivationMessage] = useState('');
+  const [reactivationPriority, setReactivationPriority] = useState<AlertPriority>('medium');
+  const [reactivationRequiresAck, setReactivationRequiresAck] = useState(false);
+  const [reactivationExpiration, setReactivationExpiration] =
+    useState<AlertExpirationOption>('24h');
+  const [busyRepostingAlert, setBusyRepostingAlert] = useState(false);
 
   const [weeklyForm, setWeeklyForm] = useState<WeeklyFormState>(emptyWeeklyForm());
   const [calendarForm, setCalendarForm] = useState<CalendarFormState>(emptyCalendarForm());
@@ -1087,7 +1172,7 @@ export function AdminClient() {
         .order('jump_date', { ascending: true }),
       supabase
         .from('alerts')
-        .select('id, message, priority, created_at, requires_ack, created_by')
+        .select('id, message, priority, created_at, requires_ack, created_by, expires_at, is_active')
         .order('created_at', { ascending: false }),
       supabase
         .from('alert_acknowledgements')
@@ -1188,29 +1273,35 @@ export function AdminClient() {
     setExistingDetails((details ?? []) as ExistingDetail[]);
   }
 
-  async function createAlert() {
-    setStatus(null);
+  async function postAlert(values: {
+    message: string;
+    priority: AlertPriority;
+    requires_ack: boolean;
+    expiration: AlertExpirationOption;
+  }) {
+    const trimmed = values.message.trim();
 
-    const trimmed = alertMessage.trim();
     if (!trimmed) {
       setStatus('Enter an alert message first.');
-      return;
+      return false;
     }
 
     const { data, error } = await supabase
       .from('alerts')
       .insert({
         message: trimmed,
-        priority: alertPriority,
-        requires_ack: alertRequiresAck,
+        priority: values.priority,
+        requires_ack: values.requires_ack,
         created_by: currentUserId,
+        expires_at: getExpirationTimestamp(values.expiration),
+        is_active: true,
       })
-      .select('id, message, priority, created_at, requires_ack, created_by')
+      .select('id, message, priority, created_at, requires_ack, created_by, expires_at, is_active')
       .single();
 
     if (error) {
       setStatus(error.message);
-      return;
+      return false;
     }
 
     try {
@@ -1223,12 +1314,53 @@ export function AdminClient() {
       // ignore push failure
     }
 
+    await loadInitial();
+    router.refresh();
+    return true;
+  }
+
+  async function createAlert() {
+    setStatus(null);
+
+    const ok = await postAlert({
+      message: alertMessage,
+      priority: alertPriority,
+      requires_ack: alertRequiresAck,
+      expiration: alertExpiration,
+    });
+
+    if (!ok) {
+      return;
+    }
+
     setAlertMessage('');
     setAlertPriority('medium');
     setAlertRequiresAck(false);
+    setAlertExpiration('24h');
     setStatus('Alert posted.');
-    await loadInitial();
-    router.refresh();
+  }
+
+  async function repostAlert() {
+    if (!reactivatingAlert) return;
+
+    setStatus(null);
+    setBusyRepostingAlert(true);
+
+    const ok = await postAlert({
+      message: reactivationMessage,
+      priority: reactivationPriority,
+      requires_ack: reactivationRequiresAck,
+      expiration: reactivationExpiration,
+    });
+
+    setBusyRepostingAlert(false);
+
+    if (!ok) {
+      return;
+    }
+
+    closeReactivateAlert();
+    setStatus('Alert reposted.');
   }
 
   async function deleteAlert(alertId: string) {
@@ -1968,6 +2100,33 @@ const jumpFormAdapter: JumpFormSetter = (value) => {
     });
   };
 
+  const activeAlerts = useMemo(
+    () => existingAlerts.filter((alert) => isAlertCurrentlyActive(alert)),
+    [existingAlerts]
+  );
+
+  const inactiveAlerts = useMemo(
+    () => existingAlerts.filter((alert) => !isAlertCurrentlyActive(alert)),
+    [existingAlerts]
+  );
+
+  function openReactivateAlert(alert: ExistingAlert) {
+    setReactivatingAlert(alert);
+    setReactivationMessage(alert.message);
+    setReactivationPriority(alert.priority);
+    setReactivationRequiresAck(alert.requires_ack ?? false);
+    setReactivationExpiration(inferExpirationOption(alert.expires_at));
+  }
+
+  function closeReactivateAlert() {
+    setReactivatingAlert(null);
+    setReactivationMessage('');
+    setReactivationPriority('medium');
+    setReactivationRequiresAck(false);
+    setReactivationExpiration('24h');
+    setBusyRepostingAlert(false);
+  }
+
   return (
     <>
       <div style={{ display: 'grid', gap: 20, width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
@@ -2084,6 +2243,17 @@ const jumpFormAdapter: JumpFormSetter = (value) => {
                   <option value="low">Low</option>
                 </select>
 
+                <select
+                  value={alertExpiration}
+                  onChange={(e) => setAlertExpiration(e.target.value as AlertExpirationOption)}
+                  style={inputStyle()}
+                >
+                  <option value="24h">24 Hours</option>
+                  <option value="3d">3 Days</option>
+                  <option value="7d">7 Days</option>
+                  <option value="never">Never</option>
+                </select>
+
                 <label
                   style={{
                     display: 'flex',
@@ -2116,11 +2286,11 @@ const jumpFormAdapter: JumpFormSetter = (value) => {
 
             <section style={sectionStyle()}>
               <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 24, fontWeight: 800 }}>
-                Existing Alerts
+                Active Alerts
               </h2>
 
               <div style={{ display: 'grid', gap: 12, minWidth: 0 }}>
-                {existingAlerts.length === 0 && (
+                {activeAlerts.length === 0 && (
                   <div
                     style={{
                       borderRadius: 22,
@@ -2131,11 +2301,11 @@ const jumpFormAdapter: JumpFormSetter = (value) => {
                       color: '#475569',
                     }}
                   >
-                    No alerts posted yet.
+                    No active alerts posted yet.
                   </div>
                 )}
 
-                {existingAlerts.map((alert) => {
+                {activeAlerts.map((alert) => {
                   const pill = priorityStyle(alert.priority);
 
                   return (
@@ -2201,6 +2371,18 @@ const jumpFormAdapter: JumpFormSetter = (value) => {
                             {new Date(alert.created_at).toLocaleString()}
                           </p>
 
+                          <p
+                            style={{
+                              marginTop: 8,
+                              marginBottom: 0,
+                              fontSize: 12,
+                              color: '#64748b',
+                              overflowWrap: 'anywhere',
+                            }}
+                          >
+                            {alertExpirationSummary(alert)}
+                          </p>
+
                           {alert.requires_ack && (
                             <>
                               <div
@@ -2247,6 +2429,179 @@ const jumpFormAdapter: JumpFormSetter = (value) => {
                               View acknowledgements
                             </button>
                           )}
+
+                          <button
+                            type="button"
+                            onClick={() => deleteAlert(alert.id)}
+                            disabled={busyDeletingAlertId === alert.id}
+                            style={{
+                              ...buttonStyle(true, true),
+                              opacity: busyDeletingAlertId === alert.id ? 0.7 : 1,
+                            }}
+                          >
+                            {busyDeletingAlertId === alert.id ? 'Deleting...' : 'Delete'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section style={sectionStyle()}>
+              <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 24, fontWeight: 800 }}>
+                Inactive Alerts
+              </h2>
+
+              <div style={{ display: 'grid', gap: 12, minWidth: 0 }}>
+                {inactiveAlerts.length === 0 && (
+                  <div
+                    style={{
+                      borderRadius: 22,
+                      background: '#f8fafc',
+                      padding: 16,
+                      border: '1px solid rgba(15,23,42,0.08)',
+                      fontSize: 14,
+                      color: '#475569',
+                    }}
+                  >
+                    No inactive alerts.
+                  </div>
+                )}
+
+                {inactiveAlerts.map((alert) => {
+                  const pill = priorityStyle(alert.priority);
+
+                  return (
+                    <div
+                      key={alert.id}
+                      style={{
+                        borderRadius: 22,
+                        background: '#f8fafc',
+                        padding: 18,
+                        border: '1px solid rgba(15,23,42,0.08)',
+                        opacity: 0.82,
+                        minWidth: 0,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          justifyContent: 'space-between',
+                          gap: 16,
+                          flexWrap: 'wrap',
+                          minWidth: 0,
+                        }}
+                      >
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div
+                            style={{
+                              display: 'flex',
+                              gap: 8,
+                              flexWrap: 'wrap',
+                              alignItems: 'center',
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: 'inline-flex',
+                                borderRadius: 999,
+                                padding: '6px 10px',
+                                fontSize: 11,
+                                fontWeight: 800,
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.12em',
+                                background: pill.background,
+                                color: pill.color,
+                              }}
+                            >
+                              {pill.label}
+                            </div>
+
+                            <div
+                              style={{
+                                display: 'inline-flex',
+                                borderRadius: 999,
+                                padding: '6px 10px',
+                                fontSize: 11,
+                                fontWeight: 800,
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.12em',
+                                background: '#e2e8f0',
+                                color: '#334155',
+                              }}
+                            >
+                              Inactive
+                            </div>
+                          </div>
+
+                          <p
+                            style={{
+                              marginTop: 12,
+                              marginBottom: 0,
+                              fontSize: 15,
+                              lineHeight: 1.55,
+                              color: '#0f172a',
+                              overflowWrap: 'anywhere',
+                            }}
+                          >
+                            {alert.message}
+                          </p>
+
+                          <p
+                            style={{
+                              marginTop: 10,
+                              marginBottom: 0,
+                              fontSize: 12,
+                              color: '#64748b',
+                              overflowWrap: 'anywhere',
+                            }}
+                          >
+                            Posted {new Date(alert.created_at).toLocaleString()}
+                          </p>
+
+                          <p
+                            style={{
+                              marginTop: 8,
+                              marginBottom: 0,
+                              fontSize: 12,
+                              color: '#64748b',
+                              overflowWrap: 'anywhere',
+                            }}
+                          >
+                            {alertInactiveReason(alert)}
+                          </p>
+
+                          {alert.requires_ack && (
+                            <div
+                              style={{
+                                marginTop: 8,
+                                display: 'inline-flex',
+                                borderRadius: 999,
+                                padding: '6px 10px',
+                                fontSize: 11,
+                                fontWeight: 800,
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.12em',
+                                background: '#f1f5f9',
+                                color: '#334155',
+                              }}
+                            >
+                              Required acknowledgement
+                            </div>
+                          )}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            onClick={() => openReactivateAlert(alert)}
+                            style={secondaryButtonStyle()}
+                          >
+                            Reactivate
+                          </button>
 
                           <button
                             type="button"
@@ -3242,6 +3597,88 @@ const jumpFormAdapter: JumpFormSetter = (value) => {
         )}
       </div>
 
+
+      {reactivatingAlert && (
+        <ModalShell
+          title="Reactivate Alert"
+          description="Edit the alert, set a new expiration, then repost it as a fresh alert."
+          onClose={closeReactivateAlert}
+        >
+          <div style={{ display: 'grid', gap: 14, minWidth: 0 }}>
+            <textarea
+              value={reactivationMessage}
+              onChange={(e) => setReactivationMessage(e.target.value)}
+              placeholder="Enter alert message..."
+              style={{ ...inputStyle(), minHeight: 140, resize: 'vertical' }}
+            />
+
+            <select
+              value={reactivationPriority}
+              onChange={(e) => setReactivationPriority(e.target.value as AlertPriority)}
+              style={inputStyle()}
+            >
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+
+            <select
+              value={reactivationExpiration}
+              onChange={(e) =>
+                setReactivationExpiration(e.target.value as AlertExpirationOption)
+              }
+              style={inputStyle()}
+            >
+              <option value="24h">24 Hours</option>
+              <option value="3d">3 Days</option>
+              <option value="7d">7 Days</option>
+              <option value="never">Never</option>
+            </select>
+
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                borderRadius: 18,
+                border: '1px solid rgba(15,23,42,0.10)',
+                background: '#f8fafc',
+                padding: '14px 16px',
+                fontSize: 14,
+                fontWeight: 600,
+                color: '#334155',
+                cursor: 'pointer',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={reactivationRequiresAck}
+                onChange={(e) => setReactivationRequiresAck(e.target.checked)}
+                style={{ width: 16, height: 16, accentColor: '#8b1538' }}
+              />
+              Require acknowledgement
+            </label>
+
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 4 }}>
+              <button
+                type="button"
+                onClick={repostAlert}
+                disabled={busyRepostingAlert}
+                style={{
+                  ...buttonStyle(true),
+                  opacity: busyRepostingAlert ? 0.7 : 1,
+                }}
+              >
+                {busyRepostingAlert ? 'Reposting...' : 'Repost Alert'}
+              </button>
+
+              <button type="button" onClick={closeReactivateAlert} style={secondaryButtonStyle()}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </ModalShell>
+      )}
 
       {selectedAlertForAck && (
         <ModalShell

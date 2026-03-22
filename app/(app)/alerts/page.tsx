@@ -12,6 +12,8 @@ type Alert = {
   created_at: string;
   requires_ack: boolean | null;
   created_by: string | null;
+  expires_at: string | null;
+  is_active: boolean | null;
 };
 
 function priorityStyle(priority: Alert['priority']) {
@@ -40,11 +42,22 @@ async function acknowledgeAlert(formData: FormData) {
 
   const { data: alert } = await supabase
     .from('alerts')
-    .select('id, created_by, requires_ack')
+    .select('id, created_by, requires_ack, expires_at, is_active')
     .eq('id', alertId)
-    .single<{ id: string; created_by: string | null; requires_ack: boolean | null }>();
+    .single<{
+      id: string;
+      created_by: string | null;
+      requires_ack: boolean | null;
+      expires_at: string | null;
+      is_active: boolean | null;
+    }>();
 
-  if (!alert?.requires_ack) {
+  const isVisible =
+    !!alert &&
+    alert.is_active !== false &&
+    (!alert.expires_at || new Date(alert.expires_at).getTime() > Date.now());
+
+  if (!alert?.requires_ack || !isVisible) {
     revalidatePath('/alerts');
     revalidatePath('/admin');
     return;
@@ -84,7 +97,9 @@ export default async function AlertsPage() {
   const [{ data: alertsData }, { data: acknowledgementsData }] = await Promise.all([
     supabase
       .from('alerts')
-      .select('id, message, priority, created_at, requires_ack, created_by')
+      .select('id, message, priority, created_at, requires_ack, created_by, expires_at, is_active')
+      .eq('is_active', true)
+      .or('expires_at.is.null,expires_at.gt.now()')
       .order('created_at', { ascending: false }),
     supabase
       .from('alert_acknowledgements')
@@ -121,7 +136,7 @@ export default async function AlertsPage() {
             color: 'rgba(255,255,255,0.82)',
           }}
         >
-          Full alert history with the most recent alerts at the top.
+          Active alerts only. Expired alerts are removed automatically.
         </p>
       </section>
 
