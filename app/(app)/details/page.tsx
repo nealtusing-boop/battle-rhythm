@@ -303,10 +303,10 @@ export default async function DetailsPage() {
                           key={assignmentId}
                           style={{
                             borderRadius: 18,
-                            background: isMe ? '#fff1f2' : '#ffffff',
+                            background: isMe ? '#f8fafc' : '#ffffff',
                             padding: 14,
                             border: isMe
-                              ? '2px solid #8b1538'
+                              ? '2px solid rgba(139,21,56,0.35)'
                               : '1px solid rgba(15,23,42,0.08)',
                             fontSize: 14,
                             color: '#0f172a',
@@ -318,7 +318,7 @@ export default async function DetailsPage() {
                           }}
                         >
                           <span>{[profile.rank, profile.full_name].filter(Boolean).join(' ')}</span>
-                          {isMe && (
+                          {/* removed YOU */ false && (
                             <span
                               style={{
                                 borderRadius: 999,

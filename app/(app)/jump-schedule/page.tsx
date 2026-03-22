@@ -270,10 +270,10 @@ export default async function JumpSchedulePage() {
                         key={entry.id}
                         style={{
                           borderRadius: 20,
-                          background: isMe ? '#fff1f2' : '#f8fafc',
+                          background: isMe ? '#f8fafc' : '#f8fafc',
                           padding: '14px 16px',
                           border: isMe
-                            ? '2px solid #8b1538'
+                            ? '2px solid rgba(139,21,56,0.35)'
                             : '1px solid rgba(15,23,42,0.08)',
                           display: 'flex',
                           alignItems: 'center',
@@ -324,7 +324,7 @@ export default async function JumpSchedulePage() {
                                 ? [soldier.rank, soldier.full_name].filter(Boolean).join(' ')
                                 : 'Unassigned'}
                             </span>
-                            {isMe && (
+                            {/* removed YOU */ false && (
                               <span
                                 style={{
                                   borderRadius: 999,

@@ -232,9 +232,9 @@ export default async function CqRosterPage() {
                   <div
                     style={{
                       borderRadius: 18,
-                      background: soldierOneIsMe ? '#fff1f2' : '#ffffff',
+                      background: soldierOneIsMe ? '#f8fafc' : '#ffffff',
                       border: soldierOneIsMe
-                        ? '2px solid #8b1538'
+                        ? '2px solid rgba(139,21,56,0.35)'
                         : '1px solid rgba(15,23,42,0.08)',
                       padding: '14px 16px',
                     }}
@@ -254,7 +254,7 @@ export default async function CqRosterPage() {
                     <div
                       style={{
                         fontSize: 16,
-                        fontWeight: soldierOneIsMe ? 800 : 700,
+                        fontWeight: soldierOneIsMe ? 800 : 600,
                         color: '#0f172a',
                         display: 'flex',
                         alignItems: 'center',
@@ -267,7 +267,7 @@ export default async function CqRosterPage() {
                           ? [soldierOne.rank, soldierOne.full_name].filter(Boolean).join(' ')
                           : 'Unassigned'}
                       </span>
-                      {soldierOneIsMe && (
+                      {/* removed YOU */ {false && (
                         <span
                           style={{
                             borderRadius: 999,
@@ -289,9 +289,9 @@ export default async function CqRosterPage() {
                   <div
                     style={{
                       borderRadius: 18,
-                      background: soldierTwoIsMe ? '#fff1f2' : '#ffffff',
+                      background: soldierTwoIsMe ? '#f8fafc' : '#ffffff',
                       border: soldierTwoIsMe
-                        ? '2px solid #8b1538'
+                        ? '2px solid rgba(139,21,56,0.35)'
                         : '1px solid rgba(15,23,42,0.08)',
                       padding: '14px 16px',
                     }}
@@ -311,7 +311,7 @@ export default async function CqRosterPage() {
                     <div
                       style={{
                         fontSize: 16,
-                        fontWeight: soldierTwoIsMe ? 800 : 700,
+                        fontWeight: soldierTwoIsMe ? 800 : 600,
                         color: '#0f172a',
                         display: 'flex',
                         alignItems: 'center',
@@ -324,7 +324,7 @@ export default async function CqRosterPage() {
                           ? [soldierTwo.rank, soldierTwo.full_name].filter(Boolean).join(' ')
                           : 'Unassigned'}
                       </span>
-                      {soldierTwoIsMe && (
+                      {/* removed YOU */ {false && (
                         <span
                           style={{
                             borderRadius: 999,
