@@ -184,7 +184,7 @@ export default async function HomePage() {
               color: '#ffffff',
             }}
           >
-            Welcome back, {displayName}
+            Welcome back
           </h1>
 
           <p
