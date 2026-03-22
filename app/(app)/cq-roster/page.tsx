@@ -190,7 +190,7 @@ export default async function CqRosterPage() {
                         fontSize: 18,
                         fontWeight: 700,
                         letterSpacing: '-0.02em',
-                        color: '#0f172a',
+                        color: soldierOneIsMe ? '#166534' : '#0f172a',
                       }}
                     >
                       {formatShiftDate(shift.shift_date)}
@@ -231,9 +231,9 @@ export default async function CqRosterPage() {
                   <div
                     style={{
                       borderRadius: 18,
-                      background: soldierOneIsMe ? '#f8fafc' : '#ffffff',
+                      background: soldierOneIsMe ? '#dcfce7' : '#ffffff',
                       border: soldierOneIsMe
-                        ? '2px solid rgba(139,21,56,0.35)'
+                        ? '1.5px solid #86efac'
                         : '1px solid rgba(15,23,42,0.08)',
                       padding: '14px 16px',
                     }}
@@ -254,7 +254,7 @@ export default async function CqRosterPage() {
                       style={{
                         fontSize: 16,
                         fontWeight: soldierOneIsMe ? 800 : 600,
-                        color: '#0f172a',
+                        color: soldierOneIsMe ? '#166534' : '#0f172a',
                       }}
                     >
                       {soldierOne
@@ -266,9 +266,9 @@ export default async function CqRosterPage() {
                   <div
                     style={{
                       borderRadius: 18,
-                      background: soldierTwoIsMe ? '#f8fafc' : '#ffffff',
+                      background: soldierTwoIsMe ? '#dcfce7' : '#ffffff',
                       border: soldierTwoIsMe
-                        ? '2px solid rgba(139,21,56,0.35)'
+                        ? '1.5px solid #86efac'
                         : '1px solid rgba(15,23,42,0.08)',
                       padding: '14px 16px',
                     }}
@@ -289,7 +289,7 @@ export default async function CqRosterPage() {
                       style={{
                         fontSize: 16,
                         fontWeight: soldierTwoIsMe ? 800 : 600,
-                        color: '#0f172a',
+                        color: soldierOneIsMe ? '#166534' : '#0f172a',
                       }}
                     >
                       {soldierTwo

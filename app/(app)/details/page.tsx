@@ -303,37 +303,17 @@ export default async function DetailsPage() {
                           key={assignmentId}
                           style={{
                             borderRadius: 18,
-                            background: isMe ? '#f8fafc' : '#ffffff',
+                            background: isMe ? '#dcfce7' : '#ffffff',
                             padding: 14,
                             border: isMe
-                              ? '2px solid rgba(139,21,56,0.35)'
+                              ? '1.5px solid #86efac'
                               : '1px solid rgba(15,23,42,0.08)',
                             fontSize: 14,
-                            color: '#0f172a',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8,
-                            flexWrap: 'wrap',
-                            fontWeight: isMe ? 800 : 600,
+                            color: isMe ? '#166534' : '#0f172a',
+                            fontWeight: isMe ? 700 : 600,
                           }}
                         >
-                          <span>{[profile.rank, profile.full_name].filter(Boolean).join(' ')}</span>
-                          {/* removed YOU */ false && (
-                            <span
-                              style={{
-                                borderRadius: 999,
-                                background: '#8b1538',
-                                color: '#ffffff',
-                                padding: '4px 8px',
-                                fontSize: 11,
-                                fontWeight: 800,
-                                letterSpacing: '0.08em',
-                                textTransform: 'uppercase',
-                              }}
-                            >
-                              You
-                            </span>
-                          )}
+                          {[profile.rank, profile.full_name].filter(Boolean).join(' ')}
                         </div>
                       );
                     })}

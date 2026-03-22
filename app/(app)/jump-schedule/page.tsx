@@ -270,10 +270,10 @@ export default async function JumpSchedulePage() {
                         key={entry.id}
                         style={{
                           borderRadius: 20,
-                          background: isMe ? '#f8fafc' : '#f8fafc',
+                          background: isMe ? '#dcfce7' : '#f8fafc',
                           padding: '14px 16px',
                           border: isMe
-                            ? '2px solid rgba(139,21,56,0.35)'
+                            ? '1.5px solid #86efac'
                             : '1px solid rgba(15,23,42,0.08)',
                           display: 'flex',
                           alignItems: 'center',
@@ -313,33 +313,11 @@ export default async function JumpSchedulePage() {
                               fontSize: 15,
                               fontWeight: isMe ? 800 : 600,
                               color: '#0f172a',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 8,
-                              flexWrap: 'wrap',
                             }}
                           >
-                            <span>
-                              {soldier
-                                ? [soldier.rank, soldier.full_name].filter(Boolean).join(' ')
-                                : 'Unassigned'}
-                            </span>
-                            {/* removed YOU */ false && (
-                              <span
-                                style={{
-                                  borderRadius: 999,
-                                  background: '#8b1538',
-                                  color: '#ffffff',
-                                  padding: '4px 8px',
-                                  fontSize: 11,
-                                  fontWeight: 800,
-                                  letterSpacing: '0.08em',
-                                  textTransform: 'uppercase',
-                                }}
-                              >
-                                You
-                              </span>
-                            )}
+                            {soldier
+                              ? [soldier.rank, soldier.full_name].filter(Boolean).join(' ')
+                              : 'Unassigned'}
                           </div>
                         </div>
                       </div>
