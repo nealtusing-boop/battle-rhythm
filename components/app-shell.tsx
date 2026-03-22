@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { Profile } from '@/lib/types';
+import { PullToRefresh } from '@/components/pull-to-refresh';
 
 const navItems = [
   { href: '/home', label: 'Home', icon: House },
@@ -214,7 +215,7 @@ export function AppShell({
           padding: '24px 16px calc(40px + env(safe-area-inset-bottom)) 16px',
         }}
       >
-        {children}
+        <PullToRefresh>{children}</PullToRefresh>
       </main>
     </div>
   );
