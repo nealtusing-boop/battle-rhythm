@@ -265,6 +265,13 @@ function priorityStyle(priority: AlertPriority) {
   return { background: '#dcfce7', color: '#166534', label: 'Low' };
 }
 
+
+function formatMilitaryTime(value: string) {
+  const digits = value.replace(/\D/g, '').slice(0, 4);
+  if (digits.length <= 2) return digits;
+  return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+}
+
 function isValid24HourTime(value: string) {
   return /^([01]\d|2[0-3]):([0-5]\d)$/.test(value);
 }
@@ -412,7 +419,7 @@ function renderJumpForm(form: JumpFormState, setForm: JumpFormSetter, soldiers: 
       <input
         value={form.name}
         onChange={(e) =>
-          setForm((current) => ({ ...current, name: e.target.value }))
+          setForm((current) => ({ ...current, name: formatMilitaryTime(e.target.value) }))
         }
         placeholder="Jump name"
         style={inputStyle()}
@@ -420,7 +427,7 @@ function renderJumpForm(form: JumpFormState, setForm: JumpFormSetter, soldiers: 
       <input
         value={form.location}
         onChange={(e) =>
-          setForm((current) => ({ ...current, location: e.target.value }))
+          setForm((current) => ({ ...current, location: formatMilitaryTime(e.target.value) }))
         }
         placeholder="Location"
         style={inputStyle()}
@@ -428,7 +435,7 @@ function renderJumpForm(form: JumpFormState, setForm: JumpFormSetter, soldiers: 
       <input
         value={form.jump_date}
         onChange={(e) =>
-          setForm((current) => ({ ...current, jump_date: e.target.value }))
+          setForm((current) => ({ ...current, jump_date: formatMilitaryTime(e.target.value) }))
         }
         type="date"
         style={inputStyle()}
@@ -451,7 +458,7 @@ function renderJumpForm(form: JumpFormState, setForm: JumpFormSetter, soldiers: 
         <textarea
           value={form.equipment}
           onChange={(e) =>
-            setForm((current) => ({ ...current, equipment: e.target.value }))
+            setForm((current) => ({ ...current, equipment: formatMilitaryTime(e.target.value) }))
           }
           placeholder="Equipment list, separated by commas"
           style={{ ...inputStyle(), minHeight: 110, resize: 'vertical' }}
@@ -545,7 +552,7 @@ function renderWeeklyForm(form: WeeklyFormState, setForm: WeeklyFormSetter) {
       <input
         value={form.title}
         onChange={(e) =>
-          setForm((current) => ({ ...current, title: e.target.value }))
+          setForm((current) => ({ ...current, title: formatMilitaryTime(e.target.value) }))
         }
         placeholder="Title"
         style={inputStyle()}
@@ -554,7 +561,7 @@ function renderWeeklyForm(form: WeeklyFormState, setForm: WeeklyFormSetter) {
       <input
         value={form.event_date}
         onChange={(e) =>
-          setForm((current) => ({ ...current, event_date: e.target.value }))
+          setForm((current) => ({ ...current, event_date: formatMilitaryTime(e.target.value) }))
         }
         type="date"
         style={inputStyle()}
@@ -564,7 +571,7 @@ function renderWeeklyForm(form: WeeklyFormState, setForm: WeeklyFormSetter) {
         <input
           value={form.start_time}
           onChange={(e) =>
-            setForm((current) => ({ ...current, start_time: e.target.value }))
+            setForm((current) => ({ ...current, start_time: formatMilitaryTime(e.target.value) }))
           }
           placeholder="HH:MM"
           inputMode="numeric"
@@ -573,7 +580,7 @@ function renderWeeklyForm(form: WeeklyFormState, setForm: WeeklyFormSetter) {
         <input
           value={form.end_time}
           onChange={(e) =>
-            setForm((current) => ({ ...current, end_time: e.target.value }))
+            setForm((current) => ({ ...current, end_time: formatMilitaryTime(e.target.value) }))
           }
           placeholder="HH:MM"
           inputMode="numeric"
@@ -594,7 +601,7 @@ function renderWeeklyForm(form: WeeklyFormState, setForm: WeeklyFormSetter) {
       <input
         value={form.location}
         onChange={(e) =>
-          setForm((current) => ({ ...current, location: e.target.value }))
+          setForm((current) => ({ ...current, location: formatMilitaryTime(e.target.value) }))
         }
         placeholder="Location"
         style={inputStyle()}
@@ -603,7 +610,7 @@ function renderWeeklyForm(form: WeeklyFormState, setForm: WeeklyFormSetter) {
       <textarea
         value={form.description}
         onChange={(e) =>
-          setForm((current) => ({ ...current, description: e.target.value }))
+          setForm((current) => ({ ...current, description: formatMilitaryTime(e.target.value) }))
         }
         placeholder="Description"
         style={{ ...inputStyle(), minHeight: 110, resize: 'vertical' }}
@@ -618,7 +625,7 @@ function renderCalendarForm(form: CalendarFormState, setForm: CalendarFormSetter
       <input
         value={form.title}
         onChange={(e) =>
-          setForm((current) => ({ ...current, title: e.target.value }))
+          setForm((current) => ({ ...current, title: formatMilitaryTime(e.target.value) }))
         }
         placeholder="Title"
         style={inputStyle()}
@@ -626,7 +633,7 @@ function renderCalendarForm(form: CalendarFormState, setForm: CalendarFormSetter
       <input
         value={form.event_date}
         onChange={(e) =>
-          setForm((current) => ({ ...current, event_date: e.target.value }))
+          setForm((current) => ({ ...current, event_date: formatMilitaryTime(e.target.value) }))
         }
         type="date"
         style={inputStyle()}
@@ -634,7 +641,7 @@ function renderCalendarForm(form: CalendarFormState, setForm: CalendarFormSetter
       <input
         value={form.location}
         onChange={(e) =>
-          setForm((current) => ({ ...current, location: e.target.value }))
+          setForm((current) => ({ ...current, location: formatMilitaryTime(e.target.value) }))
         }
         placeholder="Location"
         style={inputStyle()}
@@ -642,7 +649,7 @@ function renderCalendarForm(form: CalendarFormState, setForm: CalendarFormSetter
       <textarea
         value={form.description}
         onChange={(e) =>
-          setForm((current) => ({ ...current, description: e.target.value }))
+          setForm((current) => ({ ...current, description: formatMilitaryTime(e.target.value) }))
         }
         placeholder="Description"
         style={{ ...inputStyle(), minHeight: 110, resize: 'vertical' }}
@@ -657,7 +664,7 @@ function renderPeriodForm(form: PeriodFormState, setForm: PeriodFormSetter) {
       <input
         value={form.title}
         onChange={(e) =>
-          setForm((current) => ({ ...current, title: e.target.value }))
+          setForm((current) => ({ ...current, title: formatMilitaryTime(e.target.value) }))
         }
         placeholder="Title"
         style={inputStyle()}
@@ -679,7 +686,7 @@ function renderPeriodForm(form: PeriodFormState, setForm: PeriodFormSetter) {
         <input
           value={form.start_date}
           onChange={(e) =>
-            setForm((current) => ({ ...current, start_date: e.target.value }))
+            setForm((current) => ({ ...current, start_date: formatMilitaryTime(e.target.value) }))
           }
           type="date"
           style={inputStyle()}
@@ -687,7 +694,7 @@ function renderPeriodForm(form: PeriodFormState, setForm: PeriodFormSetter) {
         <input
           value={form.end_date}
           onChange={(e) =>
-            setForm((current) => ({ ...current, end_date: e.target.value }))
+            setForm((current) => ({ ...current, end_date: formatMilitaryTime(e.target.value) }))
           }
           type="date"
           style={inputStyle()}
@@ -703,7 +710,7 @@ function renderCqForm(form: CqFormState, setForm: CqFormSetter, soldiers: Profil
       <input
         value={form.shift_date}
         onChange={(e) =>
-          setForm((current) => ({ ...current, shift_date: e.target.value }))
+          setForm((current) => ({ ...current, shift_date: formatMilitaryTime(e.target.value) }))
         }
         type="date"
         style={inputStyle()}
@@ -712,7 +719,7 @@ function renderCqForm(form: CqFormState, setForm: CqFormSetter, soldiers: Profil
       <select
         value={form.soldier_one_id}
         onChange={(e) =>
-          setForm((current) => ({ ...current, soldier_one_id: e.target.value }))
+          setForm((current) => ({ ...current, soldier_one_id: formatMilitaryTime(e.target.value) }))
         }
         style={inputStyle()}
       >
@@ -727,7 +734,7 @@ function renderCqForm(form: CqFormState, setForm: CqFormSetter, soldiers: Profil
       <select
         value={form.soldier_two_id}
         onChange={(e) =>
-          setForm((current) => ({ ...current, soldier_two_id: e.target.value }))
+          setForm((current) => ({ ...current, soldier_two_id: formatMilitaryTime(e.target.value) }))
         }
         style={inputStyle()}
       >
@@ -748,7 +755,7 @@ function renderDetailForm(form: DetailFormState, setForm: DetailFormSetter, sold
       <input
         value={form.title}
         onChange={(e) =>
-          setForm((current) => ({ ...current, title: e.target.value }))
+          setForm((current) => ({ ...current, title: formatMilitaryTime(e.target.value) }))
         }
         placeholder="Detail title"
         style={inputStyle()}
@@ -757,7 +764,7 @@ function renderDetailForm(form: DetailFormState, setForm: DetailFormSetter, sold
       <input
         value={form.detail_date}
         onChange={(e) =>
-          setForm((current) => ({ ...current, detail_date: e.target.value }))
+          setForm((current) => ({ ...current, detail_date: formatMilitaryTime(e.target.value) }))
         }
         type="date"
         style={inputStyle()}
@@ -767,7 +774,7 @@ function renderDetailForm(form: DetailFormState, setForm: DetailFormSetter, sold
         <input
           value={form.start_time}
           onChange={(e) =>
-            setForm((current) => ({ ...current, start_time: e.target.value }))
+            setForm((current) => ({ ...current, start_time: formatMilitaryTime(e.target.value) }))
           }
           placeholder="HH:MM"
           inputMode="numeric"
@@ -777,7 +784,7 @@ function renderDetailForm(form: DetailFormState, setForm: DetailFormSetter, sold
         <input
           value={form.end_time}
           onChange={(e) =>
-            setForm((current) => ({ ...current, end_time: e.target.value }))
+            setForm((current) => ({ ...current, end_time: formatMilitaryTime(e.target.value) }))
           }
           placeholder="HH:MM"
           inputMode="numeric"
@@ -798,7 +805,7 @@ function renderDetailForm(form: DetailFormState, setForm: DetailFormSetter, sold
       <input
         value={form.location}
         onChange={(e) =>
-          setForm((current) => ({ ...current, location: e.target.value }))
+          setForm((current) => ({ ...current, location: formatMilitaryTime(e.target.value) }))
         }
         placeholder="Location"
         style={inputStyle()}
@@ -807,7 +814,7 @@ function renderDetailForm(form: DetailFormState, setForm: DetailFormSetter, sold
       <input
         value={form.leader}
         onChange={(e) =>
-          setForm((current) => ({ ...current, leader: e.target.value }))
+          setForm((current) => ({ ...current, leader: formatMilitaryTime(e.target.value) }))
         }
         placeholder="OIC / NCOIC"
         style={inputStyle()}
@@ -816,7 +823,7 @@ function renderDetailForm(form: DetailFormState, setForm: DetailFormSetter, sold
       <textarea
         value={form.notes}
         onChange={(e) =>
-          setForm((current) => ({ ...current, notes: e.target.value }))
+          setForm((current) => ({ ...current, notes: formatMilitaryTime(e.target.value) }))
         }
         placeholder="Notes"
         style={{ ...inputStyle(), minHeight: 110, resize: 'vertical' }}

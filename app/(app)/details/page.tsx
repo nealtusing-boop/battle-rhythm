@@ -31,6 +31,15 @@ function normalizeProfile(
   return Array.isArray(value) ? value[0] ?? null : value;
 }
 
+
+function formatShortDate(dateString: string) {
+  return new Date(dateString + 'T00:00:00').toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
 function formatTimeRange(startTime: string | null, endTime: string | null) {
   if (startTime && endTime) return `${startTime} - ${endTime}`;
   if (startTime) return startTime;
@@ -210,7 +219,7 @@ export default async function DetailsPage() {
                         lineHeight: 1.6,
                       }}
                     >
-                      {detail.detail_date} • {formatTimeRange(detail.start_time, detail.end_time)}
+                      {formatShortDate(detail.detail_date)} • {formatTimeRange(detail.start_time, detail.end_time)}
                       {detail.location ? ` • ${detail.location}` : ''}
                     </div>
 
