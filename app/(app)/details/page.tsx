@@ -107,7 +107,7 @@ export default async function DetailsPage() {
               color: 'rgba(255,255,255,0.82)',
             }}
           >
-            See who is on what, where to be, and who is running it.
+            
           </p>
         </div>
       </section>
@@ -146,7 +146,7 @@ export default async function DetailsPage() {
               color: '#64748b',
             }}
           >
-            Upcoming details and assigned personnel.
+            
           </p>
         </div>
 
