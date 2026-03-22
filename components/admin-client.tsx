@@ -1,6 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/browser';
 import type { AlertPriority, JumpType, Profile } from '@/lib/types';
@@ -83,6 +90,45 @@ type JumpFormState = {
   equipment: string;
   manifestIds: string[];
 };
+
+type WeeklyFormState = {
+  id: string;
+  title: string;
+  event_date: string;
+  start_time: string;
+  end_time: string;
+  location: string;
+  description: string;
+};
+
+type CalendarFormState = {
+  id: string;
+  title: string;
+  event_date: string;
+  location: string;
+  description: string;
+};
+
+type PeriodFormState = {
+  id: string;
+  title: string;
+  period_type: 'leave' | 'donsa';
+  start_date: string;
+  end_date: string;
+};
+
+type CqFormState = {
+  id: string;
+  shift_date: string;
+  soldier_one_id: string;
+  soldier_two_id: string;
+};
+
+type JumpFormSetter = Dispatch<SetStateAction<JumpFormState>>;
+type WeeklyFormSetter = Dispatch<SetStateAction<WeeklyFormState>>;
+type CalendarFormSetter = Dispatch<SetStateAction<CalendarFormState>>;
+type PeriodFormSetter = Dispatch<SetStateAction<PeriodFormState>>;
+type CqFormSetter = Dispatch<SetStateAction<CqFormState>>;
 
 function normalizeProfile(value: Profile | Profile[] | null | undefined): Profile | null {
   if (!value) return null;
@@ -182,6 +228,47 @@ function emptyJumpForm(): JumpFormState {
   };
 }
 
+function emptyWeeklyForm(): WeeklyFormState {
+  return {
+    id: '',
+    title: '',
+    event_date: '',
+    start_time: '',
+    end_time: '',
+    location: '',
+    description: '',
+  };
+}
+
+function emptyCalendarForm(): CalendarFormState {
+  return {
+    id: '',
+    title: '',
+    event_date: '',
+    location: '',
+    description: '',
+  };
+}
+
+function emptyPeriodForm(): PeriodFormState {
+  return {
+    id: '',
+    title: '',
+    period_type: 'leave',
+    start_date: '',
+    end_date: '',
+  };
+}
+
+function emptyCqForm(): CqFormState {
+  return {
+    id: '',
+    shift_date: '',
+    soldier_one_id: '',
+    soldier_two_id: '',
+  };
+}
+
 function buildJumpForm(jump: ExistingJump): JumpFormState {
   return {
     id: jump.id,
@@ -197,7 +284,46 @@ function buildJumpForm(jump: ExistingJump): JumpFormState {
   };
 }
 
-type JumpFormSetter = Dispatch<SetStateAction<JumpFormState | null>>;
+function buildWeeklyForm(event: ExistingWeeklyEvent): WeeklyFormState {
+  return {
+    id: event.id,
+    title: event.title,
+    event_date: event.event_date,
+    start_time: event.start_time ?? '',
+    end_time: event.end_time ?? '',
+    location: event.location ?? '',
+    description: event.description ?? '',
+  };
+}
+
+function buildCalendarForm(event: ExistingLongRangeEvent): CalendarFormState {
+  return {
+    id: event.id,
+    title: event.title,
+    event_date: event.event_date,
+    location: event.location ?? '',
+    description: event.description ?? '',
+  };
+}
+
+function buildPeriodForm(period: ExistingPeriod): PeriodFormState {
+  return {
+    id: period.id,
+    title: period.title,
+    period_type: period.period_type,
+    start_date: period.start_date,
+    end_date: period.end_date,
+  };
+}
+
+function buildCqForm(shift: ExistingCqShift): CqFormState {
+  return {
+    id: shift.id,
+    shift_date: shift.shift_date,
+    soldier_one_id: shift.soldier_one_id ?? '',
+    soldier_two_id: shift.soldier_two_id ?? '',
+  };
+}
 
 function renderJumpForm(form: JumpFormState, setForm: JumpFormSetter, soldiers: Profile[]) {
   return (
@@ -205,7 +331,7 @@ function renderJumpForm(form: JumpFormState, setForm: JumpFormSetter, soldiers: 
       <input
         value={form.name}
         onChange={(e) =>
-          setForm((current) => (current ? { ...current, name: e.target.value } : current))
+          setForm((current) => ({ ...current, name: e.target.value }))
         }
         placeholder="Jump name"
         style={inputStyle()}
@@ -213,7 +339,7 @@ function renderJumpForm(form: JumpFormState, setForm: JumpFormSetter, soldiers: 
       <input
         value={form.location}
         onChange={(e) =>
-          setForm((current) => (current ? { ...current, location: e.target.value } : current))
+          setForm((current) => ({ ...current, location: e.target.value }))
         }
         placeholder="Location"
         style={inputStyle()}
@@ -221,7 +347,7 @@ function renderJumpForm(form: JumpFormState, setForm: JumpFormSetter, soldiers: 
       <input
         value={form.jump_date}
         onChange={(e) =>
-          setForm((current) => (current ? { ...current, jump_date: e.target.value } : current))
+          setForm((current) => ({ ...current, jump_date: e.target.value }))
         }
         type="date"
         style={inputStyle()}
@@ -229,9 +355,10 @@ function renderJumpForm(form: JumpFormState, setForm: JumpFormSetter, soldiers: 
       <select
         value={form.jump_type}
         onChange={(e) =>
-          setForm((current) =>
-            current ? { ...current, jump_type: e.target.value as JumpType } : current
-          )
+          setForm((current) => ({
+            ...current,
+            jump_type: e.target.value as JumpType,
+          }))
         }
         style={inputStyle()}
       >
@@ -243,7 +370,7 @@ function renderJumpForm(form: JumpFormState, setForm: JumpFormSetter, soldiers: 
         <textarea
           value={form.equipment}
           onChange={(e) =>
-            setForm((current) => (current ? { ...current, equipment: e.target.value } : current))
+            setForm((current) => ({ ...current, equipment: e.target.value }))
           }
           placeholder="Equipment list, separated by commas"
           style={{ ...inputStyle(), minHeight: 110, resize: 'vertical' }}
@@ -298,8 +425,6 @@ function renderJumpForm(form: JumpFormState, setForm: JumpFormSetter, soldiers: 
                   checked={checked}
                   onChange={(e) => {
                     setForm((current) => {
-                      if (!current) return current;
-
                       if (e.target.checked) {
                         return {
                           ...current,
@@ -333,6 +458,295 @@ function renderJumpForm(form: JumpFormState, setForm: JumpFormSetter, soldiers: 
   );
 }
 
+function renderWeeklyForm(form: WeeklyFormState, setForm: WeeklyFormSetter) {
+  return (
+    <div style={{ display: 'grid', gap: 14, minWidth: 0 }}>
+      <input
+        value={form.title}
+        onChange={(e) =>
+          setForm((current) => ({ ...current, title: e.target.value }))
+        }
+        placeholder="Title"
+        style={inputStyle()}
+      />
+
+      <input
+        value={form.event_date}
+        onChange={(e) =>
+          setForm((current) => ({ ...current, event_date: e.target.value }))
+        }
+        type="date"
+        style={inputStyle()}
+      />
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+        <input
+          value={form.start_time}
+          onChange={(e) =>
+            setForm((current) => ({ ...current, start_time: e.target.value }))
+          }
+          placeholder="HH:MM"
+          inputMode="numeric"
+          style={inputStyle()}
+        />
+        <input
+          value={form.end_time}
+          onChange={(e) =>
+            setForm((current) => ({ ...current, end_time: e.target.value }))
+          }
+          placeholder="HH:MM"
+          inputMode="numeric"
+          style={inputStyle()}
+        />
+      </div>
+
+      <div
+        style={{
+          marginTop: -4,
+          fontSize: 13,
+          color: '#64748b',
+        }}
+      >
+        Use 24-hour time format like 06:30, 13:00, or 18:45.
+      </div>
+
+      <input
+        value={form.location}
+        onChange={(e) =>
+          setForm((current) => ({ ...current, location: e.target.value }))
+        }
+        placeholder="Location"
+        style={inputStyle()}
+      />
+
+      <textarea
+        value={form.description}
+        onChange={(e) =>
+          setForm((current) => ({ ...current, description: e.target.value }))
+        }
+        placeholder="Description"
+        style={{ ...inputStyle(), minHeight: 110, resize: 'vertical' }}
+      />
+    </div>
+  );
+}
+
+function renderCalendarForm(form: CalendarFormState, setForm: CalendarFormSetter) {
+  return (
+    <div style={{ display: 'grid', gap: 14, minWidth: 0 }}>
+      <input
+        value={form.title}
+        onChange={(e) =>
+          setForm((current) => ({ ...current, title: e.target.value }))
+        }
+        placeholder="Title"
+        style={inputStyle()}
+      />
+      <input
+        value={form.event_date}
+        onChange={(e) =>
+          setForm((current) => ({ ...current, event_date: e.target.value }))
+        }
+        type="date"
+        style={inputStyle()}
+      />
+      <input
+        value={form.location}
+        onChange={(e) =>
+          setForm((current) => ({ ...current, location: e.target.value }))
+        }
+        placeholder="Location"
+        style={inputStyle()}
+      />
+      <textarea
+        value={form.description}
+        onChange={(e) =>
+          setForm((current) => ({ ...current, description: e.target.value }))
+        }
+        placeholder="Description"
+        style={{ ...inputStyle(), minHeight: 110, resize: 'vertical' }}
+      />
+    </div>
+  );
+}
+
+function renderPeriodForm(form: PeriodFormState, setForm: PeriodFormSetter) {
+  return (
+    <div style={{ display: 'grid', gap: 14, minWidth: 0 }}>
+      <input
+        value={form.title}
+        onChange={(e) =>
+          setForm((current) => ({ ...current, title: e.target.value }))
+        }
+        placeholder="Title"
+        style={inputStyle()}
+      />
+      <select
+        value={form.period_type}
+        onChange={(e) =>
+          setForm((current) => ({
+            ...current,
+            period_type: e.target.value as 'leave' | 'donsa',
+          }))
+        }
+        style={inputStyle()}
+      >
+        <option value="leave">Leave</option>
+        <option value="donsa">DONSA</option>
+      </select>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+        <input
+          value={form.start_date}
+          onChange={(e) =>
+            setForm((current) => ({ ...current, start_date: e.target.value }))
+          }
+          type="date"
+          style={inputStyle()}
+        />
+        <input
+          value={form.end_date}
+          onChange={(e) =>
+            setForm((current) => ({ ...current, end_date: e.target.value }))
+          }
+          type="date"
+          style={inputStyle()}
+        />
+      </div>
+    </div>
+  );
+}
+
+function renderCqForm(form: CqFormState, setForm: CqFormSetter, soldiers: Profile[]) {
+  return (
+    <div style={{ display: 'grid', gap: 14, minWidth: 0 }}>
+      <input
+        value={form.shift_date}
+        onChange={(e) =>
+          setForm((current) => ({ ...current, shift_date: e.target.value }))
+        }
+        type="date"
+        style={inputStyle()}
+      />
+
+      <select
+        value={form.soldier_one_id}
+        onChange={(e) =>
+          setForm((current) => ({ ...current, soldier_one_id: e.target.value }))
+        }
+        style={inputStyle()}
+      >
+        <option value="">Select first soldier</option>
+        {soldiers.map((soldier) => (
+          <option key={soldier.id} value={soldier.id}>
+            {soldier.rank} {soldier.full_name}
+          </option>
+        ))}
+      </select>
+
+      <select
+        value={form.soldier_two_id}
+        onChange={(e) =>
+          setForm((current) => ({ ...current, soldier_two_id: e.target.value }))
+        }
+        style={inputStyle()}
+      >
+        <option value="">Select second soldier</option>
+        {soldiers.map((soldier) => (
+          <option key={soldier.id} value={soldier.id}>
+            {soldier.rank} {soldier.full_name}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function ModalShell({
+  title,
+  description,
+  onClose,
+  children,
+}: {
+  title: string;
+  description: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(15,23,42,0.45)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16,
+        zIndex: 1000,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: '100%',
+          maxWidth: 560,
+          maxHeight: '90vh',
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          background: '#ffffff',
+          borderRadius: 30,
+          padding: 22,
+          boxShadow: '0 24px 60px rgba(15,23,42,0.28)',
+          boxSizing: 'border-box',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: 16,
+            marginBottom: 16,
+            flexWrap: 'wrap',
+          }}
+        >
+          <div style={{ minWidth: 0 }}>
+            <h2 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: '#0f172a' }}>
+              {title}
+            </h2>
+            <p
+              style={{
+                marginTop: 8,
+                marginBottom: 0,
+                fontSize: 14,
+                color: '#64748b',
+                overflowWrap: 'anywhere',
+              }}
+            >
+              {description}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              ...secondaryButtonStyle(),
+              padding: '10px 14px',
+              lineHeight: 1,
+            }}
+          >
+            Close
+          </button>
+        </div>
+
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export function AdminClient() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
@@ -356,48 +770,29 @@ export function AdminClient() {
   const [busyDeletingCalendarId, setBusyDeletingCalendarId] = useState<string | null>(null);
   const [busyDeletingJumpId, setBusyDeletingJumpId] = useState<string | null>(null);
 
+  const [busySavingWeeklyEdit, setBusySavingWeeklyEdit] = useState(false);
+  const [busySavingCalendarEdit, setBusySavingCalendarEdit] = useState(false);
+  const [busySavingPeriodEdit, setBusySavingPeriodEdit] = useState(false);
+  const [busySavingCqEdit, setBusySavingCqEdit] = useState(false);
+  const [busySavingJumpEdit, setBusySavingJumpEdit] = useState(false);
+
   const [alertMessage, setAlertMessage] = useState('');
   const [alertPriority, setAlertPriority] = useState<AlertPriority>('medium');
 
-  const [weeklyForm, setWeeklyForm] = useState({
-    id: '',
-    title: '',
-    event_date: '',
-    start_time: '',
-    end_time: '',
-    location: '',
-    description: '',
-  });
-
-  const [calendarForm, setCalendarForm] = useState({
-    id: '',
-    title: '',
-    event_date: '',
-    location: '',
-    description: '',
-  });
-
-  const [periodForm, setPeriodForm] = useState({
-    id: '',
-    title: '',
-    period_type: 'leave',
-    start_date: '',
-    end_date: '',
-  });
-
-  const [cqForm, setCqForm] = useState({
-    id: '',
-    shift_date: '',
-    soldier_one_id: '',
-    soldier_two_id: '',
-  });
-
+  const [weeklyForm, setWeeklyForm] = useState<WeeklyFormState>(emptyWeeklyForm());
+  const [calendarForm, setCalendarForm] = useState<CalendarFormState>(emptyCalendarForm());
+  const [periodForm, setPeriodForm] = useState<PeriodFormState>(emptyPeriodForm());
+  const [cqForm, setCqForm] = useState<CqFormState>(emptyCqForm());
   const [jumpForm, setJumpForm] = useState<JumpFormState>(emptyJumpForm());
+
+  const [editingWeeklyForm, setEditingWeeklyForm] = useState<WeeklyFormState | null>(null);
+  const [editingCalendarForm, setEditingCalendarForm] = useState<CalendarFormState | null>(null);
+  const [editingPeriodForm, setEditingPeriodForm] = useState<PeriodFormState | null>(null);
+  const [editingCqForm, setEditingCqForm] = useState<CqFormState | null>(null);
   const [editingJumpForm, setEditingJumpForm] = useState<JumpFormState | null>(null);
-  const [busySavingJumpEdit, setBusySavingJumpEdit] = useState(false);
 
   useEffect(() => {
-    loadInitial();
+    void loadInitial();
   }, []);
 
   async function loadInitial() {
@@ -521,37 +916,39 @@ export function AdminClient() {
     router.refresh();
   }
 
-  async function saveWeeklyEvent() {
+  async function saveWeeklyEvent(formOverride?: WeeklyFormState) {
     setStatus(null);
 
-    if (weeklyForm.start_time && !isValid24HourTime(weeklyForm.start_time)) {
+    const form = formOverride ?? weeklyForm;
+
+    if (form.start_time && !isValid24HourTime(form.start_time)) {
       setStatus('Start time must be in 24-hour HH:MM format.');
-      return;
+      return false;
     }
 
-    if (weeklyForm.end_time && !isValid24HourTime(weeklyForm.end_time)) {
+    if (form.end_time && !isValid24HourTime(form.end_time)) {
       setStatus('End time must be in 24-hour HH:MM format.');
-      return;
+      return false;
     }
 
     const payload = {
-      title: weeklyForm.title,
-      event_date: weeklyForm.event_date,
-      start_time: weeklyForm.start_time || null,
-      end_time: weeklyForm.end_time || null,
-      location: weeklyForm.location || null,
-      description: weeklyForm.description || null,
+      title: form.title,
+      event_date: form.event_date,
+      start_time: form.start_time || null,
+      end_time: form.end_time || null,
+      location: form.location || null,
+      description: form.description || null,
     };
 
-    if (weeklyForm.id) {
+    if (form.id) {
       const { error } = await supabase
         .from('weekly_training_events')
         .update(payload)
-        .eq('id', weeklyForm.id);
+        .eq('id', form.id);
 
       if (error) {
         setStatus(error.message);
-        return;
+        return false;
       }
 
       setStatus('Weekly training event updated.');
@@ -560,39 +957,39 @@ export function AdminClient() {
 
       if (error) {
         setStatus(error.message);
-        return;
+        return false;
       }
 
       setStatus('Weekly training event created.');
     }
 
-    setWeeklyForm({
-      id: '',
-      title: '',
-      event_date: '',
-      start_time: '',
-      end_time: '',
-      location: '',
-      description: '',
-    });
+    if (!formOverride) {
+      setWeeklyForm(emptyWeeklyForm());
+    }
 
     await loadInitial();
     router.refresh();
+    return true;
   }
 
-  function editWeeklyEvent(event: ExistingWeeklyEvent) {
-    setActive('weekly');
-    setWeeklyForm({
-      id: event.id,
-      title: event.title,
-      event_date: event.event_date,
-      start_time: event.start_time ?? '',
-      end_time: event.end_time ?? '',
-      location: event.location ?? '',
-      description: event.description ?? '',
-    });
+  function openWeeklyEditor(event: ExistingWeeklyEvent) {
+    setEditingWeeklyForm(buildWeeklyForm(event));
+  }
 
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  function closeWeeklyEditor() {
+    setEditingWeeklyForm(null);
+  }
+
+  async function saveEditingWeeklyEvent() {
+    if (!editingWeeklyForm) return;
+
+    setBusySavingWeeklyEdit(true);
+    const ok = await saveWeeklyEvent(editingWeeklyForm);
+    setBusySavingWeeklyEdit(false);
+
+    if (ok) {
+      closeWeeklyEditor();
+    }
   }
 
   async function deleteWeeklyEvent(eventId: string) {
@@ -607,31 +1004,37 @@ export function AdminClient() {
       return;
     }
 
+    if (editingWeeklyForm?.id === eventId) {
+      setEditingWeeklyForm(null);
+    }
+
     setStatus('Weekly training event deleted.');
     setBusyDeletingWeeklyId(null);
     await loadInitial();
     router.refresh();
   }
 
-  async function saveCalendarEvent() {
+  async function saveCalendarEvent(formOverride?: CalendarFormState) {
     setStatus(null);
 
+    const form = formOverride ?? calendarForm;
+
     const payload = {
-      title: calendarForm.title,
-      event_date: calendarForm.event_date,
-      location: calendarForm.location || null,
-      description: calendarForm.description || null,
+      title: form.title,
+      event_date: form.event_date,
+      location: form.location || null,
+      description: form.description || null,
     };
 
-    if (calendarForm.id) {
+    if (form.id) {
       const { error } = await supabase
         .from('long_range_events')
         .update(payload)
-        .eq('id', calendarForm.id);
+        .eq('id', form.id);
 
       if (error) {
         setStatus(error.message);
-        return;
+        return false;
       }
 
       setStatus('Long range event updated.');
@@ -640,35 +1043,39 @@ export function AdminClient() {
 
       if (error) {
         setStatus(error.message);
-        return;
+        return false;
       }
 
       setStatus('Long range event created.');
     }
 
-    setCalendarForm({
-      id: '',
-      title: '',
-      event_date: '',
-      location: '',
-      description: '',
-    });
+    if (!formOverride) {
+      setCalendarForm(emptyCalendarForm());
+    }
 
     await loadInitial();
     router.refresh();
+    return true;
   }
 
-  function editCalendarEvent(event: ExistingLongRangeEvent) {
-    setActive('calendar');
-    setCalendarForm({
-      id: event.id,
-      title: event.title,
-      event_date: event.event_date,
-      location: event.location ?? '',
-      description: event.description ?? '',
-    });
+  function openCalendarEditor(event: ExistingLongRangeEvent) {
+    setEditingCalendarForm(buildCalendarForm(event));
+  }
 
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  function closeCalendarEditor() {
+    setEditingCalendarForm(null);
+  }
+
+  async function saveEditingCalendarEvent() {
+    if (!editingCalendarForm) return;
+
+    setBusySavingCalendarEdit(true);
+    const ok = await saveCalendarEvent(editingCalendarForm);
+    setBusySavingCalendarEdit(false);
+
+    if (ok) {
+      closeCalendarEditor();
+    }
   }
 
   async function deleteCalendarEvent(eventId: string) {
@@ -683,31 +1090,37 @@ export function AdminClient() {
       return;
     }
 
+    if (editingCalendarForm?.id === eventId) {
+      setEditingCalendarForm(null);
+    }
+
     setStatus('Long range event deleted.');
     setBusyDeletingCalendarId(null);
     await loadInitial();
     router.refresh();
   }
 
-  async function savePeriod() {
+  async function savePeriod(formOverride?: PeriodFormState) {
     setStatus(null);
 
+    const form = formOverride ?? periodForm;
+
     const payload = {
-      title: periodForm.title,
-      period_type: periodForm.period_type,
-      start_date: periodForm.start_date,
-      end_date: periodForm.end_date,
+      title: form.title,
+      period_type: form.period_type,
+      start_date: form.start_date,
+      end_date: form.end_date,
     };
 
-    if (periodForm.id) {
+    if (form.id) {
       const { error } = await supabase
         .from('leave_donsa_periods')
         .update(payload)
-        .eq('id', periodForm.id);
+        .eq('id', form.id);
 
       if (error) {
         setStatus(error.message);
-        return;
+        return false;
       }
 
       setStatus('Leave / DONSA updated.');
@@ -716,22 +1129,39 @@ export function AdminClient() {
 
       if (error) {
         setStatus(error.message);
-        return;
+        return false;
       }
 
       setStatus('Leave / DONSA created.');
     }
 
-    setPeriodForm({
-      id: '',
-      title: '',
-      period_type: 'leave',
-      start_date: '',
-      end_date: '',
-    });
+    if (!formOverride) {
+      setPeriodForm(emptyPeriodForm());
+    }
 
     await loadInitial();
     router.refresh();
+    return true;
+  }
+
+  function openPeriodEditor(period: ExistingPeriod) {
+    setEditingPeriodForm(buildPeriodForm(period));
+  }
+
+  function closePeriodEditor() {
+    setEditingPeriodForm(null);
+  }
+
+  async function saveEditingPeriod() {
+    if (!editingPeriodForm) return;
+
+    setBusySavingPeriodEdit(true);
+    const ok = await savePeriod(editingPeriodForm);
+    setBusySavingPeriodEdit(false);
+
+    if (ok) {
+      closePeriodEditor();
+    }
   }
 
   async function deletePeriod(periodId: string) {
@@ -746,40 +1176,33 @@ export function AdminClient() {
       return;
     }
 
+    if (editingPeriodForm?.id === periodId) {
+      setEditingPeriodForm(null);
+    }
+
     setStatus('Leave / DONSA deleted.');
     setBusyDeletingPeriodId(null);
     await loadInitial();
     router.refresh();
   }
 
-  function editPeriod(period: ExistingPeriod) {
-    setActive('leave');
-    setPeriodForm({
-      id: period.id,
-      title: period.title,
-      period_type: period.period_type,
-      start_date: period.start_date,
-      end_date: period.end_date,
-    });
-
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
-
-  async function saveCQShift() {
+  async function saveCQShift(formOverride?: CqFormState) {
     setStatus(null);
 
+    const form = formOverride ?? cqForm;
+
     const payload = {
-      shift_date: cqForm.shift_date,
-      soldier_one_id: cqForm.soldier_one_id,
-      soldier_two_id: cqForm.soldier_two_id,
+      shift_date: form.shift_date,
+      soldier_one_id: form.soldier_one_id || null,
+      soldier_two_id: form.soldier_two_id || null,
     };
 
-    if (cqForm.id) {
-      const { error } = await supabase.from('cq_shifts').update(payload).eq('id', cqForm.id);
+    if (form.id) {
+      const { error } = await supabase.from('cq_shifts').update(payload).eq('id', form.id);
 
       if (error) {
         setStatus(error.message);
-        return;
+        return false;
       }
 
       setStatus('CQ shift updated.');
@@ -788,21 +1211,39 @@ export function AdminClient() {
 
       if (error) {
         setStatus(error.message);
-        return;
+        return false;
       }
 
       setStatus('CQ shift created.');
     }
 
-    setCqForm({
-      id: '',
-      shift_date: '',
-      soldier_one_id: '',
-      soldier_two_id: '',
-    });
+    if (!formOverride) {
+      setCqForm(emptyCqForm());
+    }
 
     await loadInitial();
     router.refresh();
+    return true;
+  }
+
+  function openCQEditor(shift: ExistingCqShift) {
+    setEditingCqForm(buildCqForm(shift));
+  }
+
+  function closeCQEditor() {
+    setEditingCqForm(null);
+  }
+
+  async function saveEditingCQShift() {
+    if (!editingCqForm) return;
+
+    setBusySavingCqEdit(true);
+    const ok = await saveCQShift(editingCqForm);
+    setBusySavingCqEdit(false);
+
+    if (ok) {
+      closeCQEditor();
+    }
   }
 
   async function deleteCQShift(shiftId: string) {
@@ -817,22 +1258,14 @@ export function AdminClient() {
       return;
     }
 
+    if (editingCqForm?.id === shiftId) {
+      setEditingCqForm(null);
+    }
+
     setStatus('CQ shift deleted.');
     setBusyDeletingShiftId(null);
     await loadInitial();
     router.refresh();
-  }
-
-  function editCQShift(shift: ExistingCqShift) {
-    setActive('cq');
-    setCqForm({
-      id: shift.id,
-      shift_date: shift.shift_date,
-      soldier_one_id: shift.soldier_one_id ?? '',
-      soldier_two_id: shift.soldier_two_id ?? '',
-    });
-
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   async function saveJump(formOverride?: JumpFormState) {
@@ -962,10 +1395,59 @@ export function AdminClient() {
   const jumpFormAdapter: JumpFormSetter = (value) => {
     setJumpForm((current) => {
       if (typeof value === 'function') {
-        const next = value(current);
-        return next ?? current;
+        return value(current);
       }
-      return value ?? current;
+      return value;
+    });
+  };
+
+  const editingWeeklyFormAdapter: WeeklyFormSetter = (value) => {
+    setEditingWeeklyForm((current) => {
+      if (!current) return current;
+      if (typeof value === 'function') {
+        return value(current);
+      }
+      return value;
+    });
+  };
+
+  const editingCalendarFormAdapter: CalendarFormSetter = (value) => {
+    setEditingCalendarForm((current) => {
+      if (!current) return current;
+      if (typeof value === 'function') {
+        return value(current);
+      }
+      return value;
+    });
+  };
+
+  const editingPeriodFormAdapter: PeriodFormSetter = (value) => {
+    setEditingPeriodForm((current) => {
+      if (!current) return current;
+      if (typeof value === 'function') {
+        return value(current);
+      }
+      return value;
+    });
+  };
+
+  const editingCqFormAdapter: CqFormSetter = (value) => {
+    setEditingCqForm((current) => {
+      if (!current) return current;
+      if (typeof value === 'function') {
+        return value(current);
+      }
+      return value;
+    });
+  };
+
+  const editingJumpFormAdapter: JumpFormSetter = (value) => {
+    setEditingJumpForm((current) => {
+      if (!current) return current;
+      if (typeof value === 'function') {
+        return value(current);
+      }
+      return value;
     });
   };
 
@@ -1203,89 +1685,15 @@ export function AdminClient() {
           <>
             <section style={sectionStyle()}>
               <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 24, fontWeight: 800 }}>
-                Add or Edit Weekly Training Event
+                Add Weekly Training Event
               </h2>
 
-              <div style={{ display: 'grid', gap: 14, minWidth: 0 }}>
-                <input
-                  value={weeklyForm.title}
-                  onChange={(e) => setWeeklyForm({ ...weeklyForm, title: e.target.value })}
-                  placeholder="Title"
-                  style={inputStyle()}
-                />
+              {renderWeeklyForm(weeklyForm, setWeeklyForm)}
 
-                <input
-                  value={weeklyForm.event_date}
-                  onChange={(e) => setWeeklyForm({ ...weeklyForm, event_date: e.target.value })}
-                  type="date"
-                  style={inputStyle()}
-                />
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
-                  <input
-                    value={weeklyForm.start_time}
-                    onChange={(e) => setWeeklyForm({ ...weeklyForm, start_time: e.target.value })}
-                    placeholder="HH:MM"
-                    inputMode="numeric"
-                    style={inputStyle()}
-                  />
-                  <input
-                    value={weeklyForm.end_time}
-                    onChange={(e) => setWeeklyForm({ ...weeklyForm, end_time: e.target.value })}
-                    placeholder="HH:MM"
-                    inputMode="numeric"
-                    style={inputStyle()}
-                  />
-                </div>
-
-                <div
-                  style={{
-                    marginTop: -4,
-                    fontSize: 13,
-                    color: '#64748b',
-                  }}
-                >
-                  Use 24-hour time format like 06:30, 13:00, or 18:45.
-                </div>
-
-                <input
-                  value={weeklyForm.location}
-                  onChange={(e) => setWeeklyForm({ ...weeklyForm, location: e.target.value })}
-                  placeholder="Location"
-                  style={inputStyle()}
-                />
-
-                <textarea
-                  value={weeklyForm.description}
-                  onChange={(e) => setWeeklyForm({ ...weeklyForm, description: e.target.value })}
-                  placeholder="Description"
-                  style={{ ...inputStyle(), minHeight: 110, resize: 'vertical' }}
-                />
-
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  <button onClick={saveWeeklyEvent} style={buttonStyle(true)}>
-                    {weeklyForm.id ? 'Update Event' : 'Save Event'}
-                  </button>
-
-                  {weeklyForm.id && (
-                    <button
-                      onClick={() =>
-                        setWeeklyForm({
-                          id: '',
-                          title: '',
-                          event_date: '',
-                          start_time: '',
-                          end_time: '',
-                          location: '',
-                          description: '',
-                        })
-                      }
-                      style={secondaryButtonStyle()}
-                    >
-                      Clear Edit
-                    </button>
-                  )}
-                </div>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 16 }}>
+                <button onClick={() => void saveWeeklyEvent()} style={buttonStyle(true)}>
+                  Save Event
+                </button>
               </div>
             </section>
 
@@ -1378,7 +1786,7 @@ export function AdminClient() {
                       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                         <button
                           type="button"
-                          onClick={() => editWeeklyEvent(event)}
+                          onClick={() => openWeeklyEditor(event)}
                           style={secondaryButtonStyle()}
                         >
                           Edit
@@ -1408,57 +1816,15 @@ export function AdminClient() {
           <>
             <section style={sectionStyle()}>
               <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 24, fontWeight: 800 }}>
-                Add or Edit Long Range Event
+                Add Long Range Event
               </h2>
 
-              <div style={{ display: 'grid', gap: 14, minWidth: 0 }}>
-                <input
-                  value={calendarForm.title}
-                  onChange={(e) => setCalendarForm({ ...calendarForm, title: e.target.value })}
-                  placeholder="Title"
-                  style={inputStyle()}
-                />
-                <input
-                  value={calendarForm.event_date}
-                  onChange={(e) => setCalendarForm({ ...calendarForm, event_date: e.target.value })}
-                  type="date"
-                  style={inputStyle()}
-                />
-                <input
-                  value={calendarForm.location}
-                  onChange={(e) => setCalendarForm({ ...calendarForm, location: e.target.value })}
-                  placeholder="Location"
-                  style={inputStyle()}
-                />
-                <textarea
-                  value={calendarForm.description}
-                  onChange={(e) => setCalendarForm({ ...calendarForm, description: e.target.value })}
-                  placeholder="Description"
-                  style={{ ...inputStyle(), minHeight: 110, resize: 'vertical' }}
-                />
+              {renderCalendarForm(calendarForm, setCalendarForm)}
 
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  <button onClick={saveCalendarEvent} style={buttonStyle(true)}>
-                    {calendarForm.id ? 'Update Event' : 'Save Event'}
-                  </button>
-
-                  {calendarForm.id && (
-                    <button
-                      onClick={() =>
-                        setCalendarForm({
-                          id: '',
-                          title: '',
-                          event_date: '',
-                          location: '',
-                          description: '',
-                        })
-                      }
-                      style={secondaryButtonStyle()}
-                    >
-                      Clear Edit
-                    </button>
-                  )}
-                </div>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 16 }}>
+                <button onClick={() => void saveCalendarEvent()} style={buttonStyle(true)}>
+                  Save Event
+                </button>
               </div>
             </section>
 
@@ -1549,7 +1915,7 @@ export function AdminClient() {
                       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                         <button
                           type="button"
-                          onClick={() => editCalendarEvent(event)}
+                          onClick={() => openCalendarEditor(event)}
                           style={secondaryButtonStyle()}
                         >
                           Edit
@@ -1579,66 +1945,15 @@ export function AdminClient() {
           <>
             <section style={sectionStyle()}>
               <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 24, fontWeight: 800 }}>
-                Add or Edit Leave / DONSA
+                Add Leave / DONSA
               </h2>
 
-              <div style={{ display: 'grid', gap: 14, minWidth: 0 }}>
-                <input
-                  value={periodForm.title}
-                  onChange={(e) => setPeriodForm({ ...periodForm, title: e.target.value })}
-                  placeholder="Title"
-                  style={inputStyle()}
-                />
-                <select
-                  value={periodForm.period_type}
-                  onChange={(e) =>
-                    setPeriodForm({
-                      ...periodForm,
-                      period_type: e.target.value as 'leave' | 'donsa',
-                    })
-                  }
-                  style={inputStyle()}
-                >
-                  <option value="leave">Leave</option>
-                  <option value="donsa">DONSA</option>
-                </select>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
-                  <input
-                    value={periodForm.start_date}
-                    onChange={(e) => setPeriodForm({ ...periodForm, start_date: e.target.value })}
-                    type="date"
-                    style={inputStyle()}
-                  />
-                  <input
-                    value={periodForm.end_date}
-                    onChange={(e) => setPeriodForm({ ...periodForm, end_date: e.target.value })}
-                    type="date"
-                    style={inputStyle()}
-                  />
-                </div>
+              {renderPeriodForm(periodForm, setPeriodForm)}
 
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  <button onClick={savePeriod} style={buttonStyle(true)}>
-                    {periodForm.id ? 'Update Leave / DONSA' : 'Save Leave / DONSA'}
-                  </button>
-
-                  {periodForm.id && (
-                    <button
-                      onClick={() =>
-                        setPeriodForm({
-                          id: '',
-                          title: '',
-                          period_type: 'leave',
-                          start_date: '',
-                          end_date: '',
-                        })
-                      }
-                      style={secondaryButtonStyle()}
-                    >
-                      Clear Edit
-                    </button>
-                  )}
-                </div>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 16 }}>
+                <button onClick={() => void savePeriod()} style={buttonStyle(true)}>
+                  Save Leave / DONSA
+                </button>
               </div>
             </section>
 
@@ -1730,7 +2045,7 @@ export function AdminClient() {
                       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                         <button
                           type="button"
-                          onClick={() => editPeriod(period)}
+                          onClick={() => openPeriodEditor(period)}
                           style={secondaryButtonStyle()}
                         >
                           Edit
@@ -1870,64 +2185,15 @@ export function AdminClient() {
           <>
             <section style={sectionStyle()}>
               <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 24, fontWeight: 800 }}>
-                Add or Edit CQ Shift
+                Add CQ Shift
               </h2>
 
-              <div style={{ display: 'grid', gap: 14, minWidth: 0 }}>
-                <input
-                  value={cqForm.shift_date}
-                  onChange={(e) => setCqForm({ ...cqForm, shift_date: e.target.value })}
-                  type="date"
-                  style={inputStyle()}
-                />
+              {renderCqForm(cqForm, setCqForm, soldiers)}
 
-                <select
-                  value={cqForm.soldier_one_id}
-                  onChange={(e) => setCqForm({ ...cqForm, soldier_one_id: e.target.value })}
-                  style={inputStyle()}
-                >
-                  <option value="">Select first soldier</option>
-                  {soldiers.map((soldier) => (
-                    <option key={soldier.id} value={soldier.id}>
-                      {soldier.rank} {soldier.full_name}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  value={cqForm.soldier_two_id}
-                  onChange={(e) => setCqForm({ ...cqForm, soldier_two_id: e.target.value })}
-                  style={inputStyle()}
-                >
-                  <option value="">Select second soldier</option>
-                  {soldiers.map((soldier) => (
-                    <option key={soldier.id} value={soldier.id}>
-                      {soldier.rank} {soldier.full_name}
-                    </option>
-                  ))}
-                </select>
-
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  <button onClick={saveCQShift} style={buttonStyle(true)}>
-                    {cqForm.id ? 'Update CQ Shift' : 'Save CQ Shift'}
-                  </button>
-
-                  {cqForm.id && (
-                    <button
-                      onClick={() =>
-                        setCqForm({
-                          id: '',
-                          shift_date: '',
-                          soldier_one_id: '',
-                          soldier_two_id: '',
-                        })
-                      }
-                      style={secondaryButtonStyle()}
-                    >
-                      Clear Edit
-                    </button>
-                  )}
-                </div>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 16 }}>
+                <button onClick={() => void saveCQShift()} style={buttonStyle(true)}>
+                  Save CQ Shift
+                </button>
               </div>
             </section>
 
@@ -2024,7 +2290,7 @@ export function AdminClient() {
                         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                           <button
                             type="button"
-                            onClick={() => editCQShift(shift)}
+                            onClick={() => openCQEditor(shift)}
                             style={secondaryButtonStyle()}
                           >
                             Edit
@@ -2052,96 +2318,144 @@ export function AdminClient() {
         )}
       </div>
 
-      {editingJumpForm && (
-        <div
-          onClick={closeJumpEditor}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(15,23,42,0.45)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 16,
-            zIndex: 1000,
-          }}
+      {editingWeeklyForm && (
+        <ModalShell
+          title="Edit Weekly Training Event"
+          description="Update weekly event details without changing the main add form."
+          onClose={closeWeeklyEditor}
         >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: '100%',
-              maxWidth: 560,
-              maxHeight: '90vh',
-              overflowY: 'auto',
-              overflowX: 'hidden',
-              background: '#ffffff',
-              borderRadius: 30,
-              padding: 22,
-              boxShadow: '0 24px 60px rgba(15,23,42,0.28)',
-              boxSizing: 'border-box',
-            }}
-          >
-            <div
+          {renderWeeklyForm(editingWeeklyForm, editingWeeklyFormAdapter)}
+
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 16 }}>
+            <button
+              type="button"
+              onClick={saveEditingWeeklyEvent}
+              disabled={busySavingWeeklyEdit}
               style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                justifyContent: 'space-between',
-                gap: 16,
-                marginBottom: 16,
-                flexWrap: 'wrap',
+                ...buttonStyle(true),
+                opacity: busySavingWeeklyEdit ? 0.7 : 1,
               }}
             >
-              <div style={{ minWidth: 0 }}>
-                <h2 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: '#0f172a' }}>
-                  Edit Jump
-                </h2>
-                <p
-                  style={{
-                    marginTop: 8,
-                    marginBottom: 0,
-                    fontSize: 14,
-                    color: '#64748b',
-                    overflowWrap: 'anywhere',
-                  }}
-                >
-                  Update jump details and manifest without changing the main add form.
-                </p>
-              </div>
+              {busySavingWeeklyEdit ? 'Saving...' : 'Save Changes'}
+            </button>
 
-              <button
-                type="button"
-                onClick={closeJumpEditor}
-                style={{
-                  ...secondaryButtonStyle(),
-                  padding: '10px 14px',
-                  lineHeight: 1,
-                }}
-              >
-                Close
-              </button>
-            </div>
-
-            {renderJumpForm(editingJumpForm, setEditingJumpForm, soldiers)}
-
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 16 }}>
-              <button
-                type="button"
-                onClick={saveEditingJump}
-                disabled={busySavingJumpEdit}
-                style={{
-                  ...buttonStyle(true),
-                  opacity: busySavingJumpEdit ? 0.7 : 1,
-                }}
-              >
-                {busySavingJumpEdit ? 'Saving...' : 'Save Changes'}
-              </button>
-
-              <button type="button" onClick={closeJumpEditor} style={secondaryButtonStyle()}>
-                Cancel
-              </button>
-            </div>
+            <button type="button" onClick={closeWeeklyEditor} style={secondaryButtonStyle()}>
+              Cancel
+            </button>
           </div>
-        </div>
+        </ModalShell>
+      )}
+
+      {editingCalendarForm && (
+        <ModalShell
+          title="Edit Long Range Event"
+          description="Update long range event details without changing the main add form."
+          onClose={closeCalendarEditor}
+        >
+          {renderCalendarForm(editingCalendarForm, editingCalendarFormAdapter)}
+
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 16 }}>
+            <button
+              type="button"
+              onClick={saveEditingCalendarEvent}
+              disabled={busySavingCalendarEdit}
+              style={{
+                ...buttonStyle(true),
+                opacity: busySavingCalendarEdit ? 0.7 : 1,
+              }}
+            >
+              {busySavingCalendarEdit ? 'Saving...' : 'Save Changes'}
+            </button>
+
+            <button type="button" onClick={closeCalendarEditor} style={secondaryButtonStyle()}>
+              Cancel
+            </button>
+          </div>
+        </ModalShell>
+      )}
+
+      {editingPeriodForm && (
+        <ModalShell
+          title="Edit Leave / DONSA"
+          description="Update leave or DONSA details without changing the main add form."
+          onClose={closePeriodEditor}
+        >
+          {renderPeriodForm(editingPeriodForm, editingPeriodFormAdapter)}
+
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 16 }}>
+            <button
+              type="button"
+              onClick={saveEditingPeriod}
+              disabled={busySavingPeriodEdit}
+              style={{
+                ...buttonStyle(true),
+                opacity: busySavingPeriodEdit ? 0.7 : 1,
+              }}
+            >
+              {busySavingPeriodEdit ? 'Saving...' : 'Save Changes'}
+            </button>
+
+            <button type="button" onClick={closePeriodEditor} style={secondaryButtonStyle()}>
+              Cancel
+            </button>
+          </div>
+        </ModalShell>
+      )}
+
+      {editingCqForm && (
+        <ModalShell
+          title="Edit CQ Shift"
+          description="Update CQ details without changing the main add form."
+          onClose={closeCQEditor}
+        >
+          {renderCqForm(editingCqForm, editingCqFormAdapter, soldiers)}
+
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 16 }}>
+            <button
+              type="button"
+              onClick={saveEditingCQShift}
+              disabled={busySavingCqEdit}
+              style={{
+                ...buttonStyle(true),
+                opacity: busySavingCqEdit ? 0.7 : 1,
+              }}
+            >
+              {busySavingCqEdit ? 'Saving...' : 'Save Changes'}
+            </button>
+
+            <button type="button" onClick={closeCQEditor} style={secondaryButtonStyle()}>
+              Cancel
+            </button>
+          </div>
+        </ModalShell>
+      )}
+
+      {editingJumpForm && (
+        <ModalShell
+          title="Edit Jump"
+          description="Update jump details and manifest without changing the main add form."
+          onClose={closeJumpEditor}
+        >
+          {renderJumpForm(editingJumpForm, editingJumpFormAdapter, soldiers)}
+
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 16 }}>
+            <button
+              type="button"
+              onClick={saveEditingJump}
+              disabled={busySavingJumpEdit}
+              style={{
+                ...buttonStyle(true),
+                opacity: busySavingJumpEdit ? 0.7 : 1,
+              }}
+            >
+              {busySavingJumpEdit ? 'Saving...' : 'Save Changes'}
+            </button>
+
+            <button type="button" onClick={closeJumpEditor} style={secondaryButtonStyle()}>
+              Cancel
+            </button>
+          </div>
+        </ModalShell>
       )}
     </>
   );
