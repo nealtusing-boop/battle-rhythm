@@ -102,6 +102,10 @@ function formatTimeRange(startTime: string | null, endTime: string | null) {
   return 'Time TBD';
 }
 
+function detailSortValue(detail: DetailRow) {
+  return `${detail.detail_date}-${detail.start_time ?? '99:99'}-${detail.title}`;
+}
+
 export default async function HomePage() {
   const supabase = await createClient();
   const today = new Date().toISOString().slice(0, 10);
@@ -214,11 +218,19 @@ export default async function HomePage() {
     else cqMessage = `Next CQ duty is ${formatShortDate(myUpcomingShift.shift_date)}`;
   }
 
-  const myUpcomingDetail =
-    details.find((detail) => {
+  const myAssignedDetails = details
+    .filter((detail) => {
       if (!user?.id) return false;
       return (detail.assignments ?? []).some((assignment) => assignment.user_id === user.id);
-    }) ?? null;
+    })
+    .slice()
+    .sort((a, b) => detailSortValue(a).localeCompare(detailSortValue(b)));
+
+  const myUpcomingDetail = myAssignedDetails[0] ?? null;
+  const sameDayDetails =
+    myUpcomingDetail == null
+      ? []
+      : myAssignedDetails.filter((detail) => detail.detail_date === myUpcomingDetail.detail_date);
 
   let detailMessage = 'No upcoming detail';
   let detailDate = '';
@@ -238,10 +250,20 @@ export default async function HomePage() {
     detailLeader = myUpcomingDetail.leader ?? '';
     detailTitle = myUpcomingDetail.title;
 
-    if (diffDays <= 0) detailMessage = 'You have a detail today';
-    else if (diffDays === 1) detailMessage = 'You have a detail tomorrow';
-    else if (diffDays <= 3) detailMessage = `You have a detail in ${diffDays} days`;
-    else detailMessage = `Next detail is ${formatShortDate(myUpcomingDetail.detail_date)}`;
+    if (sameDayDetails.length > 1) {
+      if (diffDays <= 0) detailMessage = `You have ${sameDayDetails.length} details today`;
+      else if (diffDays === 1) detailMessage = `You have ${sameDayDetails.length} details tomorrow`;
+      else if (diffDays <= 3) {
+        detailMessage = `You have ${sameDayDetails.length} details in ${diffDays} days`;
+      } else {
+        detailMessage = `${sameDayDetails.length} details on ${formatShortDate(myUpcomingDetail.detail_date)}`;
+      }
+    } else {
+      if (diffDays <= 0) detailMessage = 'You have a detail today';
+      else if (diffDays === 1) detailMessage = 'You have a detail tomorrow';
+      else if (diffDays <= 3) detailMessage = `You have a detail in ${diffDays} days`;
+      else detailMessage = `Next detail is ${formatShortDate(myUpcomingDetail.detail_date)}`;
+    }
   }
 
   const displayName =
@@ -670,34 +692,80 @@ export default async function HomePage() {
                 {detailMessage}
               </div>
 
-              {detailTitle && (
-                <div style={{ marginTop: 10, fontSize: 16, fontWeight: 700, color: '#0f172a' }}>
-                  {detailTitle}
-                </div>
-              )}
+              {sameDayDetails.length > 1 ? (
+                <div style={{ marginTop: 12, display: 'grid', gap: 10 }}>
+                  {sameDayDetails.map((detail) => (
+                    <div
+                      key={detail.id}
+                      style={{
+                        borderRadius: 18,
+                        background: '#ffffff',
+                        padding: 14,
+                        border: '1px solid rgba(15,23,42,0.08)',
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 15,
+                          fontWeight: 700,
+                          color: '#0f172a',
+                        }}
+                      >
+                        {detail.title}
+                      </div>
 
-              {detailDate && (
-                <div style={{ marginTop: 10, fontSize: 14, color: '#475569' }}>
-                  Date: {formatShortDate(detailDate)}
-                </div>
-              )}
+                      <div style={{ marginTop: 8, fontSize: 14, color: '#475569' }}>
+                        Time: {formatTimeRange(detail.start_time, detail.end_time)}
+                      </div>
 
-              {detailTime && (
-                <div style={{ marginTop: 6, fontSize: 14, color: '#475569' }}>
-                  Time: {detailTime}
-                </div>
-              )}
+                      {detail.location && (
+                        <div style={{ marginTop: 6, fontSize: 14, color: '#475569' }}>
+                          Location: {detail.location}
+                        </div>
+                      )}
 
-              {detailLocation && (
-                <div style={{ marginTop: 6, fontSize: 14, color: '#475569' }}>
-                  Location: {detailLocation}
+                      {detail.leader && (
+                        <div style={{ marginTop: 6, fontSize: 14, color: '#475569' }}>
+                          OIC / NCOIC: {detail.leader}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              )}
+              ) : (
+                <>
+                  {detailTitle && (
+                    <div
+                      style={{ marginTop: 10, fontSize: 16, fontWeight: 700, color: '#0f172a' }}
+                    >
+                      {detailTitle}
+                    </div>
+                  )}
 
-              {detailLeader && (
-                <div style={{ marginTop: 6, fontSize: 14, color: '#475569' }}>
-                  OIC / NCOIC: {detailLeader}
-                </div>
+                  {detailDate && (
+                    <div style={{ marginTop: 10, fontSize: 14, color: '#475569' }}>
+                      Date: {formatShortDate(detailDate)}
+                    </div>
+                  )}
+
+                  {detailTime && (
+                    <div style={{ marginTop: 6, fontSize: 14, color: '#475569' }}>
+                      Time: {detailTime}
+                    </div>
+                  )}
+
+                  {detailLocation && (
+                    <div style={{ marginTop: 6, fontSize: 14, color: '#475569' }}>
+                      Location: {detailLocation}
+                    </div>
+                  )}
+
+                  {detailLeader && (
+                    <div style={{ marginTop: 6, fontSize: 14, color: '#475569' }}>
+                      OIC / NCOIC: {detailLeader}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </section>
