@@ -39,29 +39,38 @@ function normalizeProfile(value: ProfileRow | ProfileRow[] | null | undefined) {
 export default async function JumpSchedulePage() {
   const supabase = await createClient();
 
-  const { data } = await supabase
-    .from('jumps')
-    .select(
-      `
-        id,
-        name,
-        location,
-        jump_date,
-        jump_type,
-        equipment_list,
-        manifest:jump_manifest(
+  const [
+    {
+      data: { user },
+    },
+    { data },
+  ] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase
+      .from('jumps')
+      .select(
+        `
           id,
-          jump_id,
-          soldier_id,
-          sort_order,
-          soldier:profiles(id, full_name, rank)
-        )
-      `
-    )
-    .gte('jump_date', new Date().toISOString().slice(0, 10))
-    .order('jump_date', { ascending: true });
+          name,
+          location,
+          jump_date,
+          jump_type,
+          equipment_list,
+          manifest:jump_manifest(
+            id,
+            jump_id,
+            soldier_id,
+            sort_order,
+            soldier:profiles(id, full_name, rank)
+          )
+        `
+      )
+      .gte('jump_date', new Date().toISOString().slice(0, 10))
+      .order('jump_date', { ascending: true }),
+  ]);
 
   const jumps = (data as JumpRow[] | null) ?? [];
+  const currentUserId = user?.id ?? null;
 
   return (
     <div style={{ display: 'grid', gap: 20 }}>
@@ -85,7 +94,7 @@ export default async function JumpSchedulePage() {
             color: 'rgba(255,255,255,0.82)',
           }}
         >
-          
+
         </p>
       </section>
 
@@ -254,15 +263,18 @@ export default async function JumpSchedulePage() {
                 <div style={{ display: 'grid', gap: 10 }}>
                   {manifest.map((entry, index) => {
                     const soldier = normalizeProfile(entry.soldier);
+                    const isMe = Boolean(currentUserId && entry.soldier_id === currentUserId);
 
                     return (
                       <div
                         key={entry.id}
                         style={{
                           borderRadius: 20,
-                          background: '#f8fafc',
+                          background: isMe ? '#fff1f2' : '#f8fafc',
                           padding: '14px 16px',
-                          border: '1px solid rgba(15,23,42,0.08)',
+                          border: isMe
+                            ? '2px solid #8b1538'
+                            : '1px solid rgba(15,23,42,0.08)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
@@ -274,6 +286,7 @@ export default async function JumpSchedulePage() {
                             display: 'flex',
                             alignItems: 'center',
                             gap: 12,
+                            flexWrap: 'wrap',
                           }}
                         >
                           <div
@@ -288,7 +301,8 @@ export default async function JumpSchedulePage() {
                               justifyContent: 'center',
                               fontSize: 12,
                               fontWeight: 700,
-                              color: '#64748b',
+                              color: isMe ? '#8b1538' : '#64748b',
+                              flexShrink: 0,
                             }}
                           >
                             {index + 1}
@@ -297,13 +311,35 @@ export default async function JumpSchedulePage() {
                           <div
                             style={{
                               fontSize: 15,
-                              fontWeight: 600,
+                              fontWeight: isMe ? 800 : 600,
                               color: '#0f172a',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 8,
+                              flexWrap: 'wrap',
                             }}
                           >
-                            {soldier
-                              ? [soldier.rank, soldier.full_name].filter(Boolean).join(' ')
-                              : 'Unassigned'}
+                            <span>
+                              {soldier
+                                ? [soldier.rank, soldier.full_name].filter(Boolean).join(' ')
+                                : 'Unassigned'}
+                            </span>
+                            {isMe && (
+                              <span
+                                style={{
+                                  borderRadius: 999,
+                                  background: '#8b1538',
+                                  color: '#ffffff',
+                                  padding: '4px 8px',
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                  letterSpacing: '0.08em',
+                                  textTransform: 'uppercase',
+                                }}
+                              >
+                                You
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>

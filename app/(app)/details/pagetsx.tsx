@@ -31,7 +31,6 @@ function normalizeProfile(
   return Array.isArray(value) ? value[0] ?? null : value;
 }
 
-
 function formatShortDate(dateString: string) {
   return new Date(dateString + 'T00:00:00').toLocaleDateString('en-US', {
     month: 'short',
@@ -51,31 +50,40 @@ export default async function DetailsPage() {
   const supabase = await createClient();
   const today = new Date().toISOString().slice(0, 10);
 
-  const { data } = await supabase
-    .from('details')
-    .select(
-      `
-        id,
-        title,
-        detail_date,
-        start_time,
-        end_time,
-        location,
-        leader,
-        notes,
-        assignments:detail_assignments(
+  const [
+    {
+      data: { user },
+    },
+    { data },
+  ] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase
+      .from('details')
+      .select(
+        `
           id,
-          detail_id,
-          user_id,
-          user:profiles(id, full_name, rank, role)
-        )
-      `
-    )
-    .gte('detail_date', today)
-    .order('detail_date', { ascending: true })
-    .order('start_time', { ascending: true });
+          title,
+          detail_date,
+          start_time,
+          end_time,
+          location,
+          leader,
+          notes,
+          assignments:detail_assignments(
+            id,
+            detail_id,
+            user_id,
+            user:profiles(id, full_name, rank, role)
+          )
+        `
+      )
+      .gte('detail_date', today)
+      .order('detail_date', { ascending: true })
+      .order('start_time', { ascending: true }),
+  ]);
 
   const details = (data as DetailRow[] | null) ?? [];
+  const currentUserId = user?.id ?? null;
 
   return (
     <div style={{ display: 'grid', gap: 20, paddingBottom: 8 }}>
@@ -116,7 +124,7 @@ export default async function DetailsPage() {
               color: 'rgba(255,255,255,0.82)',
             }}
           >
-            
+
           </p>
         </div>
       </section>
@@ -155,7 +163,7 @@ export default async function DetailsPage() {
               color: '#64748b',
             }}
           >
-            
+
           </p>
         </div>
 
@@ -177,8 +185,15 @@ export default async function DetailsPage() {
 
           {details.map((detail) => {
             const roster = (detail.assignments ?? [])
-              .map((assignment) => normalizeProfile(assignment.user))
-              .filter((profile): profile is AssignmentProfileRow => Boolean(profile));
+              .map((assignment) => ({
+                assignmentId: assignment.id,
+                userId: assignment.user_id,
+                profile: normalizeProfile(assignment.user),
+              }))
+              .filter(
+                (entry): entry is { assignmentId: string; userId: string; profile: AssignmentProfileRow } =>
+                  Boolean(entry.profile)
+              );
 
             return (
               <div
@@ -280,21 +295,48 @@ export default async function DetailsPage() {
                       </div>
                     )}
 
-                    {roster.map((profile) => (
-                      <div
-                        key={profile.id}
-                        style={{
-                          borderRadius: 18,
-                          background: '#ffffff',
-                          padding: 14,
-                          border: '1px solid rgba(15,23,42,0.08)',
-                          fontSize: 14,
-                          color: '#0f172a',
-                        }}
-                      >
-                        {[profile.rank, profile.full_name].filter(Boolean).join(' ')}
-                      </div>
-                    ))}
+                    {roster.map(({ assignmentId, userId, profile }) => {
+                      const isMe = Boolean(currentUserId && userId === currentUserId);
+
+                      return (
+                        <div
+                          key={assignmentId}
+                          style={{
+                            borderRadius: 18,
+                            background: isMe ? '#fff1f2' : '#ffffff',
+                            padding: 14,
+                            border: isMe
+                              ? '2px solid #8b1538'
+                              : '1px solid rgba(15,23,42,0.08)',
+                            fontSize: 14,
+                            color: '#0f172a',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            flexWrap: 'wrap',
+                            fontWeight: isMe ? 800 : 600,
+                          }}
+                        >
+                          <span>{[profile.rank, profile.full_name].filter(Boolean).join(' ')}</span>
+                          {isMe && (
+                            <span
+                              style={{
+                                borderRadius: 999,
+                                background: '#8b1538',
+                                color: '#ffffff',
+                                padding: '4px 8px',
+                                fontSize: 11,
+                                fontWeight: 800,
+                                letterSpacing: '0.08em',
+                                textTransform: 'uppercase',
+                              }}
+                            >
+                              You
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>

@@ -34,22 +34,31 @@ export default async function CqRosterPage() {
   const today = new Date().toISOString().slice(0, 10);
   const monthLabel = format(new Date(`${today}T00:00:00`), 'MMMM yyyy');
 
-  const { data } = await supabase
-    .from('cq_shifts')
-    .select(
-      `
-        id,
-        shift_date,
-        soldier_one_id,
-        soldier_two_id,
-        soldier_one:profiles!cq_shifts_soldier_one_id_fkey(id, full_name, rank),
-        soldier_two:profiles!cq_shifts_soldier_two_id_fkey(id, full_name, rank)
-      `
-    )
-    .gte('shift_date', today)
-    .order('shift_date', { ascending: true });
+  const [
+    {
+      data: { user },
+    },
+    { data },
+  ] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase
+      .from('cq_shifts')
+      .select(
+        `
+          id,
+          shift_date,
+          soldier_one_id,
+          soldier_two_id,
+          soldier_one:profiles!cq_shifts_soldier_one_id_fkey(id, full_name, rank),
+          soldier_two:profiles!cq_shifts_soldier_two_id_fkey(id, full_name, rank)
+        `
+      )
+      .gte('shift_date', today)
+      .order('shift_date', { ascending: true }),
+  ]);
 
   const shifts = (data as CqShiftRow[] | null) ?? [];
+  const currentUserId = user?.id ?? null;
 
   return (
     <div style={{ display: 'grid', gap: 20 }}>
@@ -73,7 +82,7 @@ export default async function CqRosterPage() {
             color: 'rgba(255,255,255,0.82)',
           }}
         >
-          
+
         </p>
       </section>
 
@@ -115,7 +124,7 @@ export default async function CqRosterPage() {
                 color: '#64748b',
               }}
             >
-              
+
             </p>
           </div>
 
@@ -154,6 +163,8 @@ export default async function CqRosterPage() {
           {shifts.map((shift) => {
             const soldierOne = normalizeProfile(shift.soldier_one);
             const soldierTwo = normalizeProfile(shift.soldier_two);
+            const soldierOneIsMe = Boolean(currentUserId && shift.soldier_one_id === currentUserId);
+            const soldierTwoIsMe = Boolean(currentUserId && shift.soldier_two_id === currentUserId);
 
             return (
               <div
@@ -193,7 +204,7 @@ export default async function CqRosterPage() {
                         color: '#64748b',
                       }}
                     >
-                      
+
                     </div>
                   </div>
 
@@ -221,8 +232,10 @@ export default async function CqRosterPage() {
                   <div
                     style={{
                       borderRadius: 18,
-                      background: '#ffffff',
-                      border: '1px solid rgba(15,23,42,0.08)',
+                      background: soldierOneIsMe ? '#fff1f2' : '#ffffff',
+                      border: soldierOneIsMe
+                        ? '2px solid #8b1538'
+                        : '1px solid rgba(15,23,42,0.08)',
                       padding: '14px 16px',
                     }}
                   >
@@ -232,7 +245,7 @@ export default async function CqRosterPage() {
                         fontWeight: 800,
                         textTransform: 'uppercase',
                         letterSpacing: '0.14em',
-                        color: '#94a3b8',
+                        color: soldierOneIsMe ? '#8b1538' : '#94a3b8',
                         marginBottom: 8,
                       }}
                     >
@@ -241,21 +254,45 @@ export default async function CqRosterPage() {
                     <div
                       style={{
                         fontSize: 16,
-                        fontWeight: 700,
+                        fontWeight: soldierOneIsMe ? 800 : 700,
                         color: '#0f172a',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        flexWrap: 'wrap',
                       }}
                     >
-                      {soldierOne
-                        ? [soldierOne.rank, soldierOne.full_name].filter(Boolean).join(' ')
-                        : 'Unassigned'}
+                      <span>
+                        {soldierOne
+                          ? [soldierOne.rank, soldierOne.full_name].filter(Boolean).join(' ')
+                          : 'Unassigned'}
+                      </span>
+                      {soldierOneIsMe && (
+                        <span
+                          style={{
+                            borderRadius: 999,
+                            background: '#8b1538',
+                            color: '#ffffff',
+                            padding: '4px 8px',
+                            fontSize: 11,
+                            fontWeight: 800,
+                            letterSpacing: '0.08em',
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          You
+                        </span>
+                      )}
                     </div>
                   </div>
 
                   <div
                     style={{
                       borderRadius: 18,
-                      background: '#ffffff',
-                      border: '1px solid rgba(15,23,42,0.08)',
+                      background: soldierTwoIsMe ? '#fff1f2' : '#ffffff',
+                      border: soldierTwoIsMe
+                        ? '2px solid #8b1538'
+                        : '1px solid rgba(15,23,42,0.08)',
                       padding: '14px 16px',
                     }}
                   >
@@ -265,7 +302,7 @@ export default async function CqRosterPage() {
                         fontWeight: 800,
                         textTransform: 'uppercase',
                         letterSpacing: '0.14em',
-                        color: '#94a3b8',
+                        color: soldierTwoIsMe ? '#8b1538' : '#94a3b8',
                         marginBottom: 8,
                       }}
                     >
@@ -274,13 +311,35 @@ export default async function CqRosterPage() {
                     <div
                       style={{
                         fontSize: 16,
-                        fontWeight: 700,
+                        fontWeight: soldierTwoIsMe ? 800 : 700,
                         color: '#0f172a',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        flexWrap: 'wrap',
                       }}
                     >
-                      {soldierTwo
-                        ? [soldierTwo.rank, soldierTwo.full_name].filter(Boolean).join(' ')
-                        : 'Unassigned'}
+                      <span>
+                        {soldierTwo
+                          ? [soldierTwo.rank, soldierTwo.full_name].filter(Boolean).join(' ')
+                          : 'Unassigned'}
+                      </span>
+                      {soldierTwoIsMe && (
+                        <span
+                          style={{
+                            borderRadius: 999,
+                            background: '#8b1538',
+                            color: '#ffffff',
+                            padding: '4px 8px',
+                            fontSize: 11,
+                            fontWeight: 800,
+                            letterSpacing: '0.08em',
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          You
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
