@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { createClient } from '@/lib/supabase/server';
+import { AlertsBadgeClearer } from './alerts-badge-clearer';
 
 type Alert = {
   id: string;
@@ -33,6 +34,8 @@ export default async function AlertsPage() {
 
   return (
     <div style={{ display: 'grid', gap: 20 }}>
+      <AlertsBadgeClearer />
+
       <section>
         <h1
           style={{
@@ -53,7 +56,7 @@ export default async function AlertsPage() {
             color: 'rgba(255,255,255,0.82)',
           }}
         >
-          
+          Full alert history with the most recent alerts at the top.
         </p>
       </section>
 
