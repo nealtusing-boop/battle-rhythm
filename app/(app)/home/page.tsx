@@ -463,61 +463,127 @@ export default async function HomePage() {
               color: '#0f172a',
             }}
           >
-            <h2
-              style={{
-                margin: 0,
-                fontSize: 30,
-                fontWeight: 800,
-                letterSpacing: '-0.04em',
-                color: '#0f172a',
-              }}
-            >
-              CQ
-            </h2>
-
-            <p
-              style={{
-                marginTop: 6,
-                marginBottom: 0,
-                fontSize: 14,
-                color: '#64748b',
-              }}
-            >
-              {' '}
-            </p>
-
             <div
               style={{
-                marginTop: 16,
-                borderRadius: 24,
-                background: 'linear-gradient(180deg, #fff1f2 0%, #ffffff 100%)',
-                padding: 16,
-                border: '1px solid #ffe4e6',
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                gap: 12,
+                marginBottom: 16,
               }}
             >
-              <div
-                style={{
-                  fontSize: 22,
-                  fontWeight: 700,
-                  color: '#8b1538',
-                  letterSpacing: '-0.02em',
-                }}
-              >
-                {cqMessage}
+              <div>
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: 30,
+                    fontWeight: 800,
+                    letterSpacing: '-0.04em',
+                    color: '#0f172a',
+                  }}
+                >
+                  Latest Alert
+                </h2>
+
+                <p
+                  style={{
+                    marginTop: 6,
+                    marginBottom: 0,
+                    fontSize: 14,
+                    color: '#64748b',
+                  }}
+                >
+                  {' '}
+                </p>
               </div>
 
-              {cqDate && (
-                <div style={{ marginTop: 10, fontSize: 14, color: '#475569' }}>
-                  Date: {formatShortDate(cqDate)}
-                </div>
-              )}
-
-              {cqPartner && (
-                <div style={{ marginTop: 6, fontSize: 14, color: '#475569' }}>
-                  Partner: {cqPartner}
-                </div>
-              )}
+              <Link
+                href="/alerts"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 999,
+                  background: '#8b1538',
+                  color: '#ffffff',
+                  padding: '10px 14px',
+                  fontSize: 12,
+                  fontWeight: 800,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  textDecoration: 'none',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                View All →
+              </Link>
             </div>
+
+            {!latestAlert && (
+              <div
+                style={{
+                  borderRadius: 22,
+                  background: '#f8fafc',
+                  padding: 18,
+                  border: '1px solid rgba(15,23,42,0.08)',
+                }}
+              >
+                <p style={{ margin: 0, fontSize: 15, color: '#475569' }}>
+                  No active alerts.
+                </p>
+              </div>
+            )}
+
+            {latestAlert && (
+              <div
+                style={{
+                  borderRadius: 22,
+                  background: '#ffffff',
+                  padding: 18,
+                  border: '1px solid rgba(15,23,42,0.08)',
+                  boxShadow: '0 10px 24px rgba(15,23,42,0.06)',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    borderRadius: 999,
+                    padding: '6px 10px',
+                    fontSize: 11,
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.12em',
+                    background: priorityColors(latestAlert.priority).bg,
+                    color: priorityColors(latestAlert.priority).text,
+                  }}
+                >
+                  {priorityColors(latestAlert.priority).label}
+                </div>
+
+                <p
+                  style={{
+                    marginTop: 12,
+                    marginBottom: 0,
+                    fontSize: 15,
+                    color: '#0f172a',
+                    lineHeight: 1.55,
+                  }}
+                >
+                  {latestAlert.message}
+                </p>
+
+                <p
+                  style={{
+                    marginTop: 10,
+                    marginBottom: 0,
+                    fontSize: 12,
+                    color: '#64748b',
+                  }}
+                >
+                  {new Date(latestAlert.created_at).toLocaleString()}
+                </p>
+              </div>
+            )}
           </section>
 
           <section
@@ -645,127 +711,61 @@ export default async function HomePage() {
               color: '#0f172a',
             }}
           >
-            <div
+            <h2
               style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                justifyContent: 'space-between',
-                gap: 12,
-                marginBottom: 16,
+                margin: 0,
+                fontSize: 30,
+                fontWeight: 800,
+                letterSpacing: '-0.04em',
+                color: '#0f172a',
               }}
             >
-              <div>
-                <h2
-                  style={{
-                    margin: 0,
-                    fontSize: 30,
-                    fontWeight: 800,
-                    letterSpacing: '-0.04em',
-                    color: '#0f172a',
-                  }}
-                >
-                  Latest Alert
-                </h2>
+              CQ
+            </h2>
 
-                <p
-                  style={{
-                    marginTop: 6,
-                    marginBottom: 0,
-                    fontSize: 14,
-                    color: '#64748b',
-                  }}
-                >
-                  {' '}
-                </p>
-              </div>
+            <p
+              style={{
+                marginTop: 6,
+                marginBottom: 0,
+                fontSize: 14,
+                color: '#64748b',
+              }}
+            >
+              {' '}
+            </p>
 
-              <Link
-                href="/alerts"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: 999,
-                  background: '#8b1538',
-                  color: '#ffffff',
-                  padding: '10px 14px',
-                  fontSize: 12,
-                  fontWeight: 800,
-                  letterSpacing: '0.06em',
-                  textTransform: 'uppercase',
-                  textDecoration: 'none',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                View All →
-              </Link>
-            </div>
-
-            {!latestAlert && (
+            <div
+              style={{
+                marginTop: 16,
+                borderRadius: 24,
+                background: 'linear-gradient(180deg, #fff1f2 0%, #ffffff 100%)',
+                padding: 16,
+                border: '1px solid #ffe4e6',
+              }}
+            >
               <div
                 style={{
-                  borderRadius: 22,
-                  background: '#f8fafc',
-                  padding: 18,
-                  border: '1px solid rgba(15,23,42,0.08)',
+                  fontSize: 22,
+                  fontWeight: 700,
+                  color: '#8b1538',
+                  letterSpacing: '-0.02em',
                 }}
               >
-                <p style={{ margin: 0, fontSize: 15, color: '#475569' }}>
-                  No active alerts.
-                </p>
+                {cqMessage}
               </div>
-            )}
 
-            {latestAlert && (
-              <div
-                style={{
-                  borderRadius: 22,
-                  background: '#ffffff',
-                  padding: 18,
-                  border: '1px solid rgba(15,23,42,0.08)',
-                  boxShadow: '0 10px 24px rgba(15,23,42,0.06)',
-                }}
-              >
-                <div
-                  style={{
-                    display: 'inline-flex',
-                    borderRadius: 999,
-                    padding: '6px 10px',
-                    fontSize: 11,
-                    fontWeight: 800,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.12em',
-                    background: priorityColors(latestAlert.priority).bg,
-                    color: priorityColors(latestAlert.priority).text,
-                  }}
-                >
-                  {priorityColors(latestAlert.priority).label}
+              {cqDate && (
+                <div style={{ marginTop: 10, fontSize: 14, color: '#475569' }}>
+                  Date: {formatShortDate(cqDate)}
                 </div>
+              )}
 
-                <p
-                  style={{
-                    marginTop: 12,
-                    marginBottom: 0,
-                    fontSize: 15,
-                    color: '#0f172a',
-                    lineHeight: 1.55,
-                  }}
-                >
-                  {latestAlert.message}
-                </p>
-
-                <p
-                  style={{
-                    marginTop: 10,
-                    marginBottom: 0,
-                    fontSize: 12,
-                    color: '#64748b',
-                  }}
-                >
-                  {new Date(latestAlert.created_at).toLocaleString()}
-                </p>
-              </div>
-            )}
+              {cqPartner && (
+                <div style={{ marginTop: 6, fontSize: 14, color: '#475569' }}>
+                  Partner: {cqPartner}
+                </div>
+              )}
+            </div>
           </section>
         </section>
       </section>
