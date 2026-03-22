@@ -11,6 +11,7 @@ type Alert = {
   priority: 'low' | 'medium' | 'high';
   created_at: string;
   requires_ack: boolean | null;
+  created_by: string | null;
 };
 
 function priorityStyle(priority: Alert['priority']) {
@@ -37,6 +38,30 @@ async function acknowledgeAlert(formData: FormData) {
   const session = await getSessionProfile(true);
   const supabase = await createClient();
 
+  const { data: alert } = await supabase
+    .from('alerts')
+    .select('id, created_by, requires_ack')
+    .eq('id', alertId)
+    .single<{ id: string; created_by: string | null; requires_ack: boolean | null }>();
+
+  if (!alert?.requires_ack) {
+    revalidatePath('/alerts');
+    revalidatePath('/admin');
+    return;
+  }
+
+  if (alert.created_by === session!.user.id) {
+    await supabase
+      .from('alert_acknowledgements')
+      .delete()
+      .eq('alert_id', alertId)
+      .eq('user_id', session!.user.id);
+
+    revalidatePath('/alerts');
+    revalidatePath('/admin');
+    return;
+  }
+
   await supabase.from('alert_acknowledgements').upsert(
     {
       alert_id: alertId,
@@ -59,7 +84,7 @@ export default async function AlertsPage() {
   const [{ data: alertsData }, { data: acknowledgementsData }] = await Promise.all([
     supabase
       .from('alerts')
-      .select('id, message, priority, created_at, requires_ack')
+      .select('id, message, priority, created_at, requires_ack, created_by')
       .order('created_at', { ascending: false }),
     supabase
       .from('alert_acknowledgements')
@@ -122,7 +147,8 @@ export default async function AlertsPage() {
 
         {alerts.map((alert) => {
           const pill = priorityStyle(alert.priority);
-          const isAcknowledged = acknowledgedAlertIds.has(alert.id);
+          const isPoster = alert.created_by === session!.user.id;
+          const isAcknowledged = isPoster ? true : acknowledgedAlertIds.has(alert.id);
 
           return (
             <article
@@ -204,7 +230,7 @@ export default async function AlertsPage() {
                 {new Date(alert.created_at).toLocaleString()}
               </p>
 
-              {alert.requires_ack && (
+              {alert.requires_ack && !isPoster && (
                 <div style={{ marginTop: 14 }}>
                   {isAcknowledged ? (
                     <div
@@ -241,6 +267,23 @@ export default async function AlertsPage() {
                       </button>
                     </form>
                   )}
+                </div>
+              )}
+
+              {alert.requires_ack && isPoster && (
+                <div
+                  style={{
+                    marginTop: 14,
+                    display: 'inline-flex',
+                    borderRadius: 999,
+                    padding: '10px 14px',
+                    fontSize: 13,
+                    fontWeight: 800,
+                    background: '#f1f5f9',
+                    color: '#475569',
+                  }}
+                >
+                  You posted this alert
                 </div>
               )}
             </article>
