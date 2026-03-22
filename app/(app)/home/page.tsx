@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
+import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { format } from 'date-fns';
 
@@ -26,6 +27,13 @@ type AlertRow = {
   message: string;
   priority: 'high' | 'medium' | 'low';
   created_at: string;
+  requires_ack?: boolean | null;
+  created_by?: string | null;
+};
+
+type AlertAcknowledgementRow = {
+  alert_id: string;
+  user_id: string;
 };
 
 type CqPartnerRow = {
@@ -117,6 +125,7 @@ export default async function HomePage() {
   let profile: ProfileRow | null = null;
   let events: WeeklyEventRow[] = [];
   let latestAlert: AlertRow | null = null;
+  let latestAlertAcknowledged = false;
   let cq: CqShiftRow[] = [];
   let details: DetailRow[] = [];
 
@@ -136,7 +145,7 @@ export default async function HomePage() {
 
       supabase
         .from('alerts')
-        .select('id, message, priority, created_at')
+        .select('id, message, priority, created_at, requires_ack, created_by')
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle(),
@@ -186,6 +195,17 @@ export default async function HomePage() {
     latestAlert = (alertsResult.data as AlertRow | null) ?? null;
     cq = (cqResult.data as CqShiftRow[] | null) ?? [];
     details = (detailsResult.data as DetailRow[] | null) ?? [];
+
+    if (latestAlert?.id) {
+      const { data: acknowledgement } = await supabase
+        .from('alert_acknowledgements')
+        .select('alert_id, user_id')
+        .eq('alert_id', latestAlert.id)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      latestAlertAcknowledged = Boolean(acknowledgement);
+    }
   }
 
   const myUpcomingShift =
@@ -268,6 +288,51 @@ export default async function HomePage() {
 
   const displayName =
     [profile?.rank, profile?.full_name].filter(Boolean).join(' ').trim() || 'Soldier';
+
+  const shouldShowHomeAcknowledge =
+    Boolean(user?.id) &&
+    Boolean(latestAlert?.requires_ack) &&
+    latestAlert?.created_by !== user?.id &&
+    !latestAlertAcknowledged;
+
+  async function acknowledgeLatestAlert() {
+    'use server';
+
+    const serverSupabase = await createClient();
+
+    const {
+      data: { user: actionUser },
+    } = await serverSupabase.auth.getUser();
+
+    if (!actionUser?.id) {
+      return;
+    }
+
+    const { data: currentAlert } = await serverSupabase
+      .from('alerts')
+      .select('id, requires_ack, created_by')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!currentAlert?.id || !currentAlert.requires_ack || currentAlert.created_by === actionUser.id) {
+      revalidatePath('/home');
+      return;
+    }
+
+    await serverSupabase.from('alert_acknowledgements').upsert(
+      {
+        alert_id: currentAlert.id,
+        user_id: actionUser.id,
+      },
+      {
+        onConflict: 'alert_id,user_id',
+      }
+    );
+
+    revalidatePath('/home');
+    revalidatePath('/alerts');
+  }
 
   return (
     <div style={{ display: 'grid', gap: 20, paddingBottom: 8 }}>
@@ -604,6 +669,46 @@ export default async function HomePage() {
                 >
                   {new Date(latestAlert.created_at).toLocaleString()}
                 </p>
+
+                {latestAlert.requires_ack && latestAlertAcknowledged && (
+                  <div
+                    style={{
+                      marginTop: 12,
+                      display: 'inline-flex',
+                      borderRadius: 999,
+                      background: '#dcfce7',
+                      color: '#166534',
+                      padding: '8px 12px',
+                      fontSize: 12,
+                      fontWeight: 800,
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    Acknowledged
+                  </div>
+                )}
+
+                {shouldShowHomeAcknowledge && (
+                  <form action={acknowledgeLatestAlert} style={{ marginTop: 12 }}>
+                    <button
+                      type="submit"
+                      style={{
+                        borderRadius: 18,
+                        border: 'none',
+                        background: 'linear-gradient(180deg, #8b1538 0%, #6f102d 100%)',
+                        color: '#ffffff',
+                        padding: '12px 16px',
+                        fontSize: 14,
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        boxShadow: '0 14px 30px rgba(139,21,56,0.28)',
+                      }}
+                    >
+                      Acknowledge
+                    </button>
+                  </form>
+                )}
               </div>
             )}
           </section>
