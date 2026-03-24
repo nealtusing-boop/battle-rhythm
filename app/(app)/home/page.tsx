@@ -1,7 +1,6 @@
 export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
-import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { format } from 'date-fns';
 
@@ -12,107 +11,110 @@ type ProfileRow = {
   role: string | null;
 };
 
-type WeeklyEventRow = {
-  id: string;
-  title: string;
-  event_date: string;
-  start_time: string | null;
-  end_time: string | null;
-  location: string | null;
-  description: string | null;
-};
-
 type AlertRow = {
   id: string;
   message: string;
   priority: 'high' | 'medium' | 'low';
   created_at: string;
-  requires_ack?: boolean | null;
-  created_by?: string | null;
+  expires_at: string | null;
+  is_active: boolean | null;
+  requires_ack: boolean | null;
+  created_by: string | null;
 };
-
-type AlertAcknowledgementRow = {
-  alert_id: string;
-  user_id: string;
-};
-
-type CqPartnerRow = {
-  id: string;
-  full_name: string | null;
-  rank: string | null;
-  role: string | null;
-};
-
-type CqShiftRow = {
-  id: string;
-  shift_date: string;
-  soldier_one_id: string | null;
-  soldier_two_id: string | null;
-  soldier_one?: CqPartnerRow | CqPartnerRow[] | null;
-  soldier_two?: CqPartnerRow | CqPartnerRow[] | null;
-};
-
-type DetailAssignmentProfileRow = {
-  id: string;
-  full_name: string | null;
-  rank: string | null;
-  role: string | null;
-};
-
-type DetailAssignmentRow = {
-  id: string;
-  detail_id: string;
-  user_id: string;
-  user?: DetailAssignmentProfileRow | DetailAssignmentProfileRow[] | null;
-};
-
-type DetailRow = {
-  id: string;
-  title: string;
-  detail_date: string;
-  start_time: string | null;
-  end_time: string | null;
-  location: string | null;
-  leader: string | null;
-  notes: string | null;
-  assignments?: DetailAssignmentRow[] | null;
-};
-
-function formatShortDate(dateString: string) {
-  return format(new Date(`${dateString}T00:00:00`), 'MMM d, yyyy');
-}
 
 function formatLongDate(dateString: string) {
   return format(new Date(`${dateString}T00:00:00`), 'EEEE, MMMM d, yyyy');
 }
 
-function normalizeJoinedProfile(
-  value: CqPartnerRow | CqPartnerRow[] | null | undefined
-): CqPartnerRow | null {
-  if (!value) return null;
-  return Array.isArray(value) ? value[0] ?? null : value;
+function isAlertActive(alert: AlertRow) {
+  if (alert.is_active === false) return false;
+  if (!alert.expires_at) return true;
+  return new Date(alert.expires_at).getTime() > Date.now();
 }
 
-function priorityColors(priority: AlertRow['priority']) {
-  if (priority === 'high') {
-    return { bg: '#fee2e2', text: '#991b1b', label: 'High Priority' };
+function alertSortValue(alert: AlertRow) {
+  if (alert.expires_at) {
+    return new Date(alert.expires_at).getTime();
   }
-  if (priority === 'medium') {
-    return { bg: '#fef3c7', text: '#92400e', label: 'Medium Priority' };
-  }
-  return { bg: '#dcfce7', text: '#166534', label: 'Low Priority' };
+  return Number.MAX_SAFE_INTEGER;
 }
 
-function formatTimeRange(startTime: string | null, endTime: string | null) {
-  if (startTime && endTime) return `${startTime} - ${endTime}`;
-  if (startTime) return startTime;
-  if (endTime) return `Until ${endTime}`;
-  return 'Time TBD';
+function formatAlertDate(expiresAt: string | null) {
+  if (!expiresAt) return 'No expiration';
+  return `Expires ${format(new Date(expiresAt), 'MMM d, yyyy • HH:mm')}`;
 }
 
-function detailSortValue(detail: DetailRow) {
-  return `${detail.detail_date}-${detail.start_time ?? '99:99'}-${detail.title}`;
+function getAlertTitle(message: string) {
+  const trimmed = message.trim();
+  if (!trimmed) return 'Untitled alert';
+
+  const firstLine = trimmed.split('\n').find((line) => line.trim().length > 0)?.trim() ?? trimmed;
+
+  if (firstLine.length <= 70) return firstLine;
+  return `${firstLine.slice(0, 67).trimEnd()}...`;
 }
+
+function cardStyle() {
+  return {
+    background: '#ffffff',
+    borderRadius: 30,
+    padding: 22,
+    boxShadow: '0 18px 44px rgba(15,23,42,0.14)',
+    color: '#0f172a',
+  } as const;
+}
+
+function actionButtonStyle(primary = true) {
+  return {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+    border: primary ? 'none' : '1px solid rgba(15,23,42,0.10)',
+    background: primary
+      ? 'linear-gradient(180deg, #8b1538 0%, #6f102d 100%)'
+      : '#f8fafc',
+    color: primary ? '#ffffff' : '#0f172a',
+    padding: '12px 16px',
+    fontSize: 14,
+    fontWeight: 700,
+    textDecoration: 'none',
+    boxShadow: primary ? '0 14px 30px rgba(139,21,56,0.22)' : 'none',
+  } as const;
+}
+
+const hubLinks = [
+  {
+    href: '/weekly-training',
+    title: 'Weekly Training Calendar',
+    description: 'View the current weekly training schedule.',
+  },
+  {
+    href: '/long-range',
+    title: 'Long Range Calendar',
+    description: 'View the current long-range calendar pages.',
+  },
+  {
+    href: '/cq-roster',
+    title: 'CQ / Staff Duty Roster',
+    description: 'Open the current roster document.',
+  },
+  {
+    href: '/pt-plans',
+    title: 'PT Plans',
+    description: 'Choose your squad and view the current PT plan.',
+  },
+  {
+    href: '/resources',
+    title: 'Resources',
+    description: 'Access SOPs, packets, and reference documents.',
+  },
+  {
+    href: '/alerts',
+    title: 'All Alerts',
+    description: 'Open the full list of active platoon alerts.',
+  },
+] as const;
 
 export default async function HomePage() {
   const supabase = await createClient();
@@ -123,216 +125,35 @@ export default async function HomePage() {
   } = await supabase.auth.getUser();
 
   let profile: ProfileRow | null = null;
-  let events: WeeklyEventRow[] = [];
-  let latestAlert: AlertRow | null = null;
-  let latestAlertAcknowledged = false;
-  let cq: CqShiftRow[] = [];
-  let details: DetailRow[] = [];
+  let alerts: AlertRow[] = [];
 
   if (user?.id) {
-    const [profileResult, eventsResult, alertsResult, cqResult, detailsResult] = await Promise.all([
+    const [profileResult, alertsResult] = await Promise.all([
       supabase
         .from('profiles')
         .select('id, full_name, rank, role')
         .eq('id', user.id)
         .maybeSingle(),
-
-      supabase
-        .from('weekly_training_events')
-        .select('id, title, event_date, start_time, end_time, location, description')
-        .eq('event_date', today)
-        .order('start_time', { ascending: true }),
-
       supabase
         .from('alerts')
-        .select('id, message, priority, created_at, requires_ack, created_by')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-
-      supabase
-        .from('cq_shifts')
-        .select(
-          `
-            id,
-            shift_date,
-            soldier_one_id,
-            soldier_two_id,
-            soldier_one:profiles!cq_shifts_soldier_one_id_fkey(id, full_name, rank, role),
-            soldier_two:profiles!cq_shifts_soldier_two_id_fkey(id, full_name, rank, role)
-          `
-        )
-        .gte('shift_date', today)
-        .order('shift_date', { ascending: true }),
-
-      supabase
-        .from('details')
-        .select(
-          `
-            id,
-            title,
-            detail_date,
-            start_time,
-            end_time,
-            location,
-            leader,
-            notes,
-            assignments:detail_assignments(
-              id,
-              detail_id,
-              user_id,
-              user:profiles(id, full_name, rank, role)
-            )
-          `
-        )
-        .gte('detail_date', today)
-        .order('detail_date', { ascending: true })
-        .order('start_time', { ascending: true }),
+        .select('id, message, priority, created_at, expires_at, is_active, requires_ack, created_by')
+        .order('created_at', { ascending: false }),
     ]);
 
     profile = (profileResult.data as ProfileRow | null) ?? null;
-    events = (eventsResult.data as WeeklyEventRow[] | null) ?? [];
-    latestAlert = (alertsResult.data as AlertRow | null) ?? null;
-    cq = (cqResult.data as CqShiftRow[] | null) ?? [];
-    details = (detailsResult.data as DetailRow[] | null) ?? [];
-
-    if (latestAlert?.id) {
-      const { data: acknowledgement } = await supabase
-        .from('alert_acknowledgements')
-        .select('alert_id, user_id')
-        .eq('alert_id', latestAlert.id)
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      latestAlertAcknowledged = Boolean(acknowledgement);
-    }
+    alerts = (alertsResult.data as AlertRow[] | null) ?? [];
   }
 
-  const myUpcomingShift =
-    cq.find((shift) => {
-      if (!user?.id) return false;
-      return shift.soldier_one_id === user.id || shift.soldier_two_id === user.id;
-    }) ?? null;
-
-  let cqMessage = 'No upcoming CQ duty';
-  let cqPartner = '';
-  let cqDate = '';
-
-  if (myUpcomingShift && user?.id) {
-    const now = new Date(`${today}T00:00:00`);
-    const shiftDate = new Date(`${myUpcomingShift.shift_date}T00:00:00`);
-    const diffDays = Math.round((shiftDate.getTime() - now.getTime()) / 86400000);
-
-    cqDate = myUpcomingShift.shift_date;
-
-    const partner =
-      myUpcomingShift.soldier_one_id === user.id
-        ? normalizeJoinedProfile(myUpcomingShift.soldier_two)
-        : normalizeJoinedProfile(myUpcomingShift.soldier_one);
-
-    cqPartner = partner ? [partner.rank, partner.full_name].filter(Boolean).join(' ') : '';
-
-    if (diffDays <= 0) cqMessage = 'You have CQ duty today';
-    else if (diffDays === 1) cqMessage = 'You have CQ duty tomorrow';
-    else if (diffDays <= 3) cqMessage = `You have CQ duty in ${diffDays} days`;
-    else cqMessage = `Next CQ duty is ${formatShortDate(myUpcomingShift.shift_date)}`;
-  }
-
-  const myAssignedDetails = details
-    .filter((detail) => {
-      if (!user?.id) return false;
-      return (detail.assignments ?? []).some((assignment) => assignment.user_id === user.id);
-    })
+  const activeAlerts = alerts
+    .filter(isAlertActive)
     .slice()
-    .sort((a, b) => detailSortValue(a).localeCompare(detailSortValue(b)));
+    .sort((a, b) => {
+      const dateDiff = alertSortValue(a) - alertSortValue(b);
+      if (dateDiff !== 0) return dateDiff;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
 
-  const myUpcomingDetail = myAssignedDetails[0] ?? null;
-  const sameDayDetails =
-    myUpcomingDetail == null
-      ? []
-      : myAssignedDetails.filter((detail) => detail.detail_date === myUpcomingDetail.detail_date);
-
-  let detailMessage = 'No upcoming detail';
-  let detailDate = '';
-  let detailTime = '';
-  let detailLocation = '';
-  let detailLeader = '';
-  let detailTitle = '';
-
-  if (myUpcomingDetail) {
-    const now = new Date(`${today}T00:00:00`);
-    const detailDateValue = new Date(`${myUpcomingDetail.detail_date}T00:00:00`);
-    const diffDays = Math.round((detailDateValue.getTime() - now.getTime()) / 86400000);
-
-    detailDate = myUpcomingDetail.detail_date;
-    detailTime = formatTimeRange(myUpcomingDetail.start_time, myUpcomingDetail.end_time);
-    detailLocation = myUpcomingDetail.location ?? '';
-    detailLeader = myUpcomingDetail.leader ?? '';
-    detailTitle = myUpcomingDetail.title;
-
-    if (sameDayDetails.length > 1) {
-      if (diffDays <= 0) detailMessage = `You have ${sameDayDetails.length} details today`;
-      else if (diffDays === 1) detailMessage = `You have ${sameDayDetails.length} details tomorrow`;
-      else if (diffDays <= 3) {
-        detailMessage = `You have ${sameDayDetails.length} details in ${diffDays} days`;
-      } else {
-        detailMessage = `${sameDayDetails.length} details on ${formatShortDate(myUpcomingDetail.detail_date)}`;
-      }
-    } else {
-      if (diffDays <= 0) detailMessage = 'You have a detail today';
-      else if (diffDays === 1) detailMessage = 'You have a detail tomorrow';
-      else if (diffDays <= 3) detailMessage = `You have a detail in ${diffDays} days`;
-      else detailMessage = `Next detail is ${formatShortDate(myUpcomingDetail.detail_date)}`;
-    }
-  }
-
-  const displayName =
-    [profile?.rank, profile?.full_name].filter(Boolean).join(' ').trim() || 'Soldier';
-
-  const shouldShowHomeAcknowledge =
-    Boolean(user?.id) &&
-    Boolean(latestAlert?.requires_ack) &&
-    latestAlert?.created_by !== user?.id &&
-    !latestAlertAcknowledged;
-
-  async function acknowledgeLatestAlert() {
-    'use server';
-
-    const serverSupabase = await createClient();
-
-    const {
-      data: { user: actionUser },
-    } = await serverSupabase.auth.getUser();
-
-    if (!actionUser?.id) {
-      return;
-    }
-
-    const { data: currentAlert } = await serverSupabase
-      .from('alerts')
-      .select('id, requires_ack, created_by')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (!currentAlert?.id || !currentAlert.requires_ack || currentAlert.created_by === actionUser.id) {
-      revalidatePath('/home');
-      return;
-    }
-
-    await serverSupabase.from('alert_acknowledgements').upsert(
-      {
-        alert_id: currentAlert.id,
-        user_id: actionUser.id,
-      },
-      {
-        onConflict: 'alert_id,user_id',
-      }
-    );
-
-    revalidatePath('/home');
-    revalidatePath('/alerts');
-  }
+  const displayName = [profile?.rank, profile?.full_name].filter(Boolean).join(' ').trim() || 'Soldier';
 
   return (
     <div style={{ display: 'grid', gap: 20, paddingBottom: 8 }}>
@@ -375,24 +196,22 @@ export default async function HomePage() {
           >
             {formatLongDate(today)}
           </p>
+
+          <p
+            style={{
+              marginTop: 10,
+              marginBottom: 0,
+              fontSize: 15,
+              color: 'rgba(255,255,255,0.72)',
+            }}
+          >
+            {displayName}
+          </p>
         </div>
       </section>
 
-      <section
-        style={{
-          display: 'grid',
-          gap: 20,
-        }}
-      >
-        <section
-          style={{
-            background: '#ffffff',
-            borderRadius: 30,
-            padding: 22,
-            boxShadow: '0 18px 44px rgba(15,23,42,0.14)',
-            color: '#0f172a',
-          }}
-        >
+      <section style={{ display: 'grid', gap: 20 }}>
+        <section style={cardStyle()}>
           <div
             style={{
               marginBottom: 18,
@@ -400,6 +219,7 @@ export default async function HomePage() {
               alignItems: 'flex-start',
               justifyContent: 'space-between',
               gap: 12,
+              flexWrap: 'wrap',
             }}
           >
             <div>
@@ -407,65 +227,57 @@ export default async function HomePage() {
                 style={{
                   margin: 0,
                   fontSize: 30,
+                  lineHeight: 1.02,
                   fontWeight: 800,
                   letterSpacing: '-0.04em',
-                  color: '#0f172a',
                 }}
               >
-                Today&apos;s Schedule
+                Active Alerts
               </h2>
+
               <p
                 style={{
-                  marginTop: 6,
+                  marginTop: 10,
                   marginBottom: 0,
                   fontSize: 14,
                   color: '#64748b',
+                  maxWidth: 560,
                 }}
               >
-                {displayName ? '' : ''}
+                All active alerts are listed here in order of the soonest expiration or event window.
               </p>
             </div>
 
-            <div
-              style={{
-                borderRadius: 999,
-                background: '#fff1f2',
-                color: '#8b1538',
-                padding: '6px 12px',
-                fontSize: 11,
-                fontWeight: 800,
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-              }}
-            >
-              Today
-            </div>
+            <Link href="/alerts" style={actionButtonStyle(false)}>
+              Open all alerts
+            </Link>
           </div>
 
           <div style={{ display: 'grid', gap: 12 }}>
-            {events.length === 0 && (
+            {activeAlerts.length === 0 && (
               <div
                 style={{
                   borderRadius: 22,
                   background: '#f8fafc',
                   padding: 18,
                   border: '1px solid rgba(15,23,42,0.08)',
+                  fontSize: 14,
+                  color: '#475569',
                 }}
               >
-                <p style={{ margin: 0, fontSize: 15, color: '#475569' }}>
-                  No training events scheduled for today.
-                </p>
+                No active alerts right now.
               </div>
             )}
 
-            {events.map((event) => (
+            {activeAlerts.map((alert) => (
               <div
-                key={event.id}
+                key={alert.id}
                 style={{
                   borderRadius: 22,
                   background: '#f8fafc',
                   padding: 18,
                   border: '1px solid rgba(15,23,42,0.08)',
+                  minWidth: 0,
                 }}
               >
                 <div
@@ -473,473 +285,146 @@ export default async function HomePage() {
                     display: 'flex',
                     alignItems: 'flex-start',
                     justifyContent: 'space-between',
-                    gap: 12,
+                    gap: 16,
+                    flexWrap: 'wrap',
                   }}
                 >
-                  <div>
-                    <div
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p
                       style={{
-                        fontWeight: 700,
+                        margin: 0,
+                        fontSize: 17,
+                        fontWeight: 800,
                         color: '#0f172a',
-                        fontSize: 18,
-                        letterSpacing: '-0.02em',
+                        overflowWrap: 'anywhere',
                       }}
                     >
-                      {event.title}
-                    </div>
+                      {getAlertTitle(alert.message)}
+                    </p>
 
-                    <div
+                    <p
                       style={{
-                        marginTop: 6,
-                        fontSize: 14,
+                        marginTop: 8,
+                        marginBottom: 0,
+                        fontSize: 13,
                         color: '#64748b',
+                        overflowWrap: 'anywhere',
                       }}
                     >
-                      {event.start_time && event.end_time
-                        ? `${event.start_time} - ${event.end_time}`
-                        : 'Time TBD'}
-                    </div>
+                      {formatAlertDate(alert.expires_at)}
+                    </p>
+
+                    {alert.requires_ack && (
+                      <div
+                        style={{
+                          marginTop: 10,
+                          display: 'inline-flex',
+                          borderRadius: 999,
+                          padding: '6px 10px',
+                          fontSize: 11,
+                          fontWeight: 800,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.12em',
+                          background: '#f1f5f9',
+                          color: '#334155',
+                        }}
+                      >
+                        Requires acknowledgement
+                      </div>
+                    )}
                   </div>
 
-                  {event.location && (
-                    <div
-                      style={{
-                        borderRadius: 999,
-                        background: '#ffffff',
-                        padding: '7px 12px',
-                        fontSize: 12,
-                        color: '#475569',
-                        border: '1px solid rgba(15,23,42,0.08)',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {event.location}
-                    </div>
-                  )}
+                  <Link href={`/alerts?alert=${alert.id}`} style={actionButtonStyle(true)}>
+                    View Alert
+                  </Link>
                 </div>
-
-                {event.description && (
-                  <div
-                    style={{
-                      marginTop: 10,
-                      fontSize: 14,
-                      color: '#475569',
-                      lineHeight: 1.55,
-                    }}
-                  >
-                    {event.description}
-                  </div>
-                )}
               </div>
             ))}
           </div>
         </section>
 
-        <section
-          style={{
-            display: 'grid',
-            gap: 20,
-          }}
-        >
-          <section
-            style={{
-              background: '#ffffff',
-              borderRadius: 30,
-              padding: 22,
-              boxShadow: '0 18px 44px rgba(15,23,42,0.14)',
-              color: '#0f172a',
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                justifyContent: 'space-between',
-                gap: 12,
-                marginBottom: 16,
-              }}
-            >
-              <div>
-                <h2
-                  style={{
-                    margin: 0,
-                    fontSize: 30,
-                    fontWeight: 800,
-                    letterSpacing: '-0.04em',
-                    color: '#0f172a',
-                  }}
-                >
-                  Latest Alert
-                </h2>
-
-                <p
-                  style={{
-                    marginTop: 6,
-                    marginBottom: 0,
-                    fontSize: 14,
-                    color: '#64748b',
-                  }}
-                >
-                  {' '}
-                </p>
-              </div>
-
-              <Link
-                href="/alerts"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: 999,
-                  background: '#8b1538',
-                  color: '#ffffff',
-                  padding: '10px 14px',
-                  fontSize: 12,
-                  fontWeight: 800,
-                  letterSpacing: '0.06em',
-                  textTransform: 'uppercase',
-                  textDecoration: 'none',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                View All →
-              </Link>
-            </div>
-
-            {!latestAlert && (
-              <div
-                style={{
-                  borderRadius: 22,
-                  background: '#f8fafc',
-                  padding: 18,
-                  border: '1px solid rgba(15,23,42,0.08)',
-                }}
-              >
-                <p style={{ margin: 0, fontSize: 15, color: '#475569' }}>
-                  No active alerts.
-                </p>
-              </div>
-            )}
-
-            {latestAlert && (
-              <div
-                style={{
-                  borderRadius: 22,
-                  background: '#ffffff',
-                  padding: 18,
-                  border: '1px solid rgba(15,23,42,0.08)',
-                  boxShadow: '0 10px 24px rgba(15,23,42,0.06)',
-                }}
-              >
-                <div
-                  style={{
-                    display: 'inline-flex',
-                    borderRadius: 999,
-                    padding: '6px 10px',
-                    fontSize: 11,
-                    fontWeight: 800,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.12em',
-                    background: priorityColors(latestAlert.priority).bg,
-                    color: priorityColors(latestAlert.priority).text,
-                  }}
-                >
-                  {priorityColors(latestAlert.priority).label}
-                </div>
-
-                <p
-                  style={{
-                    marginTop: 12,
-                    marginBottom: 0,
-                    fontSize: 15,
-                    color: '#0f172a',
-                    lineHeight: 1.55,
-                  }}
-                >
-                  {latestAlert.message}
-                </p>
-
-                <p
-                  style={{
-                    marginTop: 10,
-                    marginBottom: 0,
-                    fontSize: 12,
-                    color: '#64748b',
-                  }}
-                >
-                  {new Date(latestAlert.created_at).toLocaleString()}
-                </p>
-
-                {latestAlert.requires_ack && latestAlertAcknowledged && (
-                  <div
-                    style={{
-                      marginTop: 12,
-                      display: 'inline-flex',
-                      borderRadius: 999,
-                      background: '#dcfce7',
-                      color: '#166534',
-                      padding: '8px 12px',
-                      fontSize: 12,
-                      fontWeight: 800,
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    Acknowledged
-                  </div>
-                )}
-
-                {shouldShowHomeAcknowledge && (
-                  <form action={acknowledgeLatestAlert} style={{ marginTop: 12 }}>
-                    <button
-                      type="submit"
-                      style={{
-                        borderRadius: 18,
-                        border: 'none',
-                        background: 'linear-gradient(180deg, #8b1538 0%, #6f102d 100%)',
-                        color: '#ffffff',
-                        padding: '12px 16px',
-                        fontSize: 14,
-                        fontWeight: 800,
-                        cursor: 'pointer',
-                        boxShadow: '0 14px 30px rgba(139,21,56,0.28)',
-                      }}
-                    >
-                      Acknowledge
-                    </button>
-                  </form>
-                )}
-              </div>
-            )}
-          </section>
-
-          <section
-            style={{
-              background: '#ffffff',
-              borderRadius: 30,
-              padding: 22,
-              boxShadow: '0 18px 44px rgba(15,23,42,0.14)',
-              color: '#0f172a',
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                justifyContent: 'space-between',
-                gap: 12,
-                marginBottom: 16,
-              }}
-            >
-              <div>
-                <h2
-                  style={{
-                    margin: 0,
-                    fontSize: 30,
-                    fontWeight: 800,
-                    letterSpacing: '-0.04em',
-                    color: '#0f172a',
-                  }}
-                >
-                  Details
-                </h2>
-
-                <p
-                  style={{
-                    marginTop: 6,
-                    marginBottom: 0,
-                    fontSize: 14,
-                    color: '#64748b',
-                  }}
-                >
-                  {' '}
-                </p>
-              </div>
-
-              <Link
-                href="/details"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: 999,
-                  background: '#8b1538',
-                  color: '#ffffff',
-                  padding: '10px 14px',
-                  fontSize: 12,
-                  fontWeight: 800,
-                  letterSpacing: '0.06em',
-                  textTransform: 'uppercase',
-                  textDecoration: 'none',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                View All →
-              </Link>
-            </div>
-
-            <div
-              style={{
-                borderRadius: 24,
-                background: 'linear-gradient(180deg, #fff1f2 0%, #ffffff 100%)',
-                padding: 16,
-                border: '1px solid #ffe4e6',
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 22,
-                  fontWeight: 700,
-                  color: '#8b1538',
-                  letterSpacing: '-0.02em',
-                }}
-              >
-                {detailMessage}
-              </div>
-
-              {sameDayDetails.length > 1 ? (
-                <div style={{ marginTop: 12, display: 'grid', gap: 10 }}>
-                  {sameDayDetails.map((detail) => (
-                    <div
-                      key={detail.id}
-                      style={{
-                        borderRadius: 18,
-                        background: '#ffffff',
-                        padding: 14,
-                        border: '1px solid rgba(15,23,42,0.08)',
-                      }}
-                    >
-                      <div
-                        style={{
-                          fontSize: 15,
-                          fontWeight: 700,
-                          color: '#0f172a',
-                        }}
-                      >
-                        {detail.title}
-                      </div>
-
-                      <div style={{ marginTop: 8, fontSize: 14, color: '#475569' }}>
-                        Time: {formatTimeRange(detail.start_time, detail.end_time)}
-                      </div>
-
-                      {detail.location && (
-                        <div style={{ marginTop: 6, fontSize: 14, color: '#475569' }}>
-                          Location: {detail.location}
-                        </div>
-                      )}
-
-                      {detail.leader && (
-                        <div style={{ marginTop: 6, fontSize: 14, color: '#475569' }}>
-                          OIC / NCOIC: {detail.leader}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <>
-                  {detailTitle && (
-                    <div
-                      style={{ marginTop: 10, fontSize: 16, fontWeight: 700, color: '#0f172a' }}
-                    >
-                      {detailTitle}
-                    </div>
-                  )}
-
-                  {detailDate && (
-                    <div style={{ marginTop: 10, fontSize: 14, color: '#475569' }}>
-                      Date: {formatShortDate(detailDate)}
-                    </div>
-                  )}
-
-                  {detailTime && (
-                    <div style={{ marginTop: 6, fontSize: 14, color: '#475569' }}>
-                      Time: {detailTime}
-                    </div>
-                  )}
-
-                  {detailLocation && (
-                    <div style={{ marginTop: 6, fontSize: 14, color: '#475569' }}>
-                      Location: {detailLocation}
-                    </div>
-                  )}
-
-                  {detailLeader && (
-                    <div style={{ marginTop: 6, fontSize: 14, color: '#475569' }}>
-                      OIC / NCOIC: {detailLeader}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </section>
-
-          <section
-            style={{
-              background: '#ffffff',
-              borderRadius: 30,
-              padding: 22,
-              boxShadow: '0 18px 44px rgba(15,23,42,0.14)',
-              color: '#0f172a',
-            }}
-          >
+        <section style={cardStyle()}>
+          <div style={{ marginBottom: 18 }}>
             <h2
               style={{
                 margin: 0,
                 fontSize: 30,
+                lineHeight: 1.02,
                 fontWeight: 800,
                 letterSpacing: '-0.04em',
-                color: '#0f172a',
               }}
             >
-              CQ
+              Information Hub
             </h2>
 
             <p
               style={{
-                marginTop: 6,
+                marginTop: 10,
                 marginBottom: 0,
                 fontSize: 14,
                 color: '#64748b',
+                maxWidth: 560,
               }}
             >
-              {' '}
+              Open the current operational documents, PT plans, rosters, and platoon resources.
             </p>
+          </div>
 
-            <div
-              style={{
-                marginTop: 16,
-                borderRadius: 24,
-                background: 'linear-gradient(180deg, #fff1f2 0%, #ffffff 100%)',
-                padding: 16,
-                border: '1px solid #ffe4e6',
-              }}
-            >
-              <div
+          <div style={{ display: 'grid', gap: 12 }}>
+            {hubLinks.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
                 style={{
-                  fontSize: 22,
-                  fontWeight: 700,
-                  color: '#8b1538',
-                  letterSpacing: '-0.02em',
+                  textDecoration: 'none',
+                  color: 'inherit',
+                  borderRadius: 22,
+                  background: '#f8fafc',
+                  padding: 18,
+                  border: '1px solid rgba(15,23,42,0.08)',
+                  display: 'block',
                 }}
               >
-                {cqMessage}
-              </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    justifyContent: 'space-between',
+                    gap: 16,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: 17,
+                        fontWeight: 800,
+                        color: '#0f172a',
+                        overflowWrap: 'anywhere',
+                      }}
+                    >
+                      {item.title}
+                    </p>
 
-              {cqDate && (
-                <div style={{ marginTop: 10, fontSize: 14, color: '#475569' }}>
-                  Date: {formatShortDate(cqDate)}
-                </div>
-              )}
+                    <p
+                      style={{
+                        marginTop: 8,
+                        marginBottom: 0,
+                        fontSize: 14,
+                        lineHeight: 1.55,
+                        color: '#64748b',
+                      }}
+                    >
+                      {item.description}
+                    </p>
+                  </div>
 
-              {cqPartner && (
-                <div style={{ marginTop: 6, fontSize: 14, color: '#475569' }}>
-                  Partner: {cqPartner}
+                  <span style={actionButtonStyle(false)}>Open</span>
                 </div>
-              )}
-            </div>
-          </section>
+              </Link>
+            ))}
+          </div>
         </section>
       </section>
     </div>
