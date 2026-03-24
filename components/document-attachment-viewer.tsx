@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/browser';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -91,7 +91,93 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-function PDFCanvasViewer({
+function Modal({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  useEffect(() => {
+    const original = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = original;
+    };
+  }, []);
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        backgroundColor: 'rgba(0,0,0,0.72)',
+        zIndex: 1000,
+        padding: 12,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: '100%',
+          maxWidth: 1280,
+          height: '92vh',
+          backgroundColor: '#ffffff',
+          borderRadius: 20,
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        <div
+          style={{
+            padding: 12,
+            borderBottom: '1px solid #e5e7eb',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 15,
+              fontWeight: 700,
+              color: '#111827',
+              overflowWrap: 'anywhere',
+            }}
+          >
+            {title}
+          </div>
+
+          <button type="button" onClick={onClose} style={buttonStyle()}>
+            Close
+          </button>
+        </div>
+
+        <div
+          style={{
+            flex: 1,
+            overflow: 'auto',
+            WebkitOverflowScrolling: 'touch',
+            padding: 12,
+            background: '#f3f4f6',
+          }}
+        >
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PDFViewer({
   url,
   fileName,
   inModal = false,
@@ -101,31 +187,26 @@ function PDFCanvasViewer({
   inModal?: boolean;
 }) {
   const [numPages, setNumPages] = useState(0);
-  const [zoom, setZoom] = useState(inModal ? 1.25 : 1);
-  const [containerWidth, setContainerWidth] = useState(0);
+  const [zoom, setZoom] = useState(inModal ? 1.2 : 1);
+  const [pageWidth, setPageWidth] = useState(900);
 
   useEffect(() => {
     function updateWidth() {
-      const mobilePadding = inModal ? 32 : 28;
-      const desktopCap = inModal ? 1200 : 900;
-      const nextWidth = Math.min(window.innerWidth - mobilePadding, desktopCap);
-      setContainerWidth(Math.max(260, nextWidth));
+      const viewportWidth = window.innerWidth;
+      const baseWidth = inModal
+        ? Math.min(viewportWidth - 48, 1100)
+        : Math.min(viewportWidth - 56, 900);
+
+      setPageWidth(Math.max(260, Math.floor(baseWidth * zoom)));
     }
 
     updateWidth();
     window.addEventListener('resize', updateWidth);
     return () => window.removeEventListener('resize', updateWidth);
-  }, [inModal]);
-
-  const pageWidth = Math.floor(containerWidth * zoom);
+  }, [zoom, inModal]);
 
   return (
-    <div
-      style={{
-        display: 'grid',
-        gap: 12,
-      }}
-    >
+    <div style={{ display: 'grid', gap: 12 }}>
       <div
         style={{
           display: 'flex',
@@ -155,6 +236,7 @@ function PDFCanvasViewer({
           >
             −
           </button>
+
           <div
             style={{
               minWidth: 58,
@@ -166,6 +248,7 @@ function PDFCanvasViewer({
           >
             {Math.round(zoom * 100)}%
           </div>
+
           <button
             type="button"
             onClick={() => setZoom((current) => clamp(Number((current + 0.1).toFixed(2)), 0.6, 2))}
@@ -201,7 +284,7 @@ function PDFCanvasViewer({
             error={<div style={{ padding: 16, color: '#b91c1c' }}>Unable to load PDF.</div>}
             onLoadSuccess={({ numPages: loadedPages }) => setNumPages(loadedPages)}
           >
-            {Array.from(new Array(numPages), (_, index) => (
+            {Array.from({ length: numPages }, (_, index) => (
               <div
                 key={`page_${index + 1}`}
                 style={{
@@ -268,6 +351,7 @@ function ImageViewer({
           >
             −
           </button>
+
           <div
             style={{
               minWidth: 58,
@@ -279,6 +363,7 @@ function ImageViewer({
           >
             {Math.round(zoom * 100)}%
           </div>
+
           <button
             type="button"
             onClick={() => setZoom((current) => clamp(Number((current + 0.1).toFixed(2)), 0.6, 3))}
@@ -326,7 +411,7 @@ function FileRenderer({
   inModal?: boolean;
 }) {
   if (attachment.kind === 'pdf') {
-    return <PDFCanvasViewer url={attachment.signedUrl} fileName={attachment.file_name} inModal={inModal} />;
+    return <PDFViewer url={attachment.signedUrl} fileName={attachment.file_name} inModal={inModal} />;
   }
 
   if (attachment.kind === 'image') {
@@ -348,101 +433,17 @@ function FileRenderer({
   );
 }
 
-function Modal({
-  title,
-  onClose,
-  children,
-}: {
-  title: string;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  useEffect(() => {
-    const original = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = original;
-    };
-  }, []);
-
-  return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(0,0,0,0.72)',
-        zIndex: 1000,
-        padding: 12,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: '100%',
-          maxWidth: 1280,
-          height: '92vh',
-          backgroundColor: '#ffffff',
-          borderRadius: 20,
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
-        <div
-          style={{
-            padding: 12,
-            borderBottom: '1px solid #e5e7eb',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 12,
-          }}
-        >
-          <div
-            style={{
-              fontSize: 15,
-              fontWeight: 700,
-              color: '#111827',
-              overflowWrap: 'anywhere',
-            }}
-          >
-            {title}
-          </div>
-          <button type="button" onClick={onClose} style={buttonStyle()}>
-            Close
-          </button>
-        </div>
-
-        <div
-          style={{
-            flex: 1,
-            overflow: 'auto',
-            WebkitOverflowScrolling: 'touch',
-            padding: 12,
-            background: '#f3f4f6',
-          }}
-        >
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function DocumentAttachmentViewer({
   attachments,
-  emptyMessage = 'No files posted.',
+  emptyMessage,
 }: {
   attachments: Attachment[];
-  emptyMessage?: string;
+  emptyMessage: string;
 }) {
-  const [resolved, setResolved] = useState<ResolvedAttachment[]>([]);
+  const supabase = useMemo(() => createClient(), []);
+  const [resolvedAttachments, setResolvedAttachments] = useState<ResolvedAttachment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeModalId, setActiveModalId] = useState<string | null>(null);
+  const [expandedAttachment, setExpandedAttachment] = useState<ResolvedAttachment | null>(null);
 
   const sortedAttachments = useMemo(
     () => [...attachments].sort((a, b) => a.sort_order - b.sort_order),
@@ -452,17 +453,16 @@ export function DocumentAttachmentViewer({
   useEffect(() => {
     let cancelled = false;
 
-    async function resolveUrls() {
+    async function resolveAttachments() {
       if (sortedAttachments.length === 0) {
-        setResolved([]);
+        setResolvedAttachments([]);
         setLoading(false);
         return;
       }
 
       setLoading(true);
-      const supabase = createClient();
 
-      const nextResolved = await Promise.all(
+      const next = await Promise.all(
         sortedAttachments.map(async (attachment) => {
           const { data, error } = await supabase.storage
             .from(DOC_BUCKET)
@@ -481,96 +481,90 @@ export function DocumentAttachmentViewer({
       );
 
       if (!cancelled) {
-        setResolved(nextResolved.filter((item): item is ResolvedAttachment => item !== null));
+        setResolvedAttachments(next.filter((item): item is ResolvedAttachment => item !== null));
         setLoading(false);
       }
     }
 
-    void resolveUrls();
+    void resolveAttachments();
 
     return () => {
       cancelled = true;
     };
-  }, [sortedAttachments]);
-
-  const activeAttachment = resolved.find((item) => item.id === activeModalId) ?? null;
+  }, [sortedAttachments, supabase]);
 
   if (loading) {
-    return (
-      <div style={cardStyle()}>
-        <p style={{ margin: 0, color: '#374151' }}>Loading files…</p>
-      </div>
-    );
+    return <p style={{ color: '#ffffff', margin: 0 }}>Loading...</p>;
   }
 
-  if (resolved.length === 0) {
-    return (
-      <div style={cardStyle()}>
-        <p style={{ margin: 0, color: '#374151' }}>{emptyMessage}</p>
-      </div>
-    );
+  if (resolvedAttachments.length === 0) {
+    return <p style={{ color: '#ffffff', margin: 0 }}>{emptyMessage}</p>;
   }
 
   return (
     <>
       <div style={{ display: 'grid', gap: 16 }}>
-        {resolved.map((attachment, index) => (
-          <div key={attachment.id} style={cardStyle()}>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 12,
-                flexWrap: 'wrap',
-                marginBottom: 12,
-              }}
-            >
-              <div style={{ minWidth: 0 }}>
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 800,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                    color: '#6b7280',
-                    marginBottom: 6,
-                  }}
-                >
-                  Attachment {index + 1}
+        {resolvedAttachments.map((attachment, index) => {
+          const label = resolvedAttachments.length > 1 ? `File ${index + 1}` : 'Document';
+
+          return (
+            <section key={attachment.id} style={cardStyle()}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  flexWrap: 'wrap',
+                  marginBottom: 12,
+                }}
+              >
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 800,
+                      color: '#6b7280',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.08em',
+                    }}
+                  >
+                    {label}
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 4,
+                      fontSize: 15,
+                      fontWeight: 700,
+                      color: '#111827',
+                      overflowWrap: 'anywhere',
+                    }}
+                  >
+                    {attachment.file_name}
+                  </div>
                 </div>
-                <div
-                  style={{
-                    fontSize: 15,
-                    fontWeight: 700,
-                    color: '#111827',
-                    overflowWrap: 'anywhere',
-                  }}
+
+                <button
+                  type="button"
+                  onClick={() => setExpandedAttachment(attachment)}
+                  style={buttonStyle(true)}
                 >
-                  {attachment.file_name}
-                </div>
+                  Expand
+                </button>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setActiveModalId(attachment.id)}
-                style={buttonStyle(true)}
-              >
-                Fullscreen
-              </button>
-            </div>
-
-            <FileRenderer attachment={attachment} />
-          </div>
-        ))}
+              <FileRenderer attachment={attachment} />
+            </section>
+          );
+        })}
       </div>
 
-      {activeAttachment ? (
+      {expandedAttachment ? (
         <Modal
-          title={activeAttachment.file_name}
-          onClose={() => setActiveModalId(null)}
+          title={expandedAttachment.file_name}
+          onClose={() => setExpandedAttachment(null)}
         >
-          <FileRenderer attachment={activeAttachment} inModal />
+          <FileRenderer attachment={expandedAttachment} inModal />
         </Modal>
       ) : null}
     </>
