@@ -8,18 +8,14 @@ type ProfileRow = {
   id: string;
   full_name: string | null;
   rank: string | null;
-  role: string | null;
 };
 
 type AlertRow = {
   id: string;
   message: string;
-  priority: 'high' | 'medium' | 'low';
   created_at: string;
   expires_at: string | null;
   is_active: boolean | null;
-  requires_ack: boolean | null;
-  created_by: string | null;
 };
 
 function formatLongDate(dateString: string) {
@@ -80,6 +76,7 @@ function actionButtonStyle(primary = true) {
     fontWeight: 700,
     textDecoration: 'none',
     boxShadow: primary ? '0 14px 30px rgba(139,21,56,0.22)' : 'none',
+    whiteSpace: 'nowrap' as const,
   } as const;
 }
 
@@ -109,11 +106,6 @@ const hubLinks = [
     title: 'Resources',
     description: 'Access SOPs, packets, and reference documents.',
   },
-  {
-    href: '/alerts',
-    title: 'All Alerts',
-    description: 'Open the full list of active platoon alerts.',
-  },
 ] as const;
 
 export default async function HomePage() {
@@ -129,14 +121,10 @@ export default async function HomePage() {
 
   if (user?.id) {
     const [profileResult, alertsResult] = await Promise.all([
-      supabase
-        .from('profiles')
-        .select('id, full_name, rank, role')
-        .eq('id', user.id)
-        .maybeSingle(),
+      supabase.from('profiles').select('id, full_name, rank').eq('id', user.id).maybeSingle(),
       supabase
         .from('alerts')
-        .select('id, message, priority, created_at, expires_at, is_active, requires_ack, created_by')
+        .select('id, message, created_at, expires_at, is_active')
         .order('created_at', { ascending: false }),
     ]);
 
@@ -212,45 +200,30 @@ export default async function HomePage() {
 
       <section style={{ display: 'grid', gap: 20 }}>
         <section style={cardStyle()}>
-          <div
-            style={{
-              marginBottom: 18,
-              display: 'flex',
-              alignItems: 'flex-start',
-              justifyContent: 'space-between',
-              gap: 12,
-              flexWrap: 'wrap',
-            }}
-          >
-            <div>
-              <h2
-                style={{
-                  margin: 0,
-                  fontSize: 30,
-                  lineHeight: 1.02,
-                  fontWeight: 800,
-                  letterSpacing: '-0.04em',
-                }}
-              >
-                Active Alerts
-              </h2>
+          <div style={{ marginBottom: 18 }}>
+            <h2
+              style={{
+                margin: 0,
+                fontSize: 30,
+                lineHeight: 1.02,
+                fontWeight: 800,
+                letterSpacing: '-0.04em',
+              }}
+            >
+              Active Alerts
+            </h2>
 
-              <p
-                style={{
-                  marginTop: 10,
-                  marginBottom: 0,
-                  fontSize: 14,
-                  color: '#64748b',
-                  maxWidth: 560,
-                }}
-              >
-                All active alerts are listed here in order of the soonest expiration or event window.
-              </p>
-            </div>
-
-            <Link href="/alerts" style={actionButtonStyle(false)}>
-              Open all alerts
-            </Link>
+            <p
+              style={{
+                marginTop: 10,
+                marginBottom: 0,
+                fontSize: 14,
+                color: '#64748b',
+                maxWidth: 560,
+              }}
+            >
+              All active alerts are listed here in order of the soonest expiration.
+            </p>
           </div>
 
           <div style={{ display: 'grid', gap: 12 }}>
@@ -280,66 +253,37 @@ export default async function HomePage() {
                   minWidth: 0,
                 }}
               >
-                <div
+                <p
                   style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    justifyContent: 'space-between',
-                    gap: 16,
-                    flexWrap: 'wrap',
+                    margin: 0,
+                    fontSize: 17,
+                    fontWeight: 800,
+                    color: '#0f172a',
+                    overflowWrap: 'anywhere',
                   }}
                 >
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p
-                      style={{
-                        margin: 0,
-                        fontSize: 17,
-                        fontWeight: 800,
-                        color: '#0f172a',
-                        overflowWrap: 'anywhere',
-                      }}
-                    >
-                      {getAlertTitle(alert.message)}
-                    </p>
+                  {getAlertTitle(alert.message)}
+                </p>
 
-                    <p
-                      style={{
-                        marginTop: 8,
-                        marginBottom: 0,
-                        fontSize: 13,
-                        color: '#64748b',
-                        overflowWrap: 'anywhere',
-                      }}
-                    >
-                      {formatAlertDate(alert.expires_at)}
-                    </p>
-
-                    {alert.requires_ack && (
-                      <div
-                        style={{
-                          marginTop: 10,
-                          display: 'inline-flex',
-                          borderRadius: 999,
-                          padding: '6px 10px',
-                          fontSize: 11,
-                          fontWeight: 800,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.12em',
-                          background: '#f1f5f9',
-                          color: '#334155',
-                        }}
-                      >
-                        Requires acknowledgement
-                      </div>
-                    )}
-                  </div>
-
-                  <Link href={`/alerts?alert=${alert.id}`} style={actionButtonStyle(true)}>
-                    View Alert
-                  </Link>
-                </div>
+                <p
+                  style={{
+                    marginTop: 8,
+                    marginBottom: 0,
+                    fontSize: 13,
+                    color: '#64748b',
+                    overflowWrap: 'anywhere',
+                  }}
+                >
+                  {formatAlertDate(alert.expires_at)}
+                </p>
               </div>
             ))}
+          </div>
+
+          <div style={{ marginTop: 16 }}>
+            <Link href="/alerts" style={actionButtonStyle(true)}>
+              Open Alerts
+            </Link>
           </div>
         </section>
 

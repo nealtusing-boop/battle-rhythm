@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/browser';
-import type { AlertPriority, Profile } from '@/lib/types';
+import type { Profile } from '@/lib/types';
 
 const DOC_BUCKET = 'battle-rhythm-docs';
 
@@ -18,7 +18,6 @@ const tabs = [
 ] as const;
 
 type TabId = (typeof tabs)[number]['id'];
-type AlertExpirationOption = '24h' | '3d' | '7d' | 'never';
 type DocumentCategory = 'weekly_training' | 'long_range' | 'cq_roster' | 'pt_plan' | 'resource';
 type PtSubcategory = '1st_squad' | '2nd_squad' | '3rd_squad' | 'wpns_squad';
 type CqRosterSubcategory = 'cq' | 'staff_duty';
@@ -26,9 +25,7 @@ type CqRosterSubcategory = 'cq' | 'staff_duty';
 type ExistingAlert = {
   id: string;
   message: string;
-  priority: AlertPriority;
   created_at: string;
-  requires_ack: boolean | null;
   created_by: string | null;
   expires_at: string | null;
   is_active: boolean | null;
@@ -36,19 +33,6 @@ type ExistingAlert = {
 
 type ManagedProfile = Profile & {
   is_active?: boolean;
-};
-
-type AlertAcknowledgementRow = {
-  alert_id: string;
-  user_id: string;
-  acknowledged_at: string;
-  profiles?: { full_name: string; rank: string } | { full_name: string; rank: string }[] | null;
-};
-
-type AlertAckSummary = {
-  eligibleCount: number | null;
-  acknowledgedCount: number;
-  rows: AlertAcknowledgementRow[];
 };
 
 type DocumentAttachment = {
@@ -183,53 +167,16 @@ function formatDateTime(value: string | null | undefined) {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
-    hour: 'numeric',
+    hour: '2-digit',
     minute: '2-digit',
+    hour12: false,
   });
-}
-
-function formatShortDate(value: string | null | undefined) {
-  if (!value) return 'No date';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString([], {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
-
-function getExpirationTimestamp(option: AlertExpirationOption) {
-  if (option === 'never') return null;
-  const now = new Date();
-  const next = new Date(now);
-  if (option === '24h') next.setHours(next.getHours() + 24);
-  if (option === '3d') next.setDate(next.getDate() + 3);
-  if (option === '7d') next.setDate(next.getDate() + 7);
-  return next.toISOString();
-}
-
-function inferExpirationOption(value: string | null): AlertExpirationOption {
-  if (!value) return 'never';
-  const diff = new Date(value).getTime() - Date.now();
-  const hours = diff / (1000 * 60 * 60);
-  if (hours <= 36) return '24h';
-  if (hours <= 96) return '3d';
-  if (hours <= 192) return '7d';
-  return 'never';
 }
 
 function isAlertCurrentlyActive(alert: ExistingAlert) {
   if (alert.is_active === false) return false;
   if (!alert.expires_at) return true;
   return new Date(alert.expires_at).getTime() > Date.now();
-}
-
-function normalizeAcknowledgedProfile(
-  value: AlertAcknowledgementRow['profiles']
-): { full_name: string; rank: string } | null {
-  if (!value) return null;
-  return Array.isArray(value) ? (value[0] ?? null) : value;
 }
 
 function getFileFolder(category: DocumentCategory, subcategory: string | null) {
@@ -247,6 +194,74 @@ function buildStoragePath(category: DocumentCategory, subcategory: string | null
 
 function sortAttachments(items: DocumentAttachment[] | null | undefined) {
   return [...(items ?? [])].sort((a, b) => a.sort_order - b.sort_order || a.file_name.localeCompare(b.file_name));
+}
+
+function toLocalDateInputValue(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function toLocalTimeInputValue(date = new Date()) {
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
+function splitExpirationForForm(value: string | null) {
+  if (!value) {
+    const now = new Date();
+    now.setHours(now.getHours() + 24);
+    return {
+      date: toLocalDateInputValue(now),
+      time: toLocalTimeInputValue(now),
+    };
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    const fallback = new Date();
+    fallback.setHours(fallback.getHours() + 24);
+    return {
+      date: toLocalDateInputValue(fallback),
+      time: toLocalTimeInputValue(fallback),
+    };
+  }
+
+  return {
+    date: toLocalDateInputValue(date),
+    time: toLocalTimeInputValue(date),
+  };
+}
+
+function normalizeMilitaryTimeInput(value: string) {
+  const digits = value.replace(/\D/g, '').slice(0, 4);
+
+  if (digits.length === 0) return '';
+  if (digits.length <= 2) return digits;
+
+  return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+}
+
+function finalizeMilitaryTimeInput(value: string) {
+  const digits = value.replace(/\D/g, '').slice(0, 4);
+  if (digits.length !== 4) return '';
+
+  const hours = Number(digits.slice(0, 2));
+  const minutes = Number(digits.slice(2, 4));
+
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return '';
+
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
+function buildExpirationIso(dateValue: string, timeValue: string) {
+  const finalTime = finalizeMilitaryTimeInput(timeValue);
+  if (!dateValue || !finalTime) return null;
+  const combined = new Date(`${dateValue}T${finalTime}`);
+  if (Number.isNaN(combined.getTime())) return null;
+  return combined.toISOString();
 }
 
 function ModalShell({
@@ -519,19 +534,16 @@ export function AdminClient() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [soldiers, setSoldiers] = useState<ManagedProfile[]>([]);
   const [existingAlerts, setExistingAlerts] = useState<ExistingAlert[]>([]);
-  const [alertAckSummaryByAlertId, setAlertAckSummaryByAlertId] = useState<Record<string, AlertAckSummary>>({});
   const [documentPosts, setDocumentPosts] = useState<DocumentPost[]>([]);
 
+  const defaultExpiry = splitExpirationForForm(null);
   const [alertMessage, setAlertMessage] = useState('');
-  const [alertPriority, setAlertPriority] = useState<AlertPriority>('medium');
-  const [alertRequiresAck, setAlertRequiresAck] = useState(false);
-  const [alertExpiration, setAlertExpiration] = useState<AlertExpirationOption>('24h');
+  const [alertExpiresDate, setAlertExpiresDate] = useState(defaultExpiry.date);
+  const [alertExpiresTime, setAlertExpiresTime] = useState(defaultExpiry.time);
   const [reactivatingAlert, setReactivatingAlert] = useState<ExistingAlert | null>(null);
   const [reactivationMessage, setReactivationMessage] = useState('');
-  const [reactivationPriority, setReactivationPriority] = useState<AlertPriority>('medium');
-  const [reactivationRequiresAck, setReactivationRequiresAck] = useState(false);
-  const [reactivationExpiration, setReactivationExpiration] = useState<AlertExpirationOption>('24h');
-  const [selectedAlertForAck, setSelectedAlertForAck] = useState<ExistingAlert | null>(null);
+  const [reactivationExpiresDate, setReactivationExpiresDate] = useState(defaultExpiry.date);
+  const [reactivationExpiresTime, setReactivationExpiresTime] = useState(defaultExpiry.time);
   const [busyDeletingAlertId, setBusyDeletingAlertId] = useState<string | null>(null);
   const [busyRepostingAlert, setBusyRepostingAlert] = useState(false);
   const [busyUpdatingUserId, setBusyUpdatingUserId] = useState<string | null>(null);
@@ -555,7 +567,6 @@ export function AdminClient() {
       },
       { data: profiles, error: profilesError },
       { data: alerts, error: alertsError },
-      { data: acknowledgements, error: acknowledgementsError },
       { data: posts, error: postsError },
     ] = await Promise.all([
       supabase.auth.getUser(),
@@ -566,11 +577,8 @@ export function AdminClient() {
         .order('full_name', { ascending: true }),
       supabase
         .from('alerts')
-        .select('id, message, priority, created_at, requires_ack, created_by, expires_at, is_active')
+        .select('id, message, created_at, created_by, expires_at, is_active')
         .order('created_at', { ascending: false }),
-      supabase
-        .from('alert_acknowledgements')
-        .select('alert_id, user_id, acknowledged_at, profiles(full_name, rank)'),
       supabase
         .from('document_posts')
         .select(
@@ -598,10 +606,8 @@ export function AdminClient() {
         .order('created_at', { ascending: false }),
     ]);
 
-    if (profilesError || alertsError || acknowledgementsError || postsError) {
-      setStatus(
-        profilesError?.message || alertsError?.message || acknowledgementsError?.message || postsError?.message || 'Failed to load admin data.'
-      );
+    if (profilesError || alertsError || postsError) {
+      setStatus(profilesError?.message || alertsError?.message || postsError?.message || 'Failed to load admin data.');
       return;
     }
 
@@ -609,53 +615,18 @@ export function AdminClient() {
       ...profile,
       is_active: profile.is_active ?? true,
     }));
-    const safeAlerts = (alerts ?? []) as ExistingAlert[];
-    const safeAcknowledgements = (acknowledgements ?? []) as AlertAcknowledgementRow[];
-
-    const summaryByAlertId = safeAlerts.reduce<Record<string, AlertAckSummary>>((acc, alert) => {
-      const rows = safeAcknowledgements
-        .filter((row) => row.alert_id === alert.id)
-        .filter((row) => row.user_id !== alert.created_by)
-        .slice()
-        .sort(
-          (a, b) => new Date(a.acknowledged_at).getTime() - new Date(b.acknowledged_at).getTime()
-        );
-
-      const acknowledgedCount = new Set(rows.map((row) => row.user_id)).size;
-      const eligibleCount =
-        alert.created_by
-          ? safeProfiles.filter((profile) => profile.is_active !== false && profile.id !== alert.created_by).length
-          : null;
-
-      acc[alert.id] = {
-        eligibleCount,
-        acknowledgedCount,
-        rows,
-      };
-
-      return acc;
-    }, {});
 
     setCurrentUserId(user?.id ?? null);
     setSoldiers(safeProfiles);
-    setExistingAlerts(safeAlerts);
-    setAlertAckSummaryByAlertId(summaryByAlertId);
+    setExistingAlerts((alerts ?? []) as ExistingAlert[]);
     setDocumentPosts(normalizeDocumentPosts(posts));
   }
 
-  const activeAlerts = useMemo(
-    () => existingAlerts.filter((alert) => isAlertCurrentlyActive(alert)),
-    [existingAlerts]
-  );
-
-  const inactiveAlerts = useMemo(
-    () => existingAlerts.filter((alert) => !isAlertCurrentlyActive(alert)),
-    [existingAlerts]
-  );
+  const activeAlerts = useMemo(() => existingAlerts.filter((alert) => isAlertCurrentlyActive(alert)), [existingAlerts]);
+  const inactiveAlerts = useMemo(() => existingAlerts.filter((alert) => !isAlertCurrentlyActive(alert)), [existingAlerts]);
 
   const currentWeeklyPost = useMemo(
-    () =>
-      documentPosts.find((post) => post.category === 'weekly_training' && post.is_active) ?? null,
+    () => documentPosts.find((post) => post.category === 'weekly_training' && post.is_active) ?? null,
     [documentPosts]
   );
 
@@ -686,7 +657,10 @@ export function AdminClient() {
   );
 
   const resourcePosts = useMemo(
-    () => documentPosts.filter((post) => post.category === 'resource').sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+    () =>
+      documentPosts
+        .filter((post) => post.category === 'resource')
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
     [documentPosts]
   );
 
@@ -696,33 +670,69 @@ export function AdminClient() {
     setSelectedFiles([]);
   }
 
+  function appendSelectedFiles(fileList: FileList | null) {
+    if (!fileList || fileList.length === 0) return;
+
+    setSelectedFiles((current) => {
+      const next = [...current];
+      for (const file of Array.from(fileList)) {
+        const duplicate = next.some(
+          (existing) =>
+            existing.name === file.name &&
+            existing.size === file.size &&
+            existing.lastModified === file.lastModified
+        );
+
+        if (!duplicate) {
+          next.push(file);
+        }
+      }
+      return next;
+    });
+  }
+
+  function removeSelectedFile(indexToRemove: number) {
+    setSelectedFiles((current) => current.filter((_, index) => index !== indexToRemove));
+  }
+
+  function resetAlertForm() {
+    const next = splitExpirationForForm(null);
+    setAlertMessage('');
+    setAlertExpiresDate(next.date);
+    setAlertExpiresTime(next.time);
+  }
+
   function openReactivateAlert(alert: ExistingAlert) {
+    const split = splitExpirationForForm(alert.expires_at);
     setReactivatingAlert(alert);
     setReactivationMessage(alert.message);
-    setReactivationPriority(alert.priority);
-    setReactivationRequiresAck(alert.requires_ack ?? false);
-    setReactivationExpiration(inferExpirationOption(alert.expires_at));
+    setReactivationExpiresDate(split.date);
+    setReactivationExpiresTime(split.time);
   }
 
   function closeReactivateAlert() {
+    const next = splitExpirationForForm(null);
     setReactivatingAlert(null);
     setReactivationMessage('');
-    setReactivationPriority('medium');
-    setReactivationRequiresAck(false);
-    setReactivationExpiration('24h');
+    setReactivationExpiresDate(next.date);
+    setReactivationExpiresTime(next.time);
     setBusyRepostingAlert(false);
   }
 
   async function postAlert(values: {
     message: string;
-    priority: AlertPriority;
-    requires_ack: boolean;
-    expiration: AlertExpirationOption;
+    expiresDate: string;
+    expiresTime: string;
   }) {
     const trimmed = values.message.trim();
-
     if (!trimmed) {
       setStatus('Enter an alert message first.');
+      return false;
+    }
+
+    const expiresAt = buildExpirationIso(values.expiresDate, values.expiresTime);
+    if (!expiresAt) {
+      setStatus('Choose a valid expiration date and time.');
       return false;
     }
 
@@ -730,13 +740,13 @@ export function AdminClient() {
       .from('alerts')
       .insert({
         message: trimmed,
-        priority: values.priority,
-        requires_ack: values.requires_ack,
+        priority: 'medium',
+        requires_ack: false,
         created_by: currentUserId,
-        expires_at: getExpirationTimestamp(values.expiration),
+        expires_at: expiresAt,
         is_active: true,
       })
-      .select('id, message, priority, created_at, requires_ack, created_by, expires_at, is_active')
+      .select('id, message, created_at, created_by, expires_at, is_active')
       .single();
 
     if (error) {
@@ -761,20 +771,15 @@ export function AdminClient() {
 
   async function createAlert() {
     setStatus(null);
-
     const ok = await postAlert({
       message: alertMessage,
-      priority: alertPriority,
-      requires_ack: alertRequiresAck,
-      expiration: alertExpiration,
+      expiresDate: alertExpiresDate,
+      expiresTime: alertExpiresTime,
     });
 
     if (!ok) return;
 
-    setAlertMessage('');
-    setAlertPriority('medium');
-    setAlertRequiresAck(false);
-    setAlertExpiration('24h');
+    resetAlertForm();
     setStatus('Alert posted.');
   }
 
@@ -786,13 +791,11 @@ export function AdminClient() {
 
     const ok = await postAlert({
       message: reactivationMessage,
-      priority: reactivationPriority,
-      requires_ack: reactivationRequiresAck,
-      expiration: reactivationExpiration,
+      expiresDate: reactivationExpiresDate,
+      expiresTime: reactivationExpiresTime,
     });
 
     setBusyRepostingAlert(false);
-
     if (!ok) return;
 
     closeReactivateAlert();
@@ -896,7 +899,7 @@ export function AdminClient() {
     setBusyUploading(true);
 
     const subcategory = options.subcategory ?? null;
-    const description = docDescription.trim() || null;
+    const description = (options.description ?? docDescription).trim() || null;
     const uploadedPaths: string[] = [];
 
     try {
@@ -936,9 +939,7 @@ export function AdminClient() {
           upsert: false,
         });
 
-        if (uploadError) {
-          throw uploadError;
-        }
+        if (uploadError) throw uploadError;
 
         uploadedPaths.push(storagePath);
         attachmentRows.push({
@@ -1052,7 +1053,7 @@ export function AdminClient() {
                 type="file"
                 accept=".pdf,image/*"
                 multiple
-                onChange={(e) => setSelectedFiles(Array.from(e.target.files ?? []))}
+                onChange={(e) => { appendSelectedFiles(e.target.files); e.currentTarget.value = ''; }}
                 style={{ ...inputStyle(), padding: 12 }}
               />
             </label>
@@ -1069,9 +1070,27 @@ export function AdminClient() {
                 }}
               >
                 {selectedFiles.map((file, index) => (
-                  <div key={`${file.name}-${index}`} style={{ fontSize: 14, color: '#334155', overflowWrap: 'anywhere' }}>
-                    {selectedFiles.length > 1 ? `${index + 1}. ` : ''}
-                    {file.name}
+                  <div
+                    key={`${file.name}-${index}`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 12,
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <div style={{ fontSize: 14, color: '#334155', overflowWrap: 'anywhere', flex: 1, minWidth: 0 }}>
+                      {selectedFiles.length > 1 ? `${index + 1}. ` : ''}
+                      {file.name}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeSelectedFile(index)}
+                      style={{ ...secondaryButtonStyle(), padding: '8px 12px' }}
+                    >
+                      Remove
+                    </button>
                   </div>
                 ))}
               </div>
@@ -1080,12 +1099,14 @@ export function AdminClient() {
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               <button
                 type="button"
-                onClick={() => void uploadDocumentPost({
-                  category,
-                  subcategory,
-                  title: controlledTitle,
-                  allowMultiplePosts,
-                })}
+                onClick={() =>
+                  void uploadDocumentPost({
+                    category,
+                    subcategory,
+                    title: controlledTitle,
+                    allowMultiplePosts,
+                  })
+                }
                 disabled={busyUploading}
                 style={{ ...buttonStyle(true), opacity: busyUploading ? 0.7 : 1 }}
               >
@@ -1191,7 +1212,7 @@ export function AdminClient() {
             <section style={sectionStyle()}>
               <h2 style={{ marginTop: 0, marginBottom: 10, fontSize: 24, fontWeight: 800 }}>Post Alert</h2>
               <p style={{ marginTop: 0, marginBottom: 18, fontSize: 14, color: '#64748b' }}>
-                Use alerts for time-sensitive pinned information. Documents will live in the document tabs.
+                Use alerts for time-sensitive pinned information. Priority and acknowledgement are no longer used.
               </p>
 
               <div style={{ display: 'grid', gap: 14 }}>
@@ -1207,52 +1228,36 @@ export function AdminClient() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 14 }}>
                   <label style={labelStyle()}>
-                    <span style={fieldLabelTextStyle()}>Priority</span>
-                    <select value={alertPriority} onChange={(e) => setAlertPriority(e.target.value as AlertPriority)} style={inputStyle()}>
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                    </select>
+                    <span style={fieldLabelTextStyle()}>Expiration date</span>
+                    <input
+                      type="date"
+                      value={alertExpiresDate}
+                      onChange={(e) => setAlertExpiresDate(e.target.value)}
+                      style={inputStyle()}
+                    />
                   </label>
 
                   <label style={labelStyle()}>
-                    <span style={fieldLabelTextStyle()}>Expiration</span>
-                    <select value={alertExpiration} onChange={(e) => setAlertExpiration(e.target.value as AlertExpirationOption)} style={inputStyle()}>
-                      <option value="24h">24 hours</option>
-                      <option value="3d">3 days</option>
-                      <option value="7d">7 days</option>
-                      <option value="never">Never</option>
-                    </select>
+                    <span style={fieldLabelTextStyle()}>Expiration time (24-hour)</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="0000"
+                      value={alertExpiresTime}
+                      onChange={(e) => setAlertExpiresTime(normalizeMilitaryTimeInput(e.target.value))}
+                      onBlur={() => setAlertExpiresTime((current) => finalizeMilitaryTimeInput(current) || current)}
+                      maxLength={5}
+                      style={inputStyle()}
+                    />
                   </label>
                 </div>
-
-                <label
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    borderRadius: 18,
-                    border: '1px solid rgba(15,23,42,0.10)',
-                    background: '#f8fafc',
-                    padding: '14px 16px',
-                    fontSize: 14,
-                    fontWeight: 600,
-                    color: '#334155',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={alertRequiresAck}
-                    onChange={(e) => setAlertRequiresAck(e.target.checked)}
-                    style={{ width: 16, height: 16, accentColor: '#8b1538' }}
-                  />
-                  Require acknowledgement
-                </label>
 
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                   <button type="button" onClick={createAlert} style={buttonStyle(true)}>
                     Post Alert
+                  </button>
+                  <button type="button" onClick={resetAlertForm} style={secondaryButtonStyle()}>
+                    Clear
                   </button>
                 </div>
               </div>
@@ -1277,120 +1282,51 @@ export function AdminClient() {
                   </div>
                 )}
 
-                {activeAlerts.map((alert) => {
-                  const ackSummary = alertAckSummaryByAlertId[alert.id];
-                  const ackText =
-                    alert.requires_ack && ackSummary
-                      ? ackSummary.eligibleCount == null
-                        ? `${ackSummary.acknowledgedCount} acknowledged`
-                        : `${ackSummary.acknowledgedCount} / ${ackSummary.eligibleCount} acknowledged`
-                      : null;
-
-                  return (
-                    <div
-                      key={alert.id}
+                {activeAlerts.map((alert) => (
+                  <div
+                    key={alert.id}
+                    style={{
+                      borderRadius: 22,
+                      background: '#f8fafc',
+                      padding: 18,
+                      border: '1px solid rgba(15,23,42,0.08)',
+                      minWidth: 0,
+                    }}
+                  >
+                    <p
                       style={{
-                        borderRadius: 22,
-                        background: '#f8fafc',
-                        padding: 18,
-                        border: '1px solid rgba(15,23,42,0.08)',
-                        minWidth: 0,
+                        margin: 0,
+                        fontSize: 17,
+                        fontWeight: 700,
+                        color: '#0f172a',
+                        lineHeight: 1.5,
+                        whiteSpace: 'pre-wrap',
+                        overflowWrap: 'anywhere',
                       }}
                     >
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          justifyContent: 'space-between',
-                          gap: 16,
-                          flexWrap: 'wrap',
-                        }}
+                      {alert.message}
+                    </p>
+
+                    <p style={{ marginTop: 12, marginBottom: 0, fontSize: 13, color: '#64748b' }}>
+                      Posted {formatDateTime(alert.created_at)}
+                      {alert.expires_at ? ` • Expires ${formatDateTime(alert.expires_at)}` : ''}
+                    </p>
+
+                    <div style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                      <button type="button" onClick={() => openReactivateAlert(alert)} style={secondaryButtonStyle()}>
+                        Repost
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void deleteAlert(alert.id)}
+                        disabled={busyDeletingAlertId === alert.id}
+                        style={{ ...buttonStyle(false, true), opacity: busyDeletingAlertId === alert.id ? 0.7 : 1 }}
                       >
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
-                            <div
-                              style={{
-                                display: 'inline-flex',
-                                borderRadius: 999,
-                                padding: '6px 10px',
-                                fontSize: 11,
-                                fontWeight: 800,
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.12em',
-                                background:
-                                  alert.priority === 'high' ? '#fee2e2' : alert.priority === 'medium' ? '#fef3c7' : '#dbeafe',
-                                color:
-                                  alert.priority === 'high' ? '#991b1b' : alert.priority === 'medium' ? '#92400e' : '#1d4ed8',
-                              }}
-                            >
-                              {alert.priority}
-                            </div>
-                            {alert.requires_ack && (
-                              <div
-                                style={{
-                                  display: 'inline-flex',
-                                  borderRadius: 999,
-                                  padding: '6px 10px',
-                                  fontSize: 11,
-                                  fontWeight: 800,
-                                  textTransform: 'uppercase',
-                                  letterSpacing: '0.12em',
-                                  background: '#ede9fe',
-                                  color: '#6d28d9',
-                                }}
-                              >
-                                Ack required
-                              </div>
-                            )}
-                          </div>
-
-                          <p
-                            style={{
-                              margin: 0,
-                              fontSize: 17,
-                              fontWeight: 700,
-                              color: '#0f172a',
-                              lineHeight: 1.5,
-                              overflowWrap: 'anywhere',
-                            }}
-                          >
-                            {alert.message}
-                          </p>
-
-                          <p style={{ marginTop: 10, marginBottom: 0, fontSize: 13, color: '#64748b' }}>
-                            Posted {formatDateTime(alert.created_at)}
-                            {alert.expires_at ? ` • Expires ${formatDateTime(alert.expires_at)}` : ' • No expiration'}
-                          </p>
-
-                          {ackText && (
-                            <p style={{ marginTop: 10, marginBottom: 0, fontSize: 13, color: '#475569', fontWeight: 700 }}>
-                              {ackText}
-                            </p>
-                          )}
-                        </div>
-
-                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                          {alert.requires_ack && (
-                            <button type="button" onClick={() => setSelectedAlertForAck(alert)} style={secondaryButtonStyle()}>
-                              View Ack
-                            </button>
-                          )}
-                          <button type="button" onClick={() => openReactivateAlert(alert)} style={secondaryButtonStyle()}>
-                            Repost
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void deleteAlert(alert.id)}
-                            disabled={busyDeletingAlertId === alert.id}
-                            style={{ ...buttonStyle(false, true), opacity: busyDeletingAlertId === alert.id ? 0.7 : 1 }}
-                          >
-                            {busyDeletingAlertId === alert.id ? 'Deleting...' : 'Delete'}
-                          </button>
-                        </div>
-                      </div>
+                        {busyDeletingAlertId === alert.id ? 'Deleting...' : 'Delete'}
+                      </button>
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             </section>
 
@@ -1424,30 +1360,36 @@ export function AdminClient() {
                       minWidth: 0,
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#0f172a', overflowWrap: 'anywhere' }}>
-                          {alert.message}
-                        </p>
-                        <p style={{ marginTop: 10, marginBottom: 0, fontSize: 13, color: '#64748b' }}>
-                          Posted {formatDateTime(alert.created_at)}
-                          {alert.expires_at ? ` • Expired ${formatDateTime(alert.expires_at)}` : ''}
-                        </p>
-                      </div>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: 17,
+                        fontWeight: 700,
+                        color: '#0f172a',
+                        lineHeight: 1.5,
+                        whiteSpace: 'pre-wrap',
+                        overflowWrap: 'anywhere',
+                      }}
+                    >
+                      {alert.message}
+                    </p>
+                    <p style={{ marginTop: 12, marginBottom: 0, fontSize: 13, color: '#64748b' }}>
+                      Posted {formatDateTime(alert.created_at)}
+                      {alert.expires_at ? ` • Expired ${formatDateTime(alert.expires_at)}` : ''}
+                    </p>
 
-                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                        <button type="button" onClick={() => openReactivateAlert(alert)} style={secondaryButtonStyle()}>
-                          Reactivate
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void deleteAlert(alert.id)}
-                          disabled={busyDeletingAlertId === alert.id}
-                          style={{ ...buttonStyle(false, true), opacity: busyDeletingAlertId === alert.id ? 0.7 : 1 }}
-                        >
-                          {busyDeletingAlertId === alert.id ? 'Deleting...' : 'Delete'}
-                        </button>
-                      </div>
+                    <div style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                      <button type="button" onClick={() => openReactivateAlert(alert)} style={secondaryButtonStyle()}>
+                        Reactivate
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void deleteAlert(alert.id)}
+                        disabled={busyDeletingAlertId === alert.id}
+                        style={{ ...buttonStyle(false, true), opacity: busyDeletingAlertId === alert.id ? 0.7 : 1 }}
+                      >
+                        {busyDeletingAlertId === alert.id ? 'Deleting...' : 'Delete'}
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -1523,7 +1465,7 @@ export function AdminClient() {
                     type="file"
                     accept=".pdf,image/*"
                     multiple
-                    onChange={(e) => setSelectedFiles(Array.from(e.target.files ?? []))}
+                    onChange={(e) => { appendSelectedFiles(e.target.files); e.currentTarget.value = ''; }}
                     style={{ ...inputStyle(), padding: 12 }}
                   />
                 </label>
@@ -1650,7 +1592,7 @@ export function AdminClient() {
                     type="file"
                     accept=".pdf,image/*"
                     multiple
-                    onChange={(e) => setSelectedFiles(Array.from(e.target.files ?? []))}
+                    onChange={(e) => { appendSelectedFiles(e.target.files); e.currentTarget.value = ''; }}
                     style={{ ...inputStyle(), padding: 12 }}
                   />
                 </label>
@@ -1908,7 +1850,7 @@ export function AdminClient() {
       {reactivatingAlert && (
         <ModalShell
           title="Reactivate Alert"
-          description="Repost this alert with a fresh expiration and acknowledgement setting."
+          description="Repost this alert with a fresh expiration date and time."
           onClose={closeReactivateAlert}
         >
           <div style={{ display: 'grid', gap: 14 }}>
@@ -1919,56 +1861,29 @@ export function AdminClient() {
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 14 }}>
               <label style={labelStyle()}>
-                <span style={fieldLabelTextStyle()}>Priority</span>
-                <select
-                  value={reactivationPriority}
-                  onChange={(e) => setReactivationPriority(e.target.value as AlertPriority)}
+                <span style={fieldLabelTextStyle()}>Expiration date</span>
+                <input
+                  type="date"
+                  value={reactivationExpiresDate}
+                  onChange={(e) => setReactivationExpiresDate(e.target.value)}
                   style={inputStyle()}
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
+                />
               </label>
 
               <label style={labelStyle()}>
-                <span style={fieldLabelTextStyle()}>Expiration</span>
-                <select
-                  value={reactivationExpiration}
-                  onChange={(e) => setReactivationExpiration(e.target.value as AlertExpirationOption)}
+                <span style={fieldLabelTextStyle()}>Expiration time (24-hour)</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="0000"
+                  value={reactivationExpiresTime}
+                  onChange={(e) => setReactivationExpiresTime(normalizeMilitaryTimeInput(e.target.value))}
+                  onBlur={() => setReactivationExpiresTime((current) => finalizeMilitaryTimeInput(current) || current)}
+                  maxLength={5}
                   style={inputStyle()}
-                >
-                  <option value="24h">24 hours</option>
-                  <option value="3d">3 days</option>
-                  <option value="7d">7 days</option>
-                  <option value="never">Never</option>
-                </select>
+                />
               </label>
             </div>
-
-            <label
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                borderRadius: 18,
-                border: '1px solid rgba(15,23,42,0.10)',
-                background: '#f8fafc',
-                padding: '14px 16px',
-                fontSize: 14,
-                fontWeight: 600,
-                color: '#334155',
-                cursor: 'pointer',
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={reactivationRequiresAck}
-                onChange={(e) => setReactivationRequiresAck(e.target.checked)}
-                style={{ width: 16, height: 16, accentColor: '#8b1538' }}
-              />
-              Require acknowledgement
-            </label>
 
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 4 }}>
               <button
@@ -1984,60 +1899,6 @@ export function AdminClient() {
                 Cancel
               </button>
             </div>
-          </div>
-        </ModalShell>
-      )}
-
-      {selectedAlertForAck && (
-        <ModalShell
-          title="Acknowledgements"
-          description={
-            selectedAlertForAck.requires_ack
-              ? alertAckSummaryByAlertId[selectedAlertForAck.id]?.eligibleCount == null
-                ? 'Count unavailable for older alerts posted before created by tracking was added.'
-                : `${alertAckSummaryByAlertId[selectedAlertForAck.id]?.acknowledgedCount ?? 0} / ${alertAckSummaryByAlertId[selectedAlertForAck.id]?.eligibleCount ?? 0} acknowledged`
-              : 'This alert does not require acknowledgement.'
-          }
-          onClose={() => setSelectedAlertForAck(null)}
-        >
-          <div style={{ display: 'grid', gap: 12 }}>
-            {(alertAckSummaryByAlertId[selectedAlertForAck.id]?.rows ?? []).length === 0 && (
-              <div
-                style={{
-                  borderRadius: 22,
-                  background: '#f8fafc',
-                  padding: 16,
-                  border: '1px solid rgba(15,23,42,0.08)',
-                  fontSize: 14,
-                  color: '#475569',
-                }}
-              >
-                No one has acknowledged this alert yet.
-              </div>
-            )}
-
-            {(alertAckSummaryByAlertId[selectedAlertForAck.id]?.rows ?? []).map((row) => {
-              const profile = normalizeAcknowledgedProfile(row.profiles);
-
-              return (
-                <div
-                  key={`${row.alert_id}-${row.user_id}`}
-                  style={{
-                    borderRadius: 22,
-                    background: '#f8fafc',
-                    padding: 16,
-                    border: '1px solid rgba(15,23,42,0.08)',
-                  }}
-                >
-                  <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0f172a', overflowWrap: 'anywhere' }}>
-                    {profile ? [profile.rank, profile.full_name].filter(Boolean).join(' ') : 'Unknown user'}
-                  </p>
-                  <p style={{ marginTop: 8, marginBottom: 0, fontSize: 13, color: '#64748b' }}>
-                    Acknowledged {formatDateTime(row.acknowledged_at)}
-                  </p>
-                </div>
-              );
-            })}
           </div>
         </ModalShell>
       )}

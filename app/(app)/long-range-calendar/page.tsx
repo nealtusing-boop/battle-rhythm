@@ -1,236 +1,119 @@
-import Link from 'next/link';
-import { addMonths, endOfMonth, format, parse, startOfMonth } from 'date-fns';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { createClient } from '@/lib/supabase/server';
+'use client';
 
-type LongRangeEvent = {
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/browser';
+import { DocumentAttachmentViewer } from '@/components/document-attachment-viewer';
+
+type Attachment = {
   id: string;
-  title: string;
-  location: string | null;
-  description: string | null;
-  event_date: string;
+  storage_path: string;
+  file_name: string;
+  sort_order: number;
+  file_type?: string | null;
 };
 
-export default async function LongRangeCalendarPage({
-  searchParams,
-}: {
-  searchParams?: Promise<{ month?: string }>;
-}) {
-  const params = (await searchParams) ?? {};
-  const selectedMonth = params.month
-    ? parse(params.month, 'yyyy-MM', new Date())
-    : new Date();
+type Post = {
+  id: string;
+  title: string;
+  description: string | null;
+};
 
-  const monthStart = startOfMonth(selectedMonth);
-  const monthEnd = endOfMonth(selectedMonth);
+function pageShellStyle() {
+  return {
+    padding: 16,
+    display: 'grid',
+    gap: 16,
+  } as const;
+}
 
-  const supabase = await createClient();
+function heroCardStyle() {
+  return {
+    borderRadius: 24,
+    background: 'rgba(255,255,255,0.08)',
+    border: '1px solid rgba(255,255,255,0.10)',
+    padding: 18,
+    color: '#ffffff',
+    backdropFilter: 'blur(8px)',
+  } as const;
+}
 
-  const { data } = await supabase
-    .from('long_range_events')
-    .select('id, title, location, description, event_date')
-    .gte('event_date', format(monthStart, 'yyyy-MM-dd'))
-    .lte('event_date', format(monthEnd, 'yyyy-MM-dd'))
-    .order('event_date', { ascending: true });
+export default function LongRangePage() {
+  const [post, setPost] = useState<Post | null>(null);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const events = (data as LongRangeEvent[] | null) ?? [];
+  useEffect(() => {
+    const supabase = createClient();
+
+    async function fetchLongRange() {
+      setLoading(true);
+
+      const { data: activePost, error: postError } = await supabase
+        .from('document_posts')
+        .select('id, title, description')
+        .eq('category', 'long_range')
+        .eq('is_active', true)
+        .single();
+
+      if (postError || !activePost) {
+        setPost(null);
+        setAttachments([]);
+        setLoading(false);
+        return;
+      }
+
+      setPost(activePost);
+
+      const { data: files, error: filesError } = await supabase
+        .from('document_attachments')
+        .select('id, storage_path, file_name, sort_order, file_type')
+        .eq('post_id', activePost.id)
+        .order('sort_order', { ascending: true });
+
+      if (filesError || !files) {
+        setAttachments([]);
+        setLoading(false);
+        return;
+      }
+
+      setAttachments(files);
+      setLoading(false);
+    }
+
+    void fetchLongRange();
+  }, []);
 
   return (
-    <div style={{ display: 'grid', gap: 20 }}>
-      <section style={{ color: '#ffffff' }}>
+    <div style={pageShellStyle()}>
+      <section style={heroCardStyle()}>
         <h1
           style={{
-            margin: 0,
-            fontSize: 40,
+            fontSize: 22,
             fontWeight: 800,
-            letterSpacing: '-0.05em',
+            marginTop: 0,
+            marginBottom: 8,
             color: '#ffffff',
           }}
         >
           Long Range Calendar
         </h1>
 
-        <p
-          style={{
-            marginTop: 12,
-            marginBottom: 0,
-            fontSize: 15,
-            color: 'rgba(255,255,255,0.82)',
-          }}
-        >
-          
-        </p>
+        {post?.title ? (
+          <p style={{ marginTop: 0, marginBottom: post.description ? 8 : 0, fontWeight: 700, color: '#ffffff' }}>
+            {post.title}
+          </p>
+        ) : null}
+
+        {post?.description ? (
+          <p style={{ margin: 0, color: 'rgba(255,255,255,0.82)', lineHeight: 1.55 }}>{post.description}</p>
+        ) : null}
       </section>
 
-      <section
-        style={{
-          background: '#ffffff',
-          color: '#0f172a',
-          borderRadius: 30,
-          border: '1px solid rgba(255,255,255,0.18)',
-          boxShadow: '0 18px 44px rgba(15,23,42,0.14)',
-          padding: 22,
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 12,
-            marginBottom: 20,
-          }}
-        >
-          <Link
-            href={`/long-range-calendar?month=${format(addMonths(selectedMonth, -1), 'yyyy-MM')}`}
-            style={{
-              height: 46,
-              width: 46,
-              borderRadius: 16,
-              border: '1px solid rgba(15,23,42,0.08)',
-              background: '#f8fafc',
-              color: '#0f172a',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              textDecoration: 'none',
-            }}
-          >
-            <ChevronLeft size={20} />
-          </Link>
-
-          <div style={{ textAlign: 'center', flex: 1 }}>
-            <div
-              style={{
-                fontSize: 26,
-                fontWeight: 800,
-                letterSpacing: '-0.03em',
-                color: '#0f172a',
-              }}
-            >
-              {format(selectedMonth, 'MMMM yyyy')}
-            </div>
-            <div
-              style={{
-                marginTop: 4,
-                fontSize: 14,
-                color: '#64748b',
-              }}
-            >
-              
-            </div>
-          </div>
-
-          <Link
-            href={`/long-range-calendar?month=${format(addMonths(selectedMonth, 1), 'yyyy-MM')}`}
-            style={{
-              height: 46,
-              width: 46,
-              borderRadius: 16,
-              border: '1px solid rgba(15,23,42,0.08)',
-              background: '#f8fafc',
-              color: '#0f172a',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              textDecoration: 'none',
-            }}
-          >
-            <ChevronRight size={20} />
-          </Link>
-        </div>
-
-        {events.length === 0 ? (
-          <div
-            style={{
-              borderRadius: 22,
-              background: '#f8fafc',
-              border: '1px solid rgba(15,23,42,0.08)',
-              padding: 18,
-            }}
-          >
-            <p style={{ margin: 0, fontSize: 16, color: '#334155' }}>
-              No events posted for this month.
-            </p>
-          </div>
-        ) : (
-          <div style={{ display: 'grid', gap: 12 }}>
-            {events.map((event) => (
-              <div
-                key={event.id}
-                style={{
-                  borderRadius: 22,
-                  background: '#f8fafc',
-                  border: '1px solid rgba(15,23,42,0.08)',
-                  padding: 18,
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    justifyContent: 'space-between',
-                    gap: 12,
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <div>
-                    <div
-                      style={{
-                        fontSize: 18,
-                        fontWeight: 700,
-                        color: '#0f172a',
-                        letterSpacing: '-0.02em',
-                      }}
-                    >
-                      {event.title}
-                    </div>
-
-                    <div
-                      style={{
-                        marginTop: 6,
-                        fontSize: 14,
-                        color: '#64748b',
-                      }}
-                    >
-                      {format(new Date(`${event.event_date}T00:00:00`), 'MMMM d, yyyy')}
-                    </div>
-                  </div>
-
-                  {event.location && (
-                    <div
-                      style={{
-                        borderRadius: 999,
-                        background: '#ffffff',
-                        padding: '7px 12px',
-                        fontSize: 12,
-                        color: '#475569',
-                        border: '1px solid rgba(15,23,42,0.08)',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {event.location}
-                    </div>
-                  )}
-                </div>
-
-                {event.description && (
-                  <div
-                    style={{
-                      marginTop: 10,
-                      fontSize: 14,
-                      lineHeight: 1.55,
-                      color: '#475569',
-                    }}
-                  >
-                    {event.description}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+      {loading ? (
+        <p style={{ color: '#ffffff', margin: 0 }}>Loading...</p>
+      ) : (
+        <DocumentAttachmentViewer attachments={attachments} emptyMessage="No long range calendar posted." />
+      )}
     </div>
   );
 }

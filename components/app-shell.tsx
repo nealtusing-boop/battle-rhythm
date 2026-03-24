@@ -2,33 +2,15 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-  Menu,
-  X,
-  House,
-  CalendarDays,
-  CalendarRange,
-  Plane,
-  ClipboardList,
-  Ellipsis,
-  Bell,
-  Users,
-} from 'lucide-react';
+import { Menu, X, House, Ellipsis } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { Profile } from '@/lib/types';
 import { PullToRefresh } from '@/components/pull-to-refresh';
 
 const navItems = [
   { href: '/home', label: 'Home', icon: House },
-  { href: '/alerts', label: 'Alerts', icon: Bell },
-  { href: '/weekly-schedule', label: 'Weekly Schedule', icon: CalendarDays },
-  { href: '/long-range-calendar', label: 'Long Range Calendar', icon: CalendarRange },
-  { href: '/leave-donsa', label: 'Leave & DONSAs', icon: ClipboardList },
-  { href: '/jump-schedule', label: 'Jump Schedule', icon: Plane },
-  { href: '/cq-roster', label: 'CQ Roster', icon: ClipboardList },
-  { href: '/details', label: 'Details', icon: Users },
   { href: '/more', label: 'More', icon: Ellipsis },
-];
+] as const;
 
 export function AppShell({
   profile,
