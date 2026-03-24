@@ -34,8 +34,14 @@ function getFileKind(fileName: string, fileType?: string | null): 'pdf' | 'image
   const lowerName = fileName.toLowerCase();
   const lowerType = (fileType || '').toLowerCase();
 
-  if (lowerType.includes('pdf') || lowerName.endsWith('.pdf')) return 'pdf';
-  if (lowerType.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(lowerName)) return 'image';
+  if (lowerType.includes('pdf') || lowerName.endsWith('.pdf')) {
+    return 'pdf';
+  }
+
+  if (lowerType.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(lowerName)) {
+    return 'image';
+  }
+
   return 'other';
 }
 
@@ -68,18 +74,20 @@ function modalButtonStyle(primary = false) {
       fontWeight: 800,
       fontSize: 14,
       cursor: 'pointer',
+      minHeight: 48,
     } as const;
   }
 
   return {
     border: '1px solid rgba(255,255,255,0.22)',
     borderRadius: 14,
-    padding: '12px 16px',
+    padding: '14px 18px',
     backgroundColor: 'transparent',
     color: '#ffffff',
     fontWeight: 800,
-    fontSize: 14,
+    fontSize: 15,
     cursor: 'pointer',
+    minHeight: 48,
   } as const;
 }
 
@@ -119,7 +127,13 @@ function clamp(value: number, min: number, max: number) {
 
 function RotateHint() {
   return (
-    <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>
+    <p
+      style={{
+        margin: 0,
+        fontSize: 13,
+        color: '#64748b',
+      }}
+    >
       Rotate your phone for the easiest view of landscape schedules.
     </p>
   );
@@ -139,7 +153,9 @@ function ViewerModal({
     document.body.style.overflow = 'hidden';
 
     function handleEscape(event: KeyboardEvent) {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') {
+        onClose();
+      }
     }
 
     window.addEventListener('keydown', handleEscape);
@@ -164,11 +180,19 @@ function ViewerModal({
     >
       <div
         onClick={(event) => event.stopPropagation()}
-        style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}
+        style={{
+          flex: 1,
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+        }}
       >
         <div
           style={{
-            padding: '14px 14px 10px',
+            paddingTop: 'calc(env(safe-area-inset-top, 0px) + 14px)',
+            paddingRight: 'calc(env(safe-area-inset-right, 0px) + 14px)',
+            paddingBottom: 10,
+            paddingLeft: 'calc(env(safe-area-inset-left, 0px) + 14px)',
             borderBottom: '1px solid rgba(255,255,255,0.10)',
             display: 'flex',
             alignItems: 'center',
@@ -178,7 +202,15 @@ function ViewerModal({
           }}
         >
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 16, fontWeight: 800, overflowWrap: 'anywhere' }}>{title}</div>
+            <div
+              style={{
+                fontSize: 16,
+                fontWeight: 800,
+                overflowWrap: 'anywhere',
+              }}
+            >
+              {title}
+            </div>
             <div style={{ marginTop: 6 }}>
               <RotateHint />
             </div>
@@ -195,7 +227,10 @@ function ViewerModal({
             minHeight: 0,
             overflow: 'auto',
             WebkitOverflowScrolling: 'touch',
-            padding: 12,
+            paddingTop: 12,
+            paddingRight: 'calc(env(safe-area-inset-right, 0px) + 12px)',
+            paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)',
+            paddingLeft: 'calc(env(safe-area-inset-left, 0px) + 12px)',
             background: '#e5e7eb',
           }}
         >
@@ -206,7 +241,13 @@ function ViewerModal({
   );
 }
 
-function PDFPages({ url, fileName }: { url: string; fileName: string }) {
+function PDFPages({
+  url,
+  fileName,
+}: {
+  url: string;
+  fileName: string;
+}) {
   const [numPages, setNumPages] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [pageWidth, setPageWidth] = useState(1200);
@@ -248,7 +289,14 @@ function PDFPages({ url, fileName }: { url: string; fileName: string }) {
         }}
       >
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: '#111827', overflowWrap: 'anywhere' }}>
+          <div
+            style={{
+              fontSize: 15,
+              fontWeight: 800,
+              color: '#111827',
+              overflowWrap: 'anywhere',
+            }}
+          >
             {fileName}
           </div>
           <div style={{ marginTop: 4, fontSize: 12, color: '#64748b' }}>
@@ -309,7 +357,13 @@ function PDFPages({ url, fileName }: { url: string; fileName: string }) {
   );
 }
 
-function ImagePages({ url, fileName }: { url: string; fileName: string }) {
+function ImagePages({
+  url,
+  fileName,
+}: {
+  url: string;
+  fileName: string;
+}) {
   const [zoom, setZoom] = useState(1);
 
   return (
@@ -331,7 +385,16 @@ function ImagePages({ url, fileName }: { url: string; fileName: string }) {
           backdropFilter: 'blur(8px)',
         }}
       >
-        <div style={{ fontSize: 15, fontWeight: 800, color: '#111827', overflowWrap: 'anywhere' }}>{fileName}</div>
+        <div
+          style={{
+            fontSize: 15,
+            fontWeight: 800,
+            color: '#111827',
+            overflowWrap: 'anywhere',
+          }}
+        >
+          {fileName}
+        </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
@@ -373,7 +436,15 @@ function ImagePages({ url, fileName }: { url: string; fileName: string }) {
 
 function UnsupportedFile({ fileName }: { fileName: string }) {
   return (
-    <div style={{ borderRadius: 18, background: '#ffffff', padding: 18, color: '#334155', fontSize: 14 }}>
+    <div
+      style={{
+        borderRadius: 18,
+        background: '#ffffff',
+        padding: 18,
+        color: '#334155',
+        fontSize: 14,
+      }}
+    >
       {fileName} cannot be previewed in app.
     </div>
   );
@@ -383,8 +454,14 @@ function FullscreenDocumentContent({ attachments }: { attachments: ResolvedAttac
   return (
     <div style={{ display: 'grid', gap: 18 }}>
       {attachments.map((attachment) => {
-        if (attachment.kind === 'pdf') return <PDFPages key={attachment.id} url={attachment.signedUrl} fileName={attachment.file_name} />;
-        if (attachment.kind === 'image') return <ImagePages key={attachment.id} url={attachment.signedUrl} fileName={attachment.file_name} />;
+        if (attachment.kind === 'pdf') {
+          return <PDFPages key={attachment.id} url={attachment.signedUrl} fileName={attachment.file_name} />;
+        }
+
+        if (attachment.kind === 'image') {
+          return <ImagePages key={attachment.id} url={attachment.signedUrl} fileName={attachment.file_name} />;
+        }
+
         return <UnsupportedFile key={attachment.id} fileName={attachment.file_name} />;
       })}
     </div>
@@ -419,8 +496,14 @@ function useResolvedAttachments(attachments: Attachment[], enabled: boolean) {
       const supabase = createClient();
       const next = await Promise.all(
         sortedAttachments.map(async (attachment) => {
-          const { data, error } = await supabase.storage.from(DOC_BUCKET).createSignedUrl(attachment.storage_path, 60 * 60);
-          if (error || !data?.signedUrl) return null;
+          const { data, error } = await supabase.storage
+            .from(DOC_BUCKET)
+            .createSignedUrl(attachment.storage_path, 60 * 60);
+
+          if (error || !data?.signedUrl) {
+            return null;
+          }
+
           return {
             ...attachment,
             signedUrl: data.signedUrl,
@@ -463,12 +546,17 @@ export function DocumentAttachmentViewer({
   const { resolved, loading } = useResolvedAttachments(attachments, isOpen);
 
   useEffect(() => {
-    if (autoOpen && attachments.length > 0 && !isOpen) setIsOpen(true);
+    if (autoOpen && attachments.length > 0 && !isOpen) {
+      setIsOpen(true);
+    }
   }, [attachments.length, autoOpen, isOpen]);
 
   function handleClose() {
     setIsOpen(false);
-    if (autoOpen && onCloseHref) router.push(onCloseHref);
+
+    if (autoOpen && onCloseHref) {
+      router.push(onCloseHref);
+    }
   }
 
   if (attachments.length === 0) {
@@ -534,10 +622,16 @@ export function DocumentAttachmentListViewer({
             key={item.id}
             type="button"
             onClick={() => setActiveItem(item)}
-            style={{ ...listRowStyle(), textAlign: 'left', cursor: 'pointer' }}
+            style={{
+              ...listRowStyle(),
+              textAlign: 'left',
+              cursor: 'pointer',
+            }}
           >
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: 16, fontWeight: 800, overflowWrap: 'anywhere', color: '#111827' }}>{item.title}</div>
+              <div style={{ fontSize: 16, fontWeight: 800, overflowWrap: 'anywhere', color: '#111827' }}>
+                {item.title}
+              </div>
               <div style={{ marginTop: 6, fontSize: 13, color: '#6b7280' }}>
                 {item.attachments.length} file{item.attachments.length === 1 ? '' : 's'}
               </div>
