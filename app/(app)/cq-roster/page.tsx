@@ -20,22 +20,15 @@ function pageShellStyle() {
   } as const;
 }
 
-function heroCardStyle() {
+function sectionLabelStyle() {
   return {
-    borderRadius: 24,
-    background: 'rgba(255,255,255,0.08)',
-    border: '1px solid rgba(255,255,255,0.10)',
-    padding: 18,
-    color: '#ffffff',
-    backdropFilter: 'blur(8px)',
-  } as const;
-}
-
-function sectionCardStyle() {
-  return {
-    display: 'grid',
-    gap: 12,
-  } as const;
+    fontSize: 13,
+    fontWeight: 800,
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase' as const,
+    color: 'rgba(255,255,255,0.78)',
+    margin: 0,
+  };
 }
 
 export default function CQRosterPage() {
@@ -46,49 +39,37 @@ export default function CQRosterPage() {
   useEffect(() => {
     const supabase = createClient();
 
+    async function fetchRosterFiles(subcategory: 'cq' | 'staff_duty') {
+      const { data: post } = await supabase
+        .from('document_posts')
+        .select('id')
+        .eq('category', 'cq_roster')
+        .eq('subcategory', subcategory)
+        .eq('is_active', true)
+        .single();
+
+      if (!post) {
+        return [] as Attachment[];
+      }
+
+      const { data: files } = await supabase
+        .from('document_attachments')
+        .select('id, storage_path, file_name, sort_order, file_type')
+        .eq('post_id', post.id)
+        .order('sort_order', { ascending: true });
+
+      return files || [];
+    }
+
     async function fetchData() {
       setLoading(true);
+      const [nextCqFiles, nextStaffFiles] = await Promise.all([
+        fetchRosterFiles('cq'),
+        fetchRosterFiles('staff_duty'),
+      ]);
 
-      const { data: cqPost } = await supabase
-        .from('document_posts')
-        .select('id')
-        .eq('category', 'cq_roster')
-        .eq('subcategory', 'cq')
-        .eq('is_active', true)
-        .single();
-
-      const { data: staffPost } = await supabase
-        .from('document_posts')
-        .select('id')
-        .eq('category', 'cq_roster')
-        .eq('subcategory', 'staff_duty')
-        .eq('is_active', true)
-        .single();
-
-      if (cqPost) {
-        const { data: files } = await supabase
-          .from('document_attachments')
-          .select('id, storage_path, file_name, sort_order, file_type')
-          .eq('post_id', cqPost.id)
-          .order('sort_order', { ascending: true });
-
-        setCqFiles(files || []);
-      } else {
-        setCqFiles([]);
-      }
-
-      if (staffPost) {
-        const { data: files } = await supabase
-          .from('document_attachments')
-          .select('id, storage_path, file_name, sort_order, file_type')
-          .eq('post_id', staffPost.id)
-          .order('sort_order', { ascending: true });
-
-        setStaffFiles(files || []);
-      } else {
-        setStaffFiles([]);
-      }
-
+      setCqFiles(nextCqFiles);
+      setStaffFiles(nextStaffFiles);
       setLoading(false);
     }
 
@@ -97,34 +78,28 @@ export default function CQRosterPage() {
 
   return (
     <div style={pageShellStyle()}>
-      <section style={heroCardStyle()}>
-        <h1
-          style={{
-            fontSize: 22,
-            fontWeight: 800,
-            marginTop: 0,
-            marginBottom: 0,
-            color: '#ffffff',
-          }}
-        >
-          CQ / Staff Duty
-        </h1>
-      </section>
-
       {loading ? (
         <p style={{ color: '#ffffff', margin: 0 }}>Loading...</p>
       ) : (
-        <div style={{ display: 'grid', gap: 24 }}>
-          <section style={sectionCardStyle()}>
-            <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: '#ffffff' }}>CQ</h2>
-            <DocumentAttachmentViewer attachments={cqFiles} emptyMessage="No CQ roster posted." />
-          </section>
+        <>
+          <div style={{ display: 'grid', gap: 10 }}>
+            <p style={sectionLabelStyle()}>CQ</p>
+            <DocumentAttachmentViewer
+              attachments={cqFiles}
+              emptyMessage="No CQ roster posted."
+              buttonLabel="Open CQ Roster"
+            />
+          </div>
 
-          <section style={sectionCardStyle()}>
-            <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: '#ffffff' }}>Staff Duty</h2>
-            <DocumentAttachmentViewer attachments={staffFiles} emptyMessage="No Staff Duty roster posted." />
-          </section>
-        </div>
+          <div style={{ display: 'grid', gap: 10 }}>
+            <p style={sectionLabelStyle()}>Staff Duty</p>
+            <DocumentAttachmentViewer
+              attachments={staffFiles}
+              emptyMessage="No Staff Duty roster posted."
+              buttonLabel="Open Staff Duty Roster"
+            />
+          </div>
+        </>
       )}
     </div>
   );

@@ -12,33 +12,7 @@ type Attachment = {
   file_type?: string | null;
 };
 
-type Post = {
-  id: string;
-  title: string;
-  description: string | null;
-};
-
-function pageShellStyle() {
-  return {
-    padding: 16,
-    display: 'grid',
-    gap: 16,
-  } as const;
-}
-
-function heroCardStyle() {
-  return {
-    borderRadius: 24,
-    background: 'rgba(255,255,255,0.08)',
-    border: '1px solid rgba(255,255,255,0.10)',
-    padding: 18,
-    color: '#ffffff',
-    backdropFilter: 'blur(8px)',
-  } as const;
-}
-
 export default function WeeklyTrainingPage() {
-  const [post, setPost] = useState<Post | null>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -48,26 +22,23 @@ export default function WeeklyTrainingPage() {
     async function fetchWeekly() {
       setLoading(true);
 
-      const { data: activePost, error: postError } = await supabase
+      const { data: post, error: postError } = await supabase
         .from('document_posts')
-        .select('id, title, description')
+        .select('id')
         .eq('category', 'weekly_training')
         .eq('is_active', true)
         .single();
 
-      if (postError || !activePost) {
-        setPost(null);
+      if (postError || !post) {
         setAttachments([]);
         setLoading(false);
         return;
       }
 
-      setPost(activePost);
-
       const { data: files, error: filesError } = await supabase
         .from('document_attachments')
         .select('id, storage_path, file_name, sort_order, file_type')
-        .eq('post_id', activePost.id)
+        .eq('post_id', post.id)
         .order('sort_order', { ascending: true });
 
       if (filesError || !files) {
@@ -84,35 +55,16 @@ export default function WeeklyTrainingPage() {
   }, []);
 
   return (
-    <div style={pageShellStyle()}>
-      <section style={heroCardStyle()}>
-        <h1
-          style={{
-            fontSize: 22,
-            fontWeight: 800,
-            marginTop: 0,
-            marginBottom: 8,
-            color: '#ffffff',
-          }}
-        >
-          Weekly Training
-        </h1>
-
-        {post?.title ? (
-          <p style={{ marginTop: 0, marginBottom: post.description ? 8 : 0, fontWeight: 700, color: '#ffffff' }}>
-            {post.title}
-          </p>
-        ) : null}
-
-        {post?.description ? (
-          <p style={{ margin: 0, color: 'rgba(255,255,255,0.82)', lineHeight: 1.55 }}>{post.description}</p>
-        ) : null}
-      </section>
-
+    <div style={{ padding: 16 }}>
       {loading ? (
         <p style={{ color: '#ffffff', margin: 0 }}>Loading...</p>
       ) : (
-        <DocumentAttachmentViewer attachments={attachments} emptyMessage="No weekly training posted." />
+        <DocumentAttachmentViewer
+          attachments={attachments}
+          emptyMessage="No weekly training posted."
+          autoOpen
+          onCloseHref="/home"
+        />
       )}
     </div>
   );

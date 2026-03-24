@@ -192,6 +192,17 @@ function buildStoragePath(category: DocumentCategory, subcategory: string | null
   return `${getFileFolder(category, subcategory)}/${stamp}-${safeName}`;
 }
 
+function inferDocumentTitle(category: DocumentCategory, subcategory: string | null) {
+  if (category === 'weekly_training') return 'Weekly Training';
+  if (category === 'long_range') return 'Long Range Calendar';
+  if (category === 'cq_roster') return subcategory === 'staff_duty' ? 'Staff Duty Roster' : 'CQ Roster';
+  if (category === 'pt_plan') {
+    if (!subcategory) return 'PT Plan';
+    return `${subcategory.replace(/_/g, ' ')} PT Plan`;
+  }
+  return 'Resource';
+}
+
 function sortAttachments(items: DocumentAttachment[] | null | undefined) {
   return [...(items ?? [])].sort((a, b) => a.sort_order - b.sort_order || a.file_name.localeCompare(b.file_name));
 }
@@ -890,15 +901,11 @@ export function AdminClient() {
       return;
     }
 
-    const trimmedTitle = (options.title ?? docTitle).trim();
-    if (!trimmedTitle) {
-      setStatus('Enter a title first.');
-      return;
-    }
+    const subcategory = options.subcategory ?? null;
+    const trimmedTitle = (options.title ?? docTitle).trim() || inferDocumentTitle(options.category, subcategory);
 
     setBusyUploading(true);
 
-    const subcategory = options.subcategory ?? null;
     const description = (options.description ?? docDescription).trim() || null;
     const uploadedPaths: string[] = [];
 
@@ -1003,6 +1010,8 @@ export function AdminClient() {
     subcategory,
     titleValue,
     onTitleChange,
+    showTitle = false,
+    showDescription = false,
   }: {
     heading: string;
     description: string;
@@ -1014,6 +1023,8 @@ export function AdminClient() {
     subcategory?: string | null;
     titleValue?: string;
     onTitleChange?: (value: string) => void;
+    showTitle?: boolean;
+    showDescription?: boolean;
   }) {
     const controlledTitle = titleValue ?? docTitle;
     const setControlledTitle = onTitleChange ?? setDocTitle;
@@ -1025,25 +1036,29 @@ export function AdminClient() {
           <p style={{ marginTop: 0, marginBottom: 18, fontSize: 14, color: '#64748b' }}>{description}</p>
 
           <div style={{ display: 'grid', gap: 14 }}>
-            <label style={labelStyle()}>
-              <span style={fieldLabelTextStyle()}>Title</span>
-              <input
-                value={controlledTitle}
-                onChange={(e) => setControlledTitle(e.target.value)}
-                placeholder={titlePlaceholder}
-                style={inputStyle()}
-              />
-            </label>
+            {showTitle && (
+              <label style={labelStyle()}>
+                <span style={fieldLabelTextStyle()}>Title</span>
+                <input
+                  value={controlledTitle}
+                  onChange={(e) => setControlledTitle(e.target.value)}
+                  placeholder={titlePlaceholder}
+                  style={inputStyle()}
+                />
+              </label>
+            )}
 
-            <label style={labelStyle()}>
-              <span style={fieldLabelTextStyle()}>Description (optional)</span>
-              <textarea
-                value={docDescription}
-                onChange={(e) => setDocDescription(e.target.value)}
-                placeholder="Add an optional note for this upload."
-                style={textareaStyle()}
-              />
-            </label>
+            {showDescription && (
+              <label style={labelStyle()}>
+                <span style={fieldLabelTextStyle()}>Description (optional)</span>
+                <textarea
+                  value={docDescription}
+                  onChange={(e) => setDocDescription(e.target.value)}
+                  placeholder="Add an optional note for this upload."
+                  style={textareaStyle()}
+                />
+              </label>
+            )}
 
             <label style={labelStyle()}>
               <span style={fieldLabelTextStyle()}>
@@ -1053,7 +1068,10 @@ export function AdminClient() {
                 type="file"
                 accept=".pdf,image/*"
                 multiple
-                onChange={(e) => { appendSelectedFiles(e.target.files); e.currentTarget.value = ''; }}
+                onChange={(e) => {
+                  appendSelectedFiles(e.target.files);
+                  e.currentTarget.value = '';
+                }}
                 style={{ ...inputStyle(), padding: 12 }}
               />
             </label>
@@ -1103,7 +1121,8 @@ export function AdminClient() {
                   void uploadDocumentPost({
                     category,
                     subcategory,
-                    title: controlledTitle,
+                    title: showTitle ? controlledTitle : inferDocumentTitle(category, subcategory ?? null),
+                    description: showDescription ? docDescription : '',
                     allowMultiplePosts,
                   })
                 }
@@ -1401,11 +1420,13 @@ export function AdminClient() {
         {active === 'weekly_training' &&
           renderDocumentUploader({
             heading: 'Weekly Training Upload',
-            description: 'Upload the current weekly training document. Posting a new one automatically replaces the old active weekly training post.',
+            description: 'Upload the current weekly training document. Soldiers will just get a single Open Document button on their page.',
             category: 'weekly_training',
             currentPost: currentWeeklyPost,
-            titlePlaceholder: 'Example: Weekly Training Calendar',
+            titlePlaceholder: '',
             buttonLabel: 'Upload Weekly Training',
+            showTitle: false,
+            showDescription: false,
           })}
 
         {active === 'long_range' &&
@@ -1497,7 +1518,8 @@ export function AdminClient() {
                       void uploadDocumentPost({
                         category: 'cq_roster',
                         subcategory: cqSubcategory,
-                        title: docTitle || (cqSubcategory === 'cq' ? 'CQ Roster' : 'Staff Duty Roster'),
+                        title: cqSubcategory === 'cq' ? 'CQ Roster' : 'Staff Duty Roster',
+                        description: '',
                       })
                     }
                     disabled={busyUploading}
@@ -1557,7 +1579,7 @@ export function AdminClient() {
             <section style={sectionStyle()}>
               <h2 style={{ marginTop: 0, marginBottom: 10, fontSize: 24, fontWeight: 800 }}>PT Plan Upload</h2>
               <p style={{ marginTop: 0, marginBottom: 18, fontSize: 14, color: '#64748b' }}>
-                Choose a squad, upload its current PT plan, and the previous active plan for that squad will be replaced.
+                Choose a squad, upload its current PT plan, and the previous active plan for that squad will be replaced. Soldiers will only see a clean Open Document launcher.
               </p>
 
               <div style={{ display: 'grid', gap: 14 }}>
@@ -1569,21 +1591,6 @@ export function AdminClient() {
                     <option value="3rd_squad">3rd Squad</option>
                     <option value="wpns_squad">WPNS Squad</option>
                   </select>
-                </label>
-
-                <label style={labelStyle()}>
-                  <span style={fieldLabelTextStyle()}>Title</span>
-                  <input
-                    value={docTitle}
-                    onChange={(e) => setDocTitle(e.target.value)}
-                    placeholder="Example: 1st Squad PT Plan"
-                    style={inputStyle()}
-                  />
-                </label>
-
-                <label style={labelStyle()}>
-                  <span style={fieldLabelTextStyle()}>Description (optional)</span>
-                  <textarea value={docDescription} onChange={(e) => setDocDescription(e.target.value)} style={textareaStyle()} />
                 </label>
 
                 <label style={labelStyle()}>
@@ -1624,7 +1631,8 @@ export function AdminClient() {
                       void uploadDocumentPost({
                         category: 'pt_plan',
                         subcategory: ptSubcategory,
-                        title: docTitle || `${ptSubcategory.replace(/_/g, ' ')} PT Plan`,
+                        title: `${ptSubcategory.replace(/_/g, ' ')} PT Plan`,
+                        description: '',
                       })
                     }
                     disabled={busyUploading}
@@ -1675,11 +1683,13 @@ export function AdminClient() {
           <>
             {renderDocumentUploader({
               heading: 'Resource Upload',
-              description: 'Upload SOPs, cherry packets, inspectable item references, or other standing documents. Resources can stack and remain available together.',
+              description: 'Upload SOPs, cherry packets, inspectable item references, or other standing documents. Resources stay listed by title and open fullscreen when tapped.',
               category: 'resource',
               allowMultiplePosts: true,
               titlePlaceholder: 'Example: Platoon SOP',
               buttonLabel: 'Upload Resource',
+              showTitle: true,
+              showDescription: false,
             })}
 
             <section style={sectionStyle()}>

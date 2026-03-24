@@ -27,14 +27,16 @@ function pageShellStyle() {
   } as const;
 }
 
-function heroCardStyle() {
+function squadButtonStyle(isSelected: boolean) {
   return {
-    borderRadius: 24,
-    background: 'rgba(255,255,255,0.08)',
-    border: '1px solid rgba(255,255,255,0.10)',
-    padding: 18,
-    color: '#ffffff',
-    backdropFilter: 'blur(8px)',
+    padding: '10px 12px',
+    borderRadius: 14,
+    border: isSelected ? '1px solid rgba(255,255,255,0.22)' : '1px solid rgba(255,255,255,0.10)',
+    background: isSelected ? '#ffffff' : 'rgba(255,255,255,0.08)',
+    color: isSelected ? '#111827' : '#ffffff',
+    fontWeight: 800,
+    fontSize: 13,
+    cursor: 'pointer',
   } as const;
 }
 
@@ -78,56 +80,31 @@ export default function PTPlansPage() {
 
   return (
     <div style={pageShellStyle()}>
-      <section style={heroCardStyle()}>
-        <h1
-          style={{
-            fontSize: 22,
-            fontWeight: 800,
-            marginTop: 0,
-            marginBottom: 12,
-            color: '#ffffff',
-          }}
-        >
-          PT Plans
-        </h1>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {squads.map((squad) => {
+          const isSelected = selectedSquad === squad.value;
 
-        <div
-          style={{
-            display: 'flex',
-            gap: 8,
-            flexWrap: 'wrap',
-          }}
-        >
-          {squads.map((squad) => {
-            const isSelected = selectedSquad === squad.value;
-
-            return (
-              <button
-                key={squad.value}
-                type="button"
-                onClick={() => setSelectedSquad(squad.value)}
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: 12,
-                  border: isSelected ? '1px solid rgba(255,255,255,0.22)' : '1px solid rgba(255,255,255,0.10)',
-                  background: isSelected ? '#ffffff' : 'rgba(255,255,255,0.08)',
-                  color: isSelected ? '#111827' : '#ffffff',
-                  fontWeight: 800,
-                  fontSize: 13,
-                  cursor: 'pointer',
-                }}
-              >
-                {squad.label}
-              </button>
-            );
-          })}
-        </div>
-      </section>
+          return (
+            <button
+              key={squad.value}
+              type="button"
+              onClick={() => setSelectedSquad(squad.value)}
+              style={squadButtonStyle(isSelected)}
+            >
+              {squad.label}
+            </button>
+          );
+        })}
+      </div>
 
       {loading ? (
         <p style={{ color: '#ffffff', margin: 0 }}>Loading...</p>
       ) : (
-        <DocumentAttachmentViewer attachments={attachments} emptyMessage="No PT plan posted for this squad." />
+        <DocumentAttachmentViewer
+          attachments={attachments}
+          emptyMessage="No PT plan posted for this squad."
+          buttonLabel={`Open ${squads.find((squad) => squad.value === selectedSquad)?.label || 'PT'} Plan`}
+        />
       )}
     </div>
   );
