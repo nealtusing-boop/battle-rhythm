@@ -11,9 +11,9 @@ const tabs = [
   { id: 'alerts', label: 'Alerts' },
   { id: 'weekly_training', label: 'PLT Training' },
   { id: 'long_range', label: 'Long Range' },
-  { id: 'cq_roster', label: 'CQ / Staff Duty' },
+  { id: 'cq_roster', label: 'CQ / Staff' },
   { id: 'pt_plans', label: 'PT Plans' },
-  { id: 'resources', label: "SOP's & Resources" },
+  { id: 'resources', label: 'SOPs' },
   { id: 'users', label: 'Users' },
 ] as const;
 
@@ -1428,14 +1428,14 @@ export function AdminClient() {
                   />
                 </label>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 14 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 12 }}>
                   <label style={labelStyle()}>
                     <span style={fieldLabelTextStyle()}>Expiration date</span>
                     <input
                       type="date"
                       value={alertExpiresDate}
                       onChange={(e) => setAlertExpiresDate(e.target.value)}
-                      style={inputStyle()}
+                      style={{ ...inputStyle(), minHeight: 56, padding: '16px 18px', background: '#ffffff' }}
                     />
                   </label>
 
@@ -1449,7 +1449,7 @@ export function AdminClient() {
                       onChange={(e) => setAlertExpiresTime(normalizeMilitaryTimeInput(e.target.value))}
                       onBlur={() => setAlertExpiresTime((current) => finalizeMilitaryTimeInput(current) || current)}
                       maxLength={5}
-                      style={inputStyle()}
+                      style={{ ...inputStyle(), minHeight: 56, padding: '16px 18px', background: '#ffffff' }}
                     />
                   </label>
                 </div>
@@ -2310,19 +2310,19 @@ export function AdminClient() {
               <textarea value={reactivationMessage} onChange={(e) => setReactivationMessage(e.target.value)} style={textareaStyle()} />
             </label>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 12 }}>
               <label style={labelStyle()}>
                 <span style={fieldLabelTextStyle()}>Expiration date</span>
                 <input
                   type="date"
                   value={reactivationExpiresDate}
                   onChange={(e) => setReactivationExpiresDate(e.target.value)}
-                  style={inputStyle()}
+                  style={{ ...inputStyle(), minHeight: 56, padding: '16px 18px', background: '#ffffff' }}
                 />
               </label>
 
               <label style={labelStyle()}>
-                <span style={fieldLabelTextStyle()}>Expiration time (24-hour) </span>
+                <span style={fieldLabelTextStyle()}>Expiration time (24-hour)</span>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -2331,7 +2331,7 @@ export function AdminClient() {
                   onChange={(e) => setReactivationExpiresTime(normalizeMilitaryTimeInput(e.target.value))}
                   onBlur={() => setReactivationExpiresTime((current) => finalizeMilitaryTimeInput(current) || current)}
                   maxLength={5}
-                  style={inputStyle()}
+                  style={{ ...inputStyle(), minHeight: 56, padding: '16px 18px', background: '#ffffff' }}
                 />
               </label>
             </div>
