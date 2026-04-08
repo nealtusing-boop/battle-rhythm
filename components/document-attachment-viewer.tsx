@@ -180,7 +180,7 @@ function PDFPreview({ url }: { url: string }) {
           display: 'flex',
           justifyContent: 'flex-end',
           gap: 8,
-          padding: 10,
+          padding: '10px 10px max(10px, env(safe-area-inset-top)) 10px',
           background: 'rgba(255,255,255,0.96)',
           borderBottom: '1px solid rgba(15,23,42,0.08)',
         }}
@@ -220,7 +220,7 @@ function ImagePreview({ url, fileName }: { url: string; fileName: string }) {
           display: 'flex',
           justifyContent: 'flex-end',
           gap: 8,
-          padding: 10,
+          padding: '10px 10px max(10px, env(safe-area-inset-top)) 10px',
           background: 'rgba(255,255,255,0.96)',
           borderBottom: '1px solid rgba(15,23,42,0.08)',
         }}
@@ -368,7 +368,10 @@ export function DocumentAttachmentViewer({
             zIndex: 1000,
             background: 'rgba(15,23,42,0.82)',
             backdropFilter: 'blur(6px)',
-            padding: 16,
+            paddingTop: 'max(16px, env(safe-area-inset-top))',
+            paddingRight: 16,
+            paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
+            paddingLeft: 16,
             display: 'grid',
           }}
         >
@@ -392,7 +395,7 @@ export function DocumentAttachmentViewer({
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 gap: 12,
-                padding: '14px 16px',
+                padding: 'max(14px, env(safe-area-inset-top)) 16px 14px 16px',
                 borderBottom: '1px solid rgba(15,23,42,0.08)',
               }}
             >
