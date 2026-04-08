@@ -1412,7 +1412,7 @@ export function AdminClient() {
         {active === 'alerts' && (
           <>
             <section style={sectionStyle()}>
-              <h2 style={{ marginTop: 0, marginBottom: 10, fontSize: 22, fontWeight: 800 }}>Post Alert</h2>
+              <h2 style={{ marginTop: 0, marginBottom: 10, fontSize: 22, fontWeight: 800 }}>Alert</h2>
               <p style={{ marginTop: 0, marginBottom: 18, fontSize: 14, color: '#64748b' }}>
                  
               </p>
@@ -1821,7 +1821,7 @@ export function AdminClient() {
         {active === 'cq_roster' && (
           <>
             <section style={sectionStyle()}>
-              <h2 style={{ marginTop: 0, marginBottom: 10, fontSize: 22, fontWeight: 800 }}>CQ / Staff Duty Upload</h2>
+              <h2 style={{ marginTop: 0, marginBottom: 10, fontSize: 22, fontWeight: 800 }}>CQ / Staff Duty</h2>
               <p style={{ marginTop: 0, marginBottom: 18, fontSize: 14, color: '#64748b' }}>
 
               </p>
@@ -1971,7 +1971,7 @@ export function AdminClient() {
         {active === 'pt_plans' && (
           <>
             <section style={sectionStyle()}>
-              <h2 style={{ marginTop: 0, marginBottom: 10, fontSize: 22, fontWeight: 800 }}>PT Plan Upload</h2>
+              <h2 style={{ marginTop: 0, marginBottom: 10, fontSize: 22, fontWeight: 800 }}>PT Plans</h2>
               <p style={{ marginTop: 0, marginBottom: 18, fontSize: 14, color: '#64748b' }}>
 
               </p>
@@ -2109,7 +2109,7 @@ export function AdminClient() {
         {active === 'resources' && (
           <>
             {renderDocumentUploader({
-              heading: "SOP's & Resources Upload",
+              heading: "SOP's & Resources",
               description: ' ',
               category: 'resource',
               allowMultiplePosts: true,
