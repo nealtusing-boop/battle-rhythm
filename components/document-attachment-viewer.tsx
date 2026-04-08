@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type ReactNode, type TouchEvent } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/browser';
 import { Document, Page, pdfjs } from 'react-pdf';
@@ -30,82 +30,6 @@ type DocumentListItem = {
   attachments: Attachment[];
 };
 
-
-type PinchHandlers = {
-  onTouchStart: (event: TouchEvent<HTMLElement>) => void;
-  onTouchMove: (event: TouchEvent<HTMLElement>) => void;
-  onTouchEnd: () => void;
-  onTouchCancel: () => void;
-};
-
-function getTouchDistance(touches: TouchEvent<HTMLElement>['touches']) {
-  if (touches.length < 2) return 0;
-
-  const first = touches[0];
-  const second = touches[1];
-  const deltaX = first.clientX - second.clientX;
-  const deltaY = first.clientY - second.clientY;
-
-  return Math.hypot(deltaX, deltaY);
-}
-
-function usePinchZoom({
-  initialZoom = 1,
-  minZoom,
-  maxZoom,
-}: {
-  initialZoom?: number;
-  minZoom: number;
-  maxZoom: number;
-}) {
-  const [zoom, setZoom] = useState(initialZoom);
-  const pinchStartDistanceRef = useRef(0);
-  const pinchStartZoomRef = useRef(initialZoom);
-
-  function handleTouchStart(event: TouchEvent<HTMLElement>) {
-    if (event.touches.length < 2) return;
-
-    pinchStartDistanceRef.current = getTouchDistance(event.touches);
-    pinchStartZoomRef.current = zoom;
-  }
-
-  function handleTouchMove(event: TouchEvent<HTMLElement>) {
-    if (event.touches.length < 2 || pinchStartDistanceRef.current === 0) return;
-
-    event.preventDefault();
-    const nextDistance = getTouchDistance(event.touches);
-    const ratio = nextDistance / pinchStartDistanceRef.current;
-    const nextZoom = clamp(Number((pinchStartZoomRef.current * ratio).toFixed(2)), minZoom, maxZoom);
-    setZoom(nextZoom);
-  }
-
-  function clearPinchState() {
-    pinchStartDistanceRef.current = 0;
-    pinchStartZoomRef.current = zoom;
-  }
-
-  function zoomIn(step = 0.1) {
-    setZoom((current) => clamp(Number((current + step).toFixed(2)), minZoom, maxZoom));
-  }
-
-  function zoomOut(step = 0.1) {
-    setZoom((current) => clamp(Number((current - step).toFixed(2)), minZoom, maxZoom));
-  }
-
-  return {
-    zoom,
-    setZoom,
-    zoomIn,
-    zoomOut,
-    pinchHandlers: {
-      onTouchStart: handleTouchStart,
-      onTouchMove: handleTouchMove,
-      onTouchEnd: clearPinchState,
-      onTouchCancel: clearPinchState,
-    } satisfies PinchHandlers,
-  };
-}
-
 function getFileKind(fileName: string, fileType?: string | null): 'pdf' | 'image' | 'other' {
   const lowerName = fileName.toLowerCase();
   const lowerType = (fileType || '').toLowerCase();
@@ -119,6 +43,10 @@ function getFileKind(fileName: string, fileType?: string | null): 'pdf' | 'image
   }
 
   return 'other';
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
 }
 
 function pageShellStyle() {
@@ -197,10 +125,6 @@ function listRowStyle() {
   } as const;
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}
-
 function RotateHint() {
   return (
     <p
@@ -210,7 +134,7 @@ function RotateHint() {
         color: '#64748b',
       }}
     >
-      Rotate your phone for the easiest view of landscape schedules. Pinch to zoom is enabled.
+      Rotate your phone for the easiest view of landscape schedules. Use the zoom buttons for a closer view.
     </p>
   );
 }
@@ -325,11 +249,7 @@ function PDFPages({
   fileName: string;
 }) {
   const [numPages, setNumPages] = useState(0);
-  const { zoom, zoomIn, zoomOut, pinchHandlers } = usePinchZoom({
-    initialZoom: 1,
-    minZoom: 0.7,
-    maxZoom: 3,
-  });
+  const [zoom, setZoom] = useState(1);
   const [pageWidth, setPageWidth] = useState(1200);
 
   useEffect(() => {
@@ -382,30 +302,27 @@ function PDFPages({
           <div style={{ marginTop: 4, fontSize: 12, color: '#64748b' }}>
             {numPages > 0 ? `${numPages} page${numPages === 1 ? '' : 's'}` : 'Loading pages...'}
           </div>
-          <div style={{ marginTop: 4, fontSize: 12, color: '#64748b' }}>Pinch to zoom or use the controls.</div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button type="button" onClick={() => zoomOut()} style={toolbarButtonStyle()}>
+          <button type="button" onClick={() => setZoom((current) => clamp(Number((current - 0.1).toFixed(2)), 0.7, 3))} style={toolbarButtonStyle()}>
             −
           </button>
           <div style={{ minWidth: 58, textAlign: 'center', fontSize: 13, fontWeight: 800, color: '#374151' }}>
             {Math.round(zoom * 100)}%
           </div>
-          <button type="button" onClick={() => zoomIn()} style={toolbarButtonStyle()}>
+          <button type="button" onClick={() => setZoom((current) => clamp(Number((current + 0.1).toFixed(2)), 0.7, 3))} style={toolbarButtonStyle()}>
             +
           </button>
         </div>
       </div>
 
       <div
-        {...pinchHandlers}
         style={{
           display: 'grid',
           gap: 16,
           justifyContent: 'center',
           minWidth: 'fit-content',
-          touchAction: 'none',
         }}
       >
         <Document
@@ -446,11 +363,7 @@ function ImagePages({
   url: string;
   fileName: string;
 }) {
-  const { zoom, zoomIn, zoomOut, pinchHandlers } = usePinchZoom({
-    initialZoom: 1,
-    minZoom: 0.7,
-    maxZoom: 4,
-  });
+  const [zoom, setZoom] = useState(1);
 
   return (
     <div style={{ display: 'grid', gap: 12 }}>
@@ -482,26 +395,22 @@ function ImagePages({
           >
             {fileName}
           </div>
-          <div style={{ marginTop: 4, fontSize: 12, color: '#64748b' }}>Pinch to zoom or use the controls.</div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button type="button" onClick={() => zoomOut()} style={toolbarButtonStyle()}>
+          <button type="button" onClick={() => setZoom((current) => clamp(Number((current - 0.1).toFixed(2)), 0.7, 4))} style={toolbarButtonStyle()}>
             −
           </button>
           <div style={{ minWidth: 58, textAlign: 'center', fontSize: 13, fontWeight: 800, color: '#374151' }}>
             {Math.round(zoom * 100)}%
           </div>
-          <button type="button" onClick={() => zoomIn()} style={toolbarButtonStyle()}>
+          <button type="button" onClick={() => setZoom((current) => clamp(Number((current + 0.1).toFixed(2)), 0.7, 4))} style={toolbarButtonStyle()}>
             +
           </button>
         </div>
       </div>
 
-      <div
-        style={{ display: 'flex', justifyContent: 'center', minWidth: 'fit-content', touchAction: 'none' }}
-        {...pinchHandlers}
-      >
+      <div style={{ display: 'flex', justifyContent: 'center', minWidth: 'fit-content' }}>
         <img
           src={url}
           alt={fileName}
@@ -518,7 +427,7 @@ function ImagePages({
   );
 }
 
-function UnsupportedFile({ fileName }: { fileName: string }) {
+function UnsupportedFile({ fileName, url }: { fileName: string; url: string }) {
   return (
     <div
       style={{
@@ -527,9 +436,14 @@ function UnsupportedFile({ fileName }: { fileName: string }) {
         padding: 18,
         color: '#334155',
         fontSize: 14,
+        display: 'grid',
+        gap: 12,
       }}
     >
-      {fileName} cannot be previewed in app.
+      <div>{fileName} cannot be previewed in app.</div>
+      <a href={url} target="_blank" rel="noreferrer" style={{ color: '#0f172a', fontWeight: 800 }}>
+        Open file
+      </a>
     </div>
   );
 }
@@ -546,7 +460,7 @@ function FullscreenDocumentContent({ attachments }: { attachments: ResolvedAttac
           return <ImagePages key={attachment.id} url={attachment.signedUrl} fileName={attachment.file_name} />;
         }
 
-        return <UnsupportedFile key={attachment.id} fileName={attachment.file_name} />;
+        return <UnsupportedFile key={attachment.id} fileName={attachment.file_name} url={attachment.signedUrl} />;
       })}
     </div>
   );
