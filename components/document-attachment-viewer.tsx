@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
@@ -21,8 +20,13 @@ type Attachment = {
 
 type ItemWithAttachments = {
   id: string;
-  title?: string;
+  title?: string | null;
   attachments: Attachment[];
+};
+
+type ResolvedAttachment = Attachment & {
+  signedUrl: string;
+  kind: 'pdf' | 'image' | 'other';
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -38,105 +42,12 @@ function getFileKind(fileName: string, fileType?: string | null): 'pdf' | 'image
   return 'other';
 }
 
-function overlayStyle() {
-  return {
-    position: 'fixed' as const,
-    inset: 0,
-    zIndex: 1000,
-    background: 'rgba(15,23,42,0.82)',
-    backdropFilter: 'blur(6px)',
-    padding: 16,
-    display: 'grid',
-  };
-}
-
-function modalStyle() {
-  return {
-    width: '100%',
-    maxWidth: 1100,
-    height: '100%',
-    margin: '0 auto',
-    borderRadius: 24,
-    background: '#ffffff',
-    overflow: 'hidden',
-    display: 'grid',
-    gridTemplateRows: 'auto auto 1fr',
-    boxShadow: '0 24px 80px rgba(15,23,42,0.35)',
-  } as const;
-}
-
-function headerStyle() {
-  return {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    padding: '14px 16px',
-    borderBottom: '1px solid rgba(15,23,42,0.08)',
-  } as const;
-}
-
-function selectorBarStyle() {
-  return {
-    display: 'flex',
-    gap: 8,
-    flexWrap: 'wrap' as const,
-    padding: '12px 16px',
-    borderBottom: '1px solid rgba(15,23,42,0.08)',
-    overflowX: 'auto' as const,
-  };
-}
-
-function ghostButtonStyle() {
-  return {
-    border: '1px solid rgba(15,23,42,0.12)',
-    borderRadius: 12,
-    padding: '10px 14px',
-    background: '#ffffff',
-    color: '#0f172a',
-    fontWeight: 700,
-    fontSize: 13,
-    cursor: 'pointer',
-  } as const;
-}
-
-function selectedButtonStyle() {
-  return {
-    ...ghostButtonStyle(),
-    background: '#0f172a',
-    color: '#ffffff',
-    border: '1px solid #0f172a',
-  } as const;
-}
-
-function primaryTriggerStyle() {
-  return {
-    border: '1px solid rgba(255,255,255,0.16)',
-    borderRadius: 16,
-    padding: '12px 16px',
-    background: 'rgba(255,255,255,0.1)',
-    color: '#ffffff',
-    fontWeight: 800,
-    fontSize: 14,
-    cursor: 'pointer',
-  } as const;
-}
-
-function emptyStyle() {
-  return {
-    borderRadius: 18,
-    padding: 16,
-    background: 'rgba(255,255,255,0.08)',
-    color: 'rgba(255,255,255,0.88)',
-  } as const;
-}
-
 function sortAttachments(attachments: Attachment[] | undefined | null) {
   return [...(attachments || [])].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 }
 
 function useResolvedAttachments(attachments: Attachment[], open: boolean) {
-  const [resolved, setResolved] = useState<(Attachment & { signedUrl: string; kind: 'pdf' | 'image' | 'other' })[]>([]);
+  const [resolved, setResolved] = useState<ResolvedAttachment[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -161,7 +72,7 @@ function useResolvedAttachments(attachments: Attachment[], open: boolean) {
             ...attachment,
             signedUrl: data?.signedUrl || '',
             kind: getFileKind(attachment.file_name, attachment.file_type),
-          };
+          } satisfies ResolvedAttachment;
         })
       );
 
@@ -181,6 +92,43 @@ function useResolvedAttachments(attachments: Attachment[], open: boolean) {
   return { resolved, loading };
 }
 
+function ghostButtonStyle(selected = false) {
+  return {
+    border: selected ? '1px solid #0f172a' : '1px solid rgba(15,23,42,0.12)',
+    borderRadius: 12,
+    padding: '10px 14px',
+    background: selected ? '#0f172a' : '#ffffff',
+    color: selected ? '#ffffff' : '#0f172a',
+    fontWeight: 700,
+    fontSize: 13,
+    cursor: 'pointer',
+  } as const;
+}
+
+function triggerButtonStyle() {
+  return {
+    border: '1px solid rgba(15,23,42,0.12)',
+    borderRadius: 14,
+    padding: '12px 16px',
+    background: '#ffffff',
+    color: '#0f172a',
+    fontWeight: 800,
+    fontSize: 14,
+    cursor: 'pointer',
+    width: 'fit-content',
+  } as const;
+}
+
+function emptyStyle() {
+  return {
+    borderRadius: 18,
+    padding: 16,
+    background: '#f8fafc',
+    border: '1px solid rgba(15,23,42,0.08)',
+    color: '#475569',
+  } as const;
+}
+
 function PDFPreview({ url }: { url: string }) {
   const [numPages, setNumPages] = useState(0);
   const [zoom, setZoom] = useState(1);
@@ -196,7 +144,7 @@ function PDFPreview({ url }: { url: string }) {
           justifyContent: 'flex-end',
           gap: 8,
           padding: 10,
-          background: 'rgba(255,255,255,0.94)',
+          background: 'rgba(255,255,255,0.96)',
           borderBottom: '1px solid rgba(15,23,42,0.08)',
         }}
       >
@@ -236,7 +184,7 @@ function ImagePreview({ url, fileName }: { url: string; fileName: string }) {
           justifyContent: 'flex-end',
           gap: 8,
           padding: 10,
-          background: 'rgba(255,255,255,0.94)',
+          background: 'rgba(255,255,255,0.96)',
           borderBottom: '1px solid rgba(15,23,42,0.08)',
         }}
       >
@@ -268,7 +216,7 @@ function ImagePreview({ url, fileName }: { url: string; fileName: string }) {
   );
 }
 
-function FilePreview({ file }: { file: Attachment & { signedUrl: string; kind: 'pdf' | 'image' | 'other' } }) {
+function FilePreview({ file }: { file: ResolvedAttachment }) {
   if (file.kind === 'pdf') return <PDFPreview url={file.signedUrl} />;
   if (file.kind === 'image') return <ImagePreview url={file.signedUrl} fileName={file.file_name} />;
 
@@ -298,29 +246,30 @@ function FilePreview({ file }: { file: Attachment & { signedUrl: string; kind: '
 
 export function DocumentAttachmentViewer({
   attachments,
-  DocumentAttachmentListViewer,
   emptyMessage = 'No attachments.',
-  buttonLabel = 'Open',
+  buttonLabel = 'Open Attachment',
+  defaultOpen = false,
 }: {
   attachments?: Attachment[];
-  DocumentAttachmentListViewer?: Attachment[];
   emptyMessage?: string;
   buttonLabel?: string;
+  defaultOpen?: boolean;
 }) {
-  const normalizedAttachments = useMemo(
-    () => sortAttachments(attachments || DocumentAttachmentListViewer || []),
-    [attachments, DocumentAttachmentListViewer]
-  );
-
-  const [open, setOpen] = useState(false);
+  const normalizedAttachments = useMemo(() => sortAttachments(attachments), [attachments]);
+  const [open, setOpen] = useState(defaultOpen);
   const { resolved, loading } = useResolvedAttachments(normalizedAttachments, open);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setOpen(defaultOpen);
+  }, [defaultOpen, normalizedAttachments.length]);
 
   useEffect(() => {
     if (!resolved.length) {
       setSelectedId(null);
       return;
     }
+
     if (!selectedId || !resolved.some((file) => file.id === selectedId)) {
       setSelectedId(resolved[0].id);
     }
@@ -334,18 +283,50 @@ export function DocumentAttachmentViewer({
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} style={primaryTriggerStyle()}>
-        {buttonLabel}
-      </button>
+      {!defaultOpen && (
+        <button type="button" onClick={() => setOpen(true)} style={triggerButtonStyle()}>
+          {buttonLabel}
+        </button>
+      )}
 
       {open && (
-        <div style={overlayStyle()}>
-          <div style={modalStyle()}>
-            <div style={headerStyle()}>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
-                  {selected?.file_name || 'Attachments'}
-                </div>
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1000,
+            background: 'rgba(15,23,42,0.82)',
+            backdropFilter: 'blur(6px)',
+            padding: 16,
+            display: 'grid',
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: 1100,
+              height: '100%',
+              margin: '0 auto',
+              borderRadius: 24,
+              background: '#ffffff',
+              overflow: 'hidden',
+              display: 'grid',
+              gridTemplateRows: 'auto auto 1fr',
+              boxShadow: '0 24px 80px rgba(15,23,42,0.35)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12,
+                padding: '14px 16px',
+                borderBottom: '1px solid rgba(15,23,42,0.08)',
+              }}
+            >
+              <div style={{ minWidth: 0, fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
+                {selected?.file_name || 'Attachments'}
               </div>
 
               <button type="button" onClick={() => setOpen(false)} style={ghostButtonStyle()}>
@@ -354,13 +335,22 @@ export function DocumentAttachmentViewer({
             </div>
 
             {resolved.length > 1 && (
-              <div style={selectorBarStyle()}>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 8,
+                  flexWrap: 'wrap',
+                  padding: '12px 16px',
+                  borderBottom: '1px solid rgba(15,23,42,0.08)',
+                  overflowX: 'auto',
+                }}
+              >
                 {resolved.map((file) => (
                   <button
                     key={file.id}
                     type="button"
                     onClick={() => setSelectedId(file.id)}
-                    style={selected?.id === file.id ? selectedButtonStyle() : ghostButtonStyle()}
+                    style={ghostButtonStyle(selected?.id === file.id)}
                   >
                     {file.file_name}
                   </button>
@@ -388,11 +378,30 @@ export function DocumentAttachmentListViewer({
   items,
   attachments,
   emptyMessage = 'No documents posted.',
+  autoOpenSingle = false,
+  buttonLabel,
 }: {
   items?: ItemWithAttachments[];
   attachments?: Attachment[];
   emptyMessage?: string;
+  autoOpenSingle?: boolean;
+  buttonLabel?: string;
 }) {
+  const totalAttachments = items
+    ? items.flatMap((item) => sortAttachments(item.attachments))
+    : sortAttachments(attachments);
+
+  if (autoOpenSingle && totalAttachments.length === 1) {
+    return (
+      <DocumentAttachmentViewer
+        attachments={totalAttachments}
+        emptyMessage={emptyMessage}
+        buttonLabel={buttonLabel || 'Open Attachment'}
+        defaultOpen
+      />
+    );
+  }
+
   if (items && items.length > 0) {
     return (
       <div style={{ display: 'grid', gap: 14 }}>
@@ -401,14 +410,14 @@ export function DocumentAttachmentListViewer({
             key={item.id}
             style={{
               borderRadius: 18,
-              background: 'rgba(255,255,255,0.08)',
-              border: '1px solid rgba(255,255,255,0.1)',
+              background: '#f8fafc',
+              border: '1px solid rgba(15,23,42,0.08)',
               padding: 16,
               display: 'grid',
               gap: 12,
             }}
           >
-            <div style={{ color: '#ffffff', fontWeight: 800, fontSize: 16 }}>
+            <div style={{ color: '#0f172a', fontWeight: 800, fontSize: 16 }}>
               {item.title || 'Document'}
             </div>
 
@@ -428,7 +437,8 @@ export function DocumentAttachmentListViewer({
       <DocumentAttachmentViewer
         attachments={sortAttachments(attachments)}
         emptyMessage={emptyMessage}
-        buttonLabel={attachments.length === 1 ? 'Open Attachment' : 'Open Attachments'}
+        buttonLabel={buttonLabel || (attachments.length === 1 ? 'Open Attachment' : 'Open Attachments')}
+        defaultOpen={autoOpenSingle && attachments.length === 1}
       />
     );
   }

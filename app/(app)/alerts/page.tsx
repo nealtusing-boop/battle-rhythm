@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/browser';
 import { AlertsBadgeClearer } from './alerts-badge-clearer';
-import { DocumentAttachmentViewer } from '@/components/document-attachment-viewer';
+import { DocumentAttachmentListViewer } from '@/components/document-attachment-viewer';
 
 type AlertAttachment = {
   id: string;
@@ -32,6 +32,16 @@ function formatDateTime(value: string | null) {
     minute: '2-digit',
     hour12: false,
   });
+}
+
+function cardStyle() {
+  return {
+    borderRadius: 30,
+    background: '#ffffff',
+    padding: 22,
+    boxShadow: '0 18px 44px rgba(15,23,42,0.14)',
+    color: '#0f172a',
+  } as const;
 }
 
 export default function AlertsPage() {
@@ -75,7 +85,11 @@ export default function AlertsPage() {
 
       setAlerts(
         data.map((alert) => ({
-          ...alert,
+          id: alert.id,
+          message: alert.message,
+          created_at: alert.created_at,
+          expires_at: alert.expires_at,
+          is_active: alert.is_active,
           attachments: [...(alert.alert_attachments || [])].sort((a, b) => a.sort_order - b.sort_order),
         }))
       );
@@ -114,46 +128,13 @@ export default function AlertsPage() {
       </section>
 
       <section style={{ display: 'grid', gap: 12 }}>
-        {loading && (
-          <div
-            style={{
-              borderRadius: 30,
-              background: '#ffffff',
-              padding: 22,
-              boxShadow: '0 18px 44px rgba(15,23,42,0.14)',
-              color: '#475569',
-            }}
-          >
-            Loading...
-          </div>
-        )}
+        {loading && <div style={cardStyle()}>Loading...</div>}
 
-        {!loading && alerts.length === 0 && (
-          <div
-            style={{
-              borderRadius: 30,
-              background: '#ffffff',
-              padding: 22,
-              boxShadow: '0 18px 44px rgba(15,23,42,0.14)',
-              color: '#475569',
-            }}
-          >
-            No alerts posted yet.
-          </div>
-        )}
+        {!loading && alerts.length === 0 && <div style={cardStyle()}>No alerts posted yet.</div>}
 
         {!loading &&
           alerts.map((alert) => (
-            <article
-              key={alert.id}
-              style={{
-                borderRadius: 30,
-                background: '#ffffff',
-                padding: 22,
-                boxShadow: '0 18px 44px rgba(15,23,42,0.14)',
-                color: '#0f172a',
-              }}
-            >
+            <article key={alert.id} style={cardStyle()}>
               <p
                 style={{
                   margin: 0,
@@ -182,9 +163,8 @@ export default function AlertsPage() {
 
               {alert.attachments.length > 0 && (
                 <div style={{ marginTop: 16 }}>
-                  <DocumentAttachmentViewer
+                  <DocumentAttachmentListViewer
                     attachments={alert.attachments}
-                    emptyMessage="No attachments."
                     buttonLabel={alert.attachments.length === 1 ? 'Open Attachment' : 'Open Attachments'}
                   />
                 </div>

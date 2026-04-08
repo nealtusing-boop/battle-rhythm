@@ -20,13 +20,23 @@ function pageShellStyle() {
   } as const;
 }
 
+function cardStyle() {
+  return {
+    borderRadius: 30,
+    background: '#ffffff',
+    padding: 22,
+    boxShadow: '0 18px 44px rgba(15,23,42,0.14)',
+    color: '#0f172a',
+  } as const;
+}
+
 function sectionLabelStyle() {
   return {
     fontSize: 13,
     fontWeight: 800,
     letterSpacing: '0.08em',
     textTransform: 'uppercase' as const,
-    color: 'rgba(255,255,255,0.78)',
+    color: '#64748b',
     margin: 0,
   };
 }
@@ -48,9 +58,7 @@ export default function CQRosterPage() {
         .eq('is_active', true)
         .single();
 
-      if (!post) {
-        return [] as Attachment[];
-      }
+      if (!post) return [] as Attachment[];
 
       const { data: files } = await supabase
         .from('document_attachments')
@@ -78,29 +86,37 @@ export default function CQRosterPage() {
 
   return (
     <div style={pageShellStyle()}>
-      {loading ? (
-        <p style={{ color: '#ffffff', margin: 0 }}>Loading...</p>
-      ) : (
-        <>
-          <div style={{ display: 'grid', gap: 10 }}>
-            <p style={sectionLabelStyle()}>CQ</p>
-            <DocumentAttachmentViewer
-              DocumentAttachmentListViewer={cqFiles}
-              emptyMessage="No CQ roster posted."
-              buttonLabel="Open CQ Roster"
-            />
-          </div>
+      <section>
+        <h1 style={{ margin: 0, fontSize: 40, fontWeight: 800, letterSpacing: '-0.05em', color: '#ffffff' }}>
+          CQ / Staff Duty Roster
+        </h1>
+      </section>
 
-          <div style={{ display: 'grid', gap: 10 }}>
-            <p style={sectionLabelStyle()}>Staff Duty</p>
-            <DocumentAttachmentViewer
-              DocumentAttachmentListViewer={staffFiles}
-              emptyMessage="No Staff Duty roster posted."
-              buttonLabel="Open Staff Duty Roster"
-            />
+      <section style={cardStyle()}>
+        {loading ? (
+          <p style={{ color: '#475569', margin: 0 }}>Loading...</p>
+        ) : (
+          <div style={{ display: 'grid', gap: 18 }}>
+            <div style={{ display: 'grid', gap: 10 }}>
+              <p style={sectionLabelStyle()}>CQ</p>
+              <DocumentAttachmentViewer
+                attachments={cqFiles}
+                emptyMessage="No CQ roster posted."
+                buttonLabel="Open CQ Roster"
+              />
+            </div>
+
+            <div style={{ display: 'grid', gap: 10 }}>
+              <p style={sectionLabelStyle()}>Staff Duty</p>
+              <DocumentAttachmentViewer
+                attachments={staffFiles}
+                emptyMessage="No Staff Duty roster posted."
+                buttonLabel="Open Staff Duty Roster"
+              />
+            </div>
           </div>
-        </>
-      )}
+        )}
+      </section>
     </div>
   );
 }

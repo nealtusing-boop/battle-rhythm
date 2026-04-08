@@ -26,6 +26,16 @@ function pageShellStyle() {
   } as const;
 }
 
+function cardStyle() {
+  return {
+    borderRadius: 30,
+    background: '#ffffff',
+    padding: 22,
+    boxShadow: '0 18px 44px rgba(15,23,42,0.14)',
+    color: '#0f172a',
+  } as const;
+}
+
 export default function ResourcesPage() {
   const [resources, setResources] = useState<ResourcePost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,22 +86,19 @@ export default function ResourcesPage() {
 
   return (
     <div style={pageShellStyle()}>
-      <h1
-        style={{
-          margin: 0,
-          fontSize: 22,
-          fontWeight: 800,
-          color: '#ffffff',
-        }}
-      >
-        SOP's & Resources
-      </h1>
+      <section>
+        <h1 style={{ margin: 0, fontSize: 40, fontWeight: 800, letterSpacing: '-0.05em', color: '#ffffff' }}>
+          SOP's & Resources
+        </h1>
+      </section>
 
-      {loading ? (
-        <p style={{ color: '#ffffff', margin: 0 }}>Loading...</p>
-      ) : (
-        <DocumentAttachmentListViewer items={resources} emptyMessage="No resources posted." />
-      )}
+      <section style={cardStyle()}>
+        {loading ? (
+          <p style={{ color: '#475569', margin: 0 }}>Loading...</p>
+        ) : (
+          <DocumentAttachmentListViewer items={resources} emptyMessage="No resources posted." />
+        )}
+      </section>
     </div>
   );
 }

@@ -3,11 +3,20 @@ export const dynamic = 'force-dynamic';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { format } from 'date-fns';
+import { DocumentAttachmentListViewer } from '@/components/document-attachment-viewer';
 
 type ProfileRow = {
   id: string;
   full_name: string | null;
   rank: string | null;
+};
+
+type AlertAttachment = {
+  id: string;
+  storage_path: string;
+  file_name: string;
+  sort_order: number;
+  file_type?: string | null;
 };
 
 type AlertRow = {
@@ -16,6 +25,7 @@ type AlertRow = {
   created_at: string;
   expires_at: string | null;
   is_active: boolean | null;
+  alert_attachments?: AlertAttachment[] | null;
 };
 
 function formatLongDate(dateString: string) {
@@ -29,9 +39,7 @@ function isAlertActive(alert: AlertRow) {
 }
 
 function alertSortValue(alert: AlertRow) {
-  if (alert.expires_at) {
-    return new Date(alert.expires_at).getTime();
-  }
+  if (alert.expires_at) return new Date(alert.expires_at).getTime();
   return Number.MAX_SAFE_INTEGER;
 }
 
@@ -84,27 +92,27 @@ const hubLinks = [
   {
     href: '/weekly-training',
     title: 'PLT Training Calendar',
-
+    description: 'View the current weekly training schedule.',
   },
   {
     href: '/long-range',
     title: 'Long Range Calendar',
-  
+    description: 'View the current long-range calendar pages.',
   },
   {
     href: '/cq-roster',
     title: 'CQ / Staff Duty Roster',
-  
+    description: 'Open the current roster document.',
   },
   {
     href: '/pt-plans',
     title: 'PT Plans',
-  
+    description: 'Choose your squad and view the current PT plan.',
   },
   {
     href: '/resources',
     title: "SOP's & Resources",
-  
+    description: 'Access SOPs, packets, and reference documents.',
   },
 ] as const;
 
@@ -124,7 +132,22 @@ export default async function HomePage() {
       supabase.from('profiles').select('id, full_name, rank').eq('id', user.id).maybeSingle(),
       supabase
         .from('alerts')
-        .select('id, message, created_at, expires_at, is_active')
+        .select(
+          `
+            id,
+            message,
+            created_at,
+            expires_at,
+            is_active,
+            alert_attachments (
+              id,
+              storage_path,
+              file_name,
+              sort_order,
+              file_type
+            )
+          `
+        )
         .order('created_at', { ascending: false }),
     ]);
 
@@ -222,7 +245,7 @@ export default async function HomePage() {
                 maxWidth: 560,
               }}
             >
-              
+              All active alerts are listed here in order of the soonest expiration.
             </p>
           </div>
 
@@ -242,42 +265,55 @@ export default async function HomePage() {
               </div>
             )}
 
-            {activeAlerts.map((alert) => (
-              <div
-                key={alert.id}
-                style={{
-                  borderRadius: 22,
-                  background: '#f8fafc',
-                  padding: 18,
-                  border: '1px solid rgba(15,23,42,0.08)',
-                  minWidth: 0,
-                }}
-              >
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: 17,
-                    fontWeight: 800,
-                    color: '#0f172a',
-                    overflowWrap: 'anywhere',
-                  }}
-                >
-                  {getAlertTitle(alert.message)}
-                </p>
+            {activeAlerts.map((alert) => {
+              const attachments = [...(alert.alert_attachments || [])].sort((a, b) => a.sort_order - b.sort_order);
 
-                <p
+              return (
+                <div
+                  key={alert.id}
                   style={{
-                    marginTop: 8,
-                    marginBottom: 0,
-                    fontSize: 13,
-                    color: '#64748b',
-                    overflowWrap: 'anywhere',
+                    borderRadius: 22,
+                    background: '#f8fafc',
+                    padding: 18,
+                    border: '1px solid rgba(15,23,42,0.08)',
+                    minWidth: 0,
                   }}
                 >
-                  {formatAlertDate(alert.expires_at)}
-                </p>
-              </div>
-            ))}
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: 17,
+                      fontWeight: 800,
+                      color: '#0f172a',
+                      overflowWrap: 'anywhere',
+                    }}
+                  >
+                    {getAlertTitle(alert.message)}
+                  </p>
+
+                  <p
+                    style={{
+                      marginTop: 8,
+                      marginBottom: 0,
+                      fontSize: 13,
+                      color: '#64748b',
+                      overflowWrap: 'anywhere',
+                    }}
+                  >
+                    {formatAlertDate(alert.expires_at)}
+                  </p>
+
+                  {attachments.length > 0 && (
+                    <div style={{ marginTop: 14 }}>
+                      <DocumentAttachmentListViewer
+                        attachments={attachments}
+                        buttonLabel={attachments.length === 1 ? 'Open Attachment' : 'Open Attachments'}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           <div style={{ marginTop: 16 }}>
@@ -310,7 +346,7 @@ export default async function HomePage() {
                 maxWidth: 560,
               }}
             >
-            
+              Open the current operational documents, PT plans, rosters, and platoon resources.
             </p>
           </div>
 
@@ -360,7 +396,7 @@ export default async function HomePage() {
                         color: '#64748b',
                       }}
                     >
-                      
+                      {item.description}
                     </p>
                   </div>
 
