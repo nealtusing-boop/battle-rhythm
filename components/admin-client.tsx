@@ -9,7 +9,7 @@ const DOC_BUCKET = 'battle-rhythm-docs';
 
 const tabs = [
   { id: 'alerts', label: 'Alerts' },
-  { id: 'weekly_training', label: 'PLT Training Calendar' },
+  { id: 'weekly_training', label: 'PLT Training' },
   { id: 'long_range', label: 'Long Range' },
   { id: 'cq_roster', label: 'CQ / Staff Duty' },
   { id: 'pt_plans', label: 'PT Plans' },
@@ -1455,7 +1455,7 @@ export function AdminClient() {
                 </div>
 
                 <label style={labelStyle()}>
-                  <span style={fieldLabelTextStyle()}>Alert attachments (optional)</span>
+                  <span style={fieldLabelTextStyle()}>Alert attachments</span>
                   <input
                     type="file"
                     accept=".pdf,image/*,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
@@ -1730,19 +1730,19 @@ export function AdminClient() {
         {active === 'weekly_training' && (
           <>
             {renderDocumentUploader({
-              heading: 'PLT Training Calendar Upload',
+              heading: 'PLT Training Calendar',
               description:   '',
               category: 'weekly_training',
               currentPost: currentWeeklyPost,
               allowMultiplePosts: true,
-              titlePlaceholder: 'Example: PLT Training Calendar - 15 APR 2026',
-              buttonLabel: 'Upload PLT Training Calendar',
+              titlePlaceholder: 'Example: 15 - 22 APR 2026',
+              buttonLabel: 'Upload',
               showTitle: true,
               showDescription: false,
             })}
 
             <section style={sectionStyle()}>
-              <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 22, fontWeight: 800 }}>Current PLT Training Calendar Posts</h2>
+              <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 22, fontWeight: 800 }}>Current Calendar Posts</h2>
               <div style={{ display: 'grid', gap: 12 }}>
                 {weeklyTrainingPosts.length === 0 && (
                   <div
@@ -1755,7 +1755,7 @@ export function AdminClient() {
                       color: '#475569',
                     }}
                   >
-                    No PLT training calendar posts uploaded yet.
+                    No calendar posts uploaded.
                   </div>
                 )}
 
@@ -1776,18 +1776,18 @@ export function AdminClient() {
         {active === 'long_range' && (
           <>
             {renderDocumentUploader({
-              heading: 'Long Range Calendar Upload',
+              heading: 'Long Range Calendar',
               description:  '',
               category: 'long_range',
               currentPost: currentLongRangePost,
               allowMultiplePosts: true,
-              titlePlaceholder: 'Example: Long Range Calendar - April 2026',
-              buttonLabel: 'Upload Long Range Calendar',
+              titlePlaceholder: 'Example: April - May 2026',
+              buttonLabel: 'Upload',
               showTitle: true,
             })}
 
             <section style={sectionStyle()}>
-              <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 22, fontWeight: 800 }}>Current Long Range Calendar Posts</h2>
+              <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 22, fontWeight: 800 }}>Current Calendar Posts</h2>
               <div style={{ display: 'grid', gap: 12 }}>
                 {longRangePosts.length === 0 && (
                   <div
@@ -1800,7 +1800,7 @@ export function AdminClient() {
                       color: '#475569',
                     }}
                   >
-                    No long range calendar posts uploaded yet.
+                    No calendar posts uploaded yet.
                   </div>
                 )}
 
@@ -2322,7 +2322,7 @@ export function AdminClient() {
               </label>
 
               <label style={labelStyle()}>
-                <span style={fieldLabelTextStyle()}>Expiration time (24-hour)</span>
+                <span style={fieldLabelTextStyle()}>Expiration time</span>
                 <input
                   type="text"
                   inputMode="numeric"
