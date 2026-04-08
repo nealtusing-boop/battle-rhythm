@@ -105,7 +105,7 @@ export default function CQRosterPage() {
   return (
     <div style={pageShellStyle()}>
       <section>
-        <h1 style={{ margin: 0, fontSize: 40, fontWeight: 800, letterSpacing: '-0.05em', color: '#ffffff' }}>
+        <h1 style={{ margin: 0, fontSize: 30, fontWeight: 800, letterSpacing: '-0.05em', color: '#ffffff' }}>
           CQ / Staff Duty Roster
         </h1>
       </section>

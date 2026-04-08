@@ -174,7 +174,7 @@ export default async function HomePage() {
           <p
             style={{
               margin: 0,
-              fontSize: 12,
+              fontSize: 15,
               fontWeight: 800,
               textTransform: 'uppercase',
               letterSpacing: '0.18em',
@@ -188,7 +188,7 @@ export default async function HomePage() {
             style={{
               marginTop: 14,
               marginBottom: 0,
-              fontSize: 35,
+              fontSize: 30,
               lineHeight: 1.02,
               fontWeight: 800,
               letterSpacing: '-0.05em',
@@ -210,7 +210,7 @@ export default async function HomePage() {
             <h2
               style={{
                 margin: 0,
-                fontSize: 30,
+                fontSize: 25,
                 lineHeight: 1.02,
                 fontWeight: 800,
                 letterSpacing: '-0.04em',
@@ -305,7 +305,7 @@ export default async function HomePage() {
             <h2
               style={{
                 margin: 0,
-                fontSize: 30,
+                fontSize: 25,
                 lineHeight: 1.02,
                 fontWeight: 800,
                 letterSpacing: '-0.04em',
