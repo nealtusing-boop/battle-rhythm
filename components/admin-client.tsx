@@ -1440,7 +1440,7 @@ export function AdminClient() {
                   </label>
 
                   <label style={labelStyle()}>
-                    <span style={fieldLabelTextStyle()}>Expiration time (24-hour)</span>
+                    <span style={fieldLabelTextStyle()}>Expiration time</span>
                     <input
                       type="text"
                       inputMode="numeric"
@@ -2322,7 +2322,7 @@ export function AdminClient() {
               </label>
 
               <label style={labelStyle()}>
-                <span style={fieldLabelTextStyle()}>Expiration time</span>
+                <span style={fieldLabelTextStyle()}>Expiration time (24-hour) </span>
                 <input
                   type="text"
                   inputMode="numeric"
