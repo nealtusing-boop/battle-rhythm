@@ -43,7 +43,7 @@ export default async function MorePage() {
         <h1
           style={{
             margin: 0,
-            fontSize: 40,
+            fontSize: 35,
             fontWeight: 800,
             letterSpacing: '-0.05em',
             color: '#ffffff',
@@ -97,7 +97,7 @@ export default async function MorePage() {
               style={{
                 marginTop: 10,
                 marginBottom: 0,
-                fontSize: 25,
+                fontSize: 20,
                 fontWeight: 800,
                 letterSpacing: '-0.04em',
                 color: '#0f172a',
@@ -110,7 +110,7 @@ export default async function MorePage() {
               style={{
                 marginTop: 8,
                 marginBottom: 0,
-                fontSize: 14,
+                fontSize: 12,
                 color: '#64748b',
               }}
             >
@@ -122,7 +122,7 @@ export default async function MorePage() {
                 style={{
                   marginTop: 4,
                   marginBottom: 0,
-                  fontSize: 14,
+                  fontSize: 12,
                   color: '#64748b',
                 }}
               >
@@ -137,7 +137,7 @@ export default async function MorePage() {
               background: isAdmin ? '#ede9fe' : '#f8fafc',
               color: isAdmin ? '#6d28d9' : '#475569',
               padding: '7px 12px',
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: 800,
               letterSpacing: '0.12em',
               textTransform: 'uppercase',
@@ -170,7 +170,7 @@ export default async function MorePage() {
           <h2
             style={{
               margin: 0,
-              fontSize: 25,
+              fontSize: 20,
               fontWeight: 800,
               letterSpacing: '-0.03em',
               color: '#0f172a',
@@ -214,7 +214,7 @@ export default async function MorePage() {
             <h2
               style={{
                 margin: 0,
-                fontSize: 25,
+                fontSize: 20,
                 fontWeight: 800,
                 letterSpacing: '-0.03em',
                 color: '#0f172a',
@@ -242,7 +242,7 @@ export default async function MorePage() {
             <div>
               <div
                 style={{
-                  fontSize: 15,
+                  fontSize: 12,
                   fontWeight: 700,
                   color: '#0f172a',
                 }}
@@ -252,7 +252,7 @@ export default async function MorePage() {
               <div
                 style={{
                   marginTop: 6,
-                  fontSize: 14,
+                  fontSize: 12,
                   color: '#64748b',
                 }}
               >
@@ -278,7 +278,7 @@ export default async function MorePage() {
           style={{
             marginTop: 0,
             marginBottom: 16,
-            fontSize: 25,
+            fontSize: 20,
             fontWeight: 800,
             letterSpacing: '-0.03em',
             color: '#0f172a',
