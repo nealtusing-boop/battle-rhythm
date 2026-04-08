@@ -125,7 +125,7 @@ export function EnablePushCard() {
             background: 'linear-gradient(180deg, #8b1538 0%, #6f102d 100%)',
             color: '#ffffff',
             padding: '14px 18px',
-            fontSize: 15,
+            fontSize: 12,
             fontWeight: 700,
             cursor: 'pointer',
             boxShadow: '0 14px 30px rgba(139,21,56,0.28)',
@@ -143,7 +143,7 @@ export function EnablePushCard() {
             background: '#ecfdf5',
             color: '#065f46',
             padding: '12px 14px',
-            fontSize: 14,
+            fontSize: 12,
             fontWeight: 600,
           }}
         >
