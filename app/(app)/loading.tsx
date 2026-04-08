@@ -34,7 +34,7 @@ export default function RootLoading() {
           />
           <div>
             <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a' }}>Loading</div>
-            <div style={{ marginTop: 4, fontSize: 14, color: '#64748b' }}>Pulling in the latest platoon data.</div>
+            
           </div>
         </div>
 

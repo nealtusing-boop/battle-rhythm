@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/browser';
+import { DocumentAttachmentViewer } from '@/components/document-attachment-viewer';
 import type { Profile } from '@/lib/types';
 
 const DOC_BUCKET = 'battle-rhythm-docs';
@@ -360,12 +361,10 @@ function ModalShell({
 
 function DocumentPostCard({
   post,
-  onOpenAttachment,
   onDeletePost,
   busyDeleting,
 }: {
   post: DocumentPost;
-  onOpenAttachment: (attachment: DocumentAttachment) => Promise<void>;
   onDeletePost: (post: DocumentPost) => Promise<void>;
   busyDeleting: boolean;
 }) {
@@ -505,9 +504,11 @@ function DocumentPostCard({
                     {attachment.file_type || 'Unknown file type'}
                   </p>
                 </div>
-                <button type="button" onClick={() => void onOpenAttachment(attachment)} style={secondaryButtonStyle()}>
-                  View File
-                </button>
+                <DocumentAttachmentViewer
+                  attachments={[attachment]}
+                  emptyMessage="No attachment."
+                  buttonLabel="View File"
+                />
               </div>
             ))}
           </div>
@@ -1025,28 +1026,6 @@ export function AdminClient() {
     await updateUser(profile.id, { role: nextRole as ManagedProfile['role'] });
   }
 
-  async function openAttachment(attachment: DocumentAttachment) {
-    setStatus(null);
-
-    const previewWindow = window.open('', '_blank');
-
-    const { data, error } = await supabase.storage.from(DOC_BUCKET).createSignedUrl(attachment.storage_path, 60);
-
-    if (error || !data?.signedUrl) {
-      if (previewWindow && !previewWindow.closed) {
-        previewWindow.close();
-      }
-      setStatus(error?.message || 'Unable to open file.');
-      return;
-    }
-
-    if (previewWindow && !previewWindow.closed) {
-      previewWindow.location.href = data.signedUrl;
-      return;
-    }
-
-    window.location.href = data.signedUrl;
-  }
 
   async function deactivateExistingPosts(category: DocumentCategory, subcategory: string | null) {
     let query = supabase
@@ -1334,7 +1313,6 @@ export function AdminClient() {
             <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 24, fontWeight: 800 }}>Current Active Post</h2>
             <DocumentPostCard
               post={currentPost}
-              onOpenAttachment={openAttachment}
               onDeletePost={deleteDocumentPost}
               busyDeleting={busyDeletingPostId === currentPost.id}
             />
@@ -1515,12 +1493,7 @@ export function AdminClient() {
                 )}
 
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    onClick={createAlert}
-                    disabled={busyPostingAlert}
-                    style={{ ...buttonStyle(true), opacity: busyPostingAlert ? 0.7 : 1 }}
-                  >
+                  <button type="button" onClick={createAlert} disabled={busyPostingAlert} style={{ ...buttonStyle(true), opacity: busyPostingAlert ? 0.7 : 1 }}>
                     {busyPostingAlert ? 'Posting...' : 'Post Alert'}
                   </button>
                   <button type="button" onClick={resetAlertForm} style={secondaryButtonStyle()}>
@@ -1604,13 +1577,11 @@ export function AdminClient() {
                                 {attachment.file_type || 'Unknown file type'}
                               </p>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => void openAttachment(attachment)}
-                              style={secondaryButtonStyle()}
-                            >
-                              View File
-                            </button>
+                            <DocumentAttachmentViewer
+                              attachments={[attachment]}
+                              emptyMessage="No attachment."
+                              buttonLabel="View File"
+                            />
                           </div>
                         ))}
                       </div>
@@ -1707,13 +1678,11 @@ export function AdminClient() {
                                 {attachment.file_type || 'Unknown file type'}
                               </p>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => void openAttachment(attachment)}
-                              style={secondaryButtonStyle()}
-                            >
-                              View File
-                            </button>
+                            <DocumentAttachmentViewer
+                              attachments={[attachment]}
+                              emptyMessage="No attachment."
+                              buttonLabel="View File"
+                            />
                           </div>
                         ))}
                       </div>
@@ -1775,7 +1744,6 @@ export function AdminClient() {
                   <DocumentPostCard
                     key={post.id}
                     post={post}
-                    onOpenAttachment={openAttachment}
                     onDeletePost={deleteDocumentPost}
                     busyDeleting={busyDeletingPostId === post.id}
                   />
@@ -1820,7 +1788,6 @@ export function AdminClient() {
                   <DocumentPostCard
                     key={post.id}
                     post={post}
-                    onOpenAttachment={openAttachment}
                     onDeletePost={deleteDocumentPost}
                     busyDeleting={busyDeletingPostId === post.id}
                   />
@@ -1934,7 +1901,6 @@ export function AdminClient() {
                   {currentCqRosterPost ? (
                     <DocumentPostCard
                       post={currentCqRosterPost}
-                      onOpenAttachment={openAttachment}
                       onDeletePost={deleteDocumentPost}
                       busyDeleting={busyDeletingPostId === currentCqRosterPost.id}
                     />
@@ -1950,7 +1916,6 @@ export function AdminClient() {
                   {currentStaffDutyPost ? (
                     <DocumentPostCard
                       post={currentStaffDutyPost}
-                      onOpenAttachment={openAttachment}
                       onDeletePost={deleteDocumentPost}
                       busyDeleting={busyDeletingPostId === currentStaffDutyPost.id}
                     />
@@ -2060,7 +2025,6 @@ export function AdminClient() {
                   <DocumentPostCard
                     key={post.id}
                     post={post}
-                    onOpenAttachment={openAttachment}
                     onDeletePost={deleteDocumentPost}
                     busyDeleting={busyDeletingPostId === post.id}
                   />
@@ -2105,7 +2069,6 @@ export function AdminClient() {
                   <DocumentPostCard
                     key={post.id}
                     post={post}
-                    onOpenAttachment={openAttachment}
                     onDeletePost={deleteDocumentPost}
                     busyDeleting={busyDeletingPostId === post.id}
                   />

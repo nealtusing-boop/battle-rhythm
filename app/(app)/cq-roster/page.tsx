@@ -1,5 +1,23 @@
-import { DocumentAttachmentViewer } from '@/components/document-attachment-viewer';
-import { getActiveAttachmentsByCategoryAndSubcategory } from '@/lib/document-data';
+'use client';
+
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/browser';
+import { DocumentAttachmentListViewer } from '@/components/document-attachment-viewer';
+
+type Attachment = {
+  id: string;
+  storage_path: string;
+  file_name: string;
+  sort_order: number;
+  file_type?: string | null;
+};
+
+type RosterPost = {
+  id: string;
+  title: string;
+  subcategory: 'cq' | 'staff_duty';
+  attachments: Attachment[];
+};
 
 function pageShellStyle() {
   return {
@@ -30,11 +48,59 @@ function sectionLabelStyle() {
   };
 }
 
-export default async function CQRosterPage() {
-  const [cqFiles, staffFiles] = await Promise.all([
-    getActiveAttachmentsByCategoryAndSubcategory('cq_roster', 'cq'),
-    getActiveAttachmentsByCategoryAndSubcategory('cq_roster', 'staff_duty'),
-  ]);
+export default function CQRosterPage() {
+  const [cqPosts, setCqPosts] = useState<RosterPost[]>([]);
+  const [staffDutyPosts, setStaffDutyPosts] = useState<RosterPost[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    async function fetchData() {
+      setLoading(true);
+
+      const { data, error } = await supabase
+        .from('document_posts')
+        .select(
+          `
+            id,
+            title,
+            subcategory,
+            created_at,
+            attachments:document_attachments (
+              id,
+              storage_path,
+              file_name,
+              sort_order,
+              file_type
+            )
+          `
+        )
+        .eq('category', 'cq_roster')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (error || !data) {
+        setCqPosts([]);
+        setStaffDutyPosts([]);
+        setLoading(false);
+        return;
+      }
+
+      const normalized = data.map((post) => ({
+        id: post.id,
+        title: post.title,
+        subcategory: (post.subcategory ?? 'cq') as 'cq' | 'staff_duty',
+        attachments: [...(post.attachments || [])].sort((a, b) => a.sort_order - b.sort_order),
+      }));
+
+      setCqPosts(normalized.filter((post) => post.subcategory === 'cq'));
+      setStaffDutyPosts(normalized.filter((post) => post.subcategory === 'staff_duty'));
+      setLoading(false);
+    }
+
+    void fetchData();
+  }, []);
 
   return (
     <div style={pageShellStyle()}>
@@ -45,25 +111,29 @@ export default async function CQRosterPage() {
       </section>
 
       <section style={cardStyle()}>
-        <div style={{ display: 'grid', gap: 18 }}>
-          <div style={{ display: 'grid', gap: 10 }}>
-            <p style={sectionLabelStyle()}>CQ</p>
-            <DocumentAttachmentViewer
-              attachments={cqFiles}
-              emptyMessage="No CQ roster posted."
-              buttonLabel="Open CQ Roster"
-            />
-          </div>
+        {loading ? (
+          <p style={{ color: '#475569', margin: 0 }}>Loading...</p>
+        ) : (
+          <div style={{ display: 'grid', gap: 18 }}>
+            <div style={{ display: 'grid', gap: 10 }}>
+              <p style={sectionLabelStyle()}>CQ</p>
+              <DocumentAttachmentListViewer
+                items={cqPosts}
+                emptyMessage="No CQ roster posted."
+                buttonLabel="Open CQ Roster"
+              />
+            </div>
 
-          <div style={{ display: 'grid', gap: 10 }}>
-            <p style={sectionLabelStyle()}>Staff Duty</p>
-            <DocumentAttachmentViewer
-              attachments={staffFiles}
-              emptyMessage="No Staff Duty roster posted."
-              buttonLabel="Open Staff Duty Roster"
-            />
+            <div style={{ display: 'grid', gap: 10 }}>
+              <p style={sectionLabelStyle()}>Staff Duty</p>
+              <DocumentAttachmentListViewer
+                items={staffDutyPosts}
+                emptyMessage="No Staff Duty roster posted."
+                buttonLabel="Open Staff Duty Roster"
+              />
+            </div>
           </div>
-        </div>
+        )}
       </section>
     </div>
   );
