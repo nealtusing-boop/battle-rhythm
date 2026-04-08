@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/browser';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -257,11 +258,17 @@ export function DocumentAttachmentViewer({
 }) {
   const normalizedAttachments = useMemo(() => sortAttachments(attachments), [attachments]);
   const [open, setOpen] = useState(defaultOpen);
+  const [hasAutoOpened, setHasAutoOpened] = useState(false);
+  const initialAutoOpenDoneRef = useRef(false);
   const { resolved, loading } = useResolvedAttachments(normalizedAttachments, open);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
-    setOpen(defaultOpen);
+    if (defaultOpen && normalizedAttachments.length > 0 && !initialAutoOpenDoneRef.current) {
+      setOpen(true);
+      setHasAutoOpened(true);
+      initialAutoOpenDoneRef.current = true;
+    }
   }, [defaultOpen, normalizedAttachments.length]);
 
   useEffect(() => {
@@ -276,6 +283,7 @@ export function DocumentAttachmentViewer({
   }, [resolved, selectedId]);
 
   const selected = resolved.find((file) => file.id === selectedId) || resolved[0];
+  const currentButtonLabel = hasAutoOpened && !open ? 'Reopen Attachment' : buttonLabel;
 
   if (normalizedAttachments.length === 0) {
     return <div style={emptyStyle()}>{emptyMessage}</div>;
@@ -283,11 +291,9 @@ export function DocumentAttachmentViewer({
 
   return (
     <>
-      {!defaultOpen && (
-        <button type="button" onClick={() => setOpen(true)} style={triggerButtonStyle()}>
-          {buttonLabel}
-        </button>
-      )}
+      <button type="button" onClick={() => setOpen(true)} style={triggerButtonStyle()}>
+        {currentButtonLabel}
+      </button>
 
       {open && (
         <div
