@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type MutableRefObject, type ReactNode, type TouchEvent } from 'react';
 import { createClient } from '@/lib/supabase/browser';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
 const DOC_BUCKET = 'battle-rhythm-docs';
+const MIN_SCALE = 1;
+const MAX_SCALE = 4;
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
@@ -160,15 +162,44 @@ function emptyStyle() {
   } as const;
 }
 
-function useContainerWidth<T extends HTMLElement>() {
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+type TouchPoint = { clientX: number; clientY: number };
+type TouchCollection = TouchEvent<HTMLElement>['touches'] | ArrayLike<TouchPoint>;
+
+function getTouchAt(touches: TouchCollection, index: number): TouchPoint | null {
+  const withItem = touches as TouchCollection & { item?: (index: number) => TouchPoint | null };
+  if (typeof withItem.item === 'function') {
+    return withItem.item(index);
+  }
+  return touches[index] ?? null;
+}
+
+function getDistance(touches: TouchCollection) {
+  if (touches.length < 2) return 0;
+  const a = getTouchAt(touches, 0);
+  const b = getTouchAt(touches, 1);
+  if (!a || !b) return 0;
+  return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+}
+
+function useContainerSize<T extends HTMLElement>() {
   const ref = useRef<T | null>(null);
-  const [width, setWidth] = useState(0);
+  const [size, setSize] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
     const node = ref.current;
     if (!node) return;
 
-    const update = () => setWidth(node.clientWidth || 0);
+    const update = () => {
+      setSize({
+        width: node.clientWidth || 0,
+        height: node.clientHeight || 0,
+      });
+    };
+
     update();
 
     const observer = new ResizeObserver(update);
@@ -183,103 +214,267 @@ function useContainerWidth<T extends HTMLElement>() {
     };
   }, []);
 
-  return { ref, width };
+  return { ref, ...size };
 }
 
-function PDFPreview({ url, resetKey, onToggleChrome }: { url: string; resetKey: number; onToggleChrome: () => void }) {
-  const [numPages, setNumPages] = useState(0);
-  const { ref, width } = useContainerWidth<HTMLDivElement>();
-  const pageWidth = Math.max(220, Math.floor(Math.min(width - 24, 1100)));
+function usePinchZoom(onToggleChrome: () => void, onViewportResetRef?: MutableRefObject<(() => void) | null>) {
+  const [scale, setScale] = useState(1);
+  const gestureRef = useRef({
+    startDistance: 0,
+    startScale: 1,
+    moved: false,
+    pinching: false,
+    tapStartX: 0,
+    tapStartY: 0,
+    tapStartTime: 0,
+  });
+
+  const resetZoom = useCallback(() => {
+    gestureRef.current.startDistance = 0;
+    gestureRef.current.startScale = 1;
+    gestureRef.current.moved = false;
+    gestureRef.current.pinching = false;
+    setScale(1);
+  }, []);
+
+  useEffect(() => {
+    if (!onViewportResetRef) return;
+    onViewportResetRef.current = resetZoom;
+    return () => {
+      onViewportResetRef.current = null;
+    };
+  }, [onViewportResetRef, resetZoom]);
+
+  const onTouchStart = useCallback((event: TouchEvent<HTMLElement>) => {
+    const gesture = gestureRef.current;
+
+    if (event.touches.length >= 2) {
+      gesture.pinching = true;
+      gesture.moved = true;
+      gesture.startDistance = getDistance(event.touches);
+      gesture.startScale = scale;
+      return;
+    }
+
+    if (event.touches.length === 1) {
+      const touch = event.touches[0];
+      gesture.pinching = false;
+      gesture.moved = false;
+      gesture.tapStartX = touch.clientX;
+      gesture.tapStartY = touch.clientY;
+      gesture.tapStartTime = Date.now();
+    }
+  }, [scale]);
+
+  const onTouchMove = useCallback((event: TouchEvent<HTMLElement>) => {
+    const gesture = gestureRef.current;
+
+    if (event.touches.length >= 2) {
+      const distance = getDistance(event.touches);
+      if (!gesture.startDistance) {
+        gesture.startDistance = distance;
+        gesture.startScale = scale;
+      }
+
+      const nextScale = clamp((gesture.startScale * distance) / gesture.startDistance, MIN_SCALE, MAX_SCALE);
+      gesture.pinching = true;
+      gesture.moved = true;
+      setScale(nextScale);
+      event.preventDefault();
+      return;
+    }
+
+    if (event.touches.length === 1) {
+      const touch = event.touches[0];
+      const deltaX = Math.abs(touch.clientX - gesture.tapStartX);
+      const deltaY = Math.abs(touch.clientY - gesture.tapStartY);
+      if (deltaX > 10 || deltaY > 10) {
+        gesture.moved = true;
+      }
+    }
+  }, [scale]);
+
+  const onTouchEnd = useCallback(() => {
+    const gesture = gestureRef.current;
+
+    if (!gesture.pinching && !gesture.moved && Date.now() - gesture.tapStartTime < 250) {
+      onToggleChrome();
+    }
+
+    if (gesture.pinching) {
+      gesture.startDistance = 0;
+      gesture.startScale = scale;
+    }
+
+    if (!gesture.pinching) {
+      gesture.startDistance = 0;
+      gesture.startScale = scale;
+    }
+
+    if (scale <= 1.01) {
+      setScale(1);
+    }
+
+    gesture.pinching = false;
+    gesture.moved = false;
+  }, [onToggleChrome, scale]);
+
+  const onClick = useCallback((event: MouseEvent<HTMLElement>) => {
+    if (event.defaultPrevented) return;
+    onToggleChrome();
+  }, [onToggleChrome]);
+
+  return {
+    scale,
+    setScale,
+    resetZoom,
+    gestureHandlers: {
+      onTouchStart,
+      onTouchMove,
+      onTouchEnd,
+      onTouchCancel: onTouchEnd,
+      onClick,
+    },
+  };
+}
+
+function PreviewShell({
+  children,
+  onToggleChrome,
+  onViewportResetRef,
+  resetSignal,
+}: {
+  children: (props: { scale: number; width: number; height: number; setScale: (value: number) => void }) => ReactNode;
+  onToggleChrome: () => void;
+  onViewportResetRef: MutableRefObject<(() => void) | null>;
+  resetSignal: number;
+}) {
+  const { ref, width, height } = useContainerSize<HTMLDivElement>();
+  const { scale, setScale, resetZoom, gestureHandlers } = usePinchZoom(onToggleChrome, onViewportResetRef);
+
+  useEffect(() => {
+    resetZoom();
+  }, [resetSignal, resetZoom]);
 
   return (
     <div
       ref={ref}
-      onClick={onToggleChrome}
+      {...gestureHandlers}
       style={{
         height: '100%',
         overflow: 'auto',
         background: '#e5e7eb',
         WebkitOverflowScrolling: 'touch',
-        touchAction: 'pan-y pinch-zoom',
+        touchAction: 'pan-x pan-y',
       }}
     >
-      <div style={{ display: 'grid', justifyContent: 'center', gap: 16, padding: 12, minHeight: '100%' }}>
-        <Document
-          key={`${url}-${resetKey}-${pageWidth}`}
-          file={url}
-          onLoadSuccess={({ numPages: pages }) => setNumPages(pages)}
-          loading="Loading PDF..."
-          error="Could not load this PDF."
-        >
-          {Array.from({ length: numPages }, (_, i) => (
-            <div
-              key={i + 1}
-              style={{
-                background: '#ffffff',
-                boxShadow: '0 10px 26px rgba(15,23,42,0.10)',
-                borderRadius: 10,
-                overflow: 'hidden',
-              }}
-            >
-              <Page
-                pageNumber={i + 1}
-                width={pageWidth}
-                renderTextLayer={false}
-                renderAnnotationLayer={false}
-              />
-            </div>
-          ))}
-        </Document>
-      </div>
+      {children({ scale, width, height, setScale })}
     </div>
+  );
+}
+
+function PDFPreview({
+  url,
+  resetKey,
+  onToggleChrome,
+  onViewportResetRef,
+}: {
+  url: string;
+  resetKey: number;
+  onToggleChrome: () => void;
+  onViewportResetRef: MutableRefObject<(() => void) | null>;
+}) {
+  const [numPages, setNumPages] = useState(0);
+
+  return (
+    <PreviewShell onToggleChrome={onToggleChrome} onViewportResetRef={onViewportResetRef} resetSignal={resetKey}>
+      {({ scale, width }) => {
+        const baseWidth = Math.max(220, Math.floor(Math.min(width - 24, 1100)));
+        const pageWidth = Math.max(220, Math.floor(baseWidth * scale));
+
+        return (
+          <div style={{ display: 'grid', justifyContent: 'center', gap: 16, padding: 12, minHeight: '100%' }}>
+            <Document
+              key={`${url}-${resetKey}-${pageWidth}`}
+              file={url}
+              onLoadSuccess={({ numPages: pages }) => setNumPages(pages)}
+              loading="Loading PDF..."
+              error="Could not load this PDF."
+            >
+              {Array.from({ length: numPages }, (_, i) => (
+                <div
+                  key={i + 1}
+                  style={{
+                    background: '#ffffff',
+                    boxShadow: '0 10px 26px rgba(15,23,42,0.10)',
+                    borderRadius: 10,
+                    overflow: 'hidden',
+                  }}
+                >
+                  <Page
+                    pageNumber={i + 1}
+                    width={pageWidth}
+                    renderTextLayer={false}
+                    renderAnnotationLayer={false}
+                  />
+                </div>
+              ))}
+            </Document>
+          </div>
+        );
+      }}
+    </PreviewShell>
   );
 }
 
 function ImagePreview({
   url,
   fileName,
+  resetKey,
   onToggleChrome,
+  onViewportResetRef,
 }: {
   url: string;
   fileName: string;
+  resetKey: number;
   onToggleChrome: () => void;
+  onViewportResetRef: MutableRefObject<(() => void) | null>;
 }) {
   return (
-    <div
-      onClick={onToggleChrome}
-      style={{
-        height: '100%',
-        overflow: 'auto',
-        background: '#e5e7eb',
-        WebkitOverflowScrolling: 'touch',
-        touchAction: 'manipulation',
+    <PreviewShell onToggleChrome={onToggleChrome} onViewportResetRef={onViewportResetRef} resetSignal={resetKey}>
+      {({ scale, width, height }) => {
+        const baseWidth = Math.max(220, Math.floor(Math.min(width - 24, 1100)));
+        const imageWidth = Math.max(220, Math.floor(baseWidth * scale));
+        const minHeight = Math.max(height, 320);
+
+        return (
+          <div
+            style={{
+              minHeight,
+              display: 'grid',
+              placeItems: 'center',
+              padding: 12,
+            }}
+          >
+            <img
+              key={`${url}-${resetKey}`}
+              src={url}
+              alt={fileName}
+              style={{
+                display: 'block',
+                width: imageWidth,
+                maxWidth: 'none',
+                height: 'auto',
+                objectFit: 'contain',
+                borderRadius: 10,
+                boxShadow: '0 10px 26px rgba(15,23,42,0.10)',
+                background: '#ffffff',
+              }}
+            />
+          </div>
+        );
       }}
-    >
-      <div
-        style={{
-          minHeight: '100%',
-          display: 'grid',
-          placeItems: 'center',
-          padding: 12,
-        }}
-      >
-        <img
-          src={url}
-          alt={fileName}
-          style={{
-            display: 'block',
-            maxWidth: '100%',
-            width: 'auto',
-            maxHeight: '100%',
-            height: 'auto',
-            objectFit: 'contain',
-            borderRadius: 10,
-            boxShadow: '0 10px 26px rgba(15,23,42,0.10)',
-            background: '#ffffff',
-          }}
-        />
-      </div>
-    </div>
+    </PreviewShell>
   );
 }
 
@@ -287,13 +482,35 @@ function FilePreview({
   file,
   resetKey,
   onToggleChrome,
+  onViewportResetRef,
 }: {
   file: ResolvedAttachment;
   resetKey: number;
   onToggleChrome: () => void;
+  onViewportResetRef: MutableRefObject<(() => void) | null>;
 }) {
-  if (file.kind === 'pdf') return <PDFPreview url={file.signedUrl} resetKey={resetKey} onToggleChrome={onToggleChrome} />;
-  if (file.kind === 'image') return <ImagePreview url={file.signedUrl} fileName={file.file_name} onToggleChrome={onToggleChrome} />;
+  if (file.kind === 'pdf') {
+    return (
+      <PDFPreview
+        url={file.signedUrl}
+        resetKey={resetKey}
+        onToggleChrome={onToggleChrome}
+        onViewportResetRef={onViewportResetRef}
+      />
+    );
+  }
+
+  if (file.kind === 'image') {
+    return (
+      <ImagePreview
+        url={file.signedUrl}
+        fileName={file.file_name}
+        resetKey={resetKey}
+        onToggleChrome={onToggleChrome}
+        onViewportResetRef={onViewportResetRef}
+      />
+    );
+  }
 
   return (
     <div style={{ padding: 24, display: 'grid', gap: 12 }}>
@@ -366,6 +583,8 @@ export function DocumentAttachmentViewer({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [chromeVisible, setChromeVisible] = useState(true);
   const [resetKey, setResetKey] = useState(0);
+  const viewerViewportRef = useRef<HTMLDivElement | null>(null);
+  const resetZoomRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (defaultOpen && normalizedAttachments.length > 0 && !initialAutoOpenDoneRef.current) {
@@ -395,6 +614,10 @@ export function DocumentAttachmentViewer({
     const handleViewportChange = () => {
       setChromeVisible(true);
       setResetKey((value) => value + 1);
+      resetZoomRef.current?.();
+      if (viewerViewportRef.current) {
+        viewerViewportRef.current.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      }
     };
 
     window.addEventListener('resize', handleViewportChange);
@@ -442,13 +665,12 @@ export function DocumentAttachmentViewer({
           >
             {chromeVisible && (
               <div
-                onClick={(e) => e.stopPropagation()}
                 style={{
                   position: 'absolute',
                   top: 0,
                   left: 0,
                   right: 0,
-                  zIndex: 3,
+                  zIndex: 10,
                   background: 'rgba(255,255,255,0.96)',
                   backdropFilter: 'blur(10px)',
                   borderBottom: '1px solid rgba(15,23,42,0.08)',
@@ -481,17 +703,6 @@ export function DocumentAttachmentViewer({
                   </div>
 
                   <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                    {selected?.signedUrl && (
-                      <a
-                        href={selected.signedUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        style={{ ...ghostButtonStyle(), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
-                      >
-                        Open
-                      </a>
-                    )}
                     <button type="button" onClick={() => setOpen(false)} style={ghostButtonStyle()}>
                       Close
                     </button>
@@ -513,7 +724,12 @@ export function DocumentAttachmentViewer({
                         type="button"
                         onClick={() => {
                           setSelectedId(file.id);
+                          setChromeVisible(true);
                           setResetKey((value) => value + 1);
+                          resetZoomRef.current?.();
+                          if (viewerViewportRef.current) {
+                            viewerViewportRef.current.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+                          }
                         }}
                         style={{ ...ghostButtonStyle(selected?.id === file.id), whiteSpace: 'nowrap' }}
                       >
@@ -525,7 +741,16 @@ export function DocumentAttachmentViewer({
               </div>
             )}
 
-            <div style={{ position: 'absolute', top: topInset, right: 0, bottom: 0, left: 0 }}>
+            <div
+              ref={viewerViewportRef}
+              style={{
+                position: 'absolute',
+                top: topInset,
+                right: 0,
+                bottom: 0,
+                left: 0,
+              }}
+            >
               {loading ? (
                 <ViewerLoadingState label="Loading attachment preview..." />
               ) : error ? (
@@ -536,7 +761,12 @@ export function DocumentAttachmentViewer({
                   </button>
                 </div>
               ) : selected ? (
-                <FilePreview file={selected} resetKey={resetKey} onToggleChrome={() => setChromeVisible((value) => !value)} />
+                <FilePreview
+                  file={selected}
+                  resetKey={resetKey}
+                  onToggleChrome={() => setChromeVisible((value) => !value)}
+                  onViewportResetRef={resetZoomRef}
+                />
               ) : (
                 <div style={{ padding: 24, color: '#475569' }}>{emptyMessage}</div>
               )}

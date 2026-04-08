@@ -100,3 +100,30 @@ select {
   max-width: 720px;
   margin: 0 auto;
 }
+
+@media screen and (orientation: landscape) and (max-height: 640px) {
+  body {
+    overflow: hidden;
+  }
+
+  body > * {
+    visibility: hidden;
+  }
+
+  body::before {
+    content: 'Rotate Battle Rhythm back to portrait.';
+    position: fixed;
+    inset: 0;
+    z-index: 2147483647;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    text-align: center;
+    background: linear-gradient(180deg, var(--maroon-1) 0%, var(--maroon-2) 100%);
+    color: #ffffff;
+    font-size: clamp(20px, 4vw, 28px);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    visibility: visible;
+  }
+}

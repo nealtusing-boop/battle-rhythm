@@ -4,8 +4,13 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/browser';
 import type { Profile } from '@/lib/types';
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
 
 const DOC_BUCKET = 'battle-rhythm-docs';
+
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 const tabs = [
   { id: 'alerts', label: 'Alerts' },
@@ -192,6 +197,69 @@ function getAttachmentKind(fileName: string, fileType?: string | null): 'pdf' | 
   return 'other';
 }
 
+function AttachmentPdfPreview({ url }: { url: string }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const [numPages, setNumPages] = useState(0);
+
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+
+    const update = () => setContainerWidth(node.clientWidth || 0);
+    update();
+
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+    window.addEventListener('resize', update);
+    window.addEventListener('orientationchange', update);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', update);
+      window.removeEventListener('orientationchange', update);
+    };
+  }, []);
+
+  const pageWidth = Math.max(220, Math.floor(Math.min(Math.max(containerWidth - 24, 220), 1200)));
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        height: '100%',
+        overflow: 'auto',
+        background: '#e5e7eb',
+        WebkitOverflowScrolling: 'touch',
+        touchAction: 'pan-y',
+      }}
+    >
+      <div style={{ display: 'grid', justifyContent: 'center', gap: 16, padding: 12, minHeight: '100%' }}>
+        <Document
+          file={url}
+          onLoadSuccess={({ numPages: pages }) => setNumPages(pages)}
+          loading="Loading PDF..."
+          error="Could not load this PDF."
+        >
+          {Array.from({ length: numPages }, (_, index) => (
+            <div
+              key={index + 1}
+              style={{
+                background: '#ffffff',
+                boxShadow: '0 10px 26px rgba(15,23,42,0.10)',
+                borderRadius: 10,
+                overflow: 'hidden',
+              }}
+            >
+              <Page pageNumber={index + 1} width={pageWidth} renderTextLayer={false} renderAnnotationLayer={false} />
+            </div>
+          ))}
+        </Document>
+      </div>
+    </div>
+  );
+}
+
 function AttachmentPreviewOverlay({
   preview,
   onClose,
@@ -272,19 +340,9 @@ function AttachmentPreviewOverlay({
             {preview.name}
           </div>
 
-          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-            <a
-              href={preview.url}
-              target="_blank"
-              rel="noreferrer"
-              style={{ ...secondaryButtonStyle(), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
-            >
-              Open
-            </a>
-            <button type="button" onClick={onClose} style={secondaryButtonStyle()}>
-              Close
-            </button>
-          </div>
+          <button type="button" onClick={onClose} style={{ ...secondaryButtonStyle(), padding: '10px 14px', minHeight: 44 }}>
+            Close
+          </button>
         </div>
 
         <div
@@ -295,7 +353,7 @@ function AttachmentPreviewOverlay({
             bottom: 0,
             left: 0,
             background: '#e5e7eb',
-            overflow: 'auto',
+            overflow: 'hidden',
           }}
         >
           {preview.kind === 'image' ? (
@@ -307,7 +365,7 @@ function AttachmentPreviewOverlay({
               />
             </div>
           ) : preview.kind === 'pdf' ? (
-            <iframe title={preview.name} src={preview.url} style={{ width: '100%', height: '100%', border: 'none', background: '#ffffff' }} />
+            <AttachmentPdfPreview url={preview.url} />
           ) : (
             <div style={{ minHeight: '100%', display: 'grid', placeItems: 'center', padding: 24 }}>
               <div style={{ display: 'grid', gap: 12, justifyItems: 'start' }}>
@@ -532,37 +590,22 @@ function DocumentPostCard({
         borderRadius: 22,
         background: '#f8fafc',
         border: '1px solid rgba(15,23,42,0.08)',
-        padding: '18px 18px',
+        padding: 18,
         minWidth: 0,
+        width: '100%',
       }}
     >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          gap: 16,
-          flexWrap: 'wrap',
-        }}
-      >
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
-            <div
-              style={{
-                display: 'inline-flex',
-                borderRadius: 999,
-                padding: '6px 10px',
-                fontSize: 11,
-                fontWeight: 800,
-                textTransform: 'uppercase',
-                letterSpacing: '0.12em',
-                background: post.is_active ? '#dcfce7' : '#e2e8f0',
-                color: post.is_active ? '#166534' : '#334155',
-              }}
-            >
-              {post.is_active ? 'Active' : 'Inactive'}
-            </div>
-            {post.subcategory && (
+      <div style={{ display: 'grid', gap: 14 }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0, 1fr) auto',
+            alignItems: 'start',
+            gap: 12,
+          }}
+        >
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
               <div
                 style={{
                   display: 'inline-flex',
@@ -572,111 +615,130 @@ function DocumentPostCard({
                   fontWeight: 800,
                   textTransform: 'uppercase',
                   letterSpacing: '0.12em',
-                  background: '#ede9fe',
-                  color: '#6d28d9',
+                  background: post.is_active ? '#dcfce7' : '#e2e8f0',
+                  color: post.is_active ? '#166534' : '#334155',
                 }}
               >
-                {post.subcategory.replace(/_/g, ' ')}
+                {post.is_active ? 'Active' : 'Inactive'}
               </div>
-            )}
-          </div>
+              {post.subcategory && (
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    borderRadius: 999,
+                    padding: '6px 10px',
+                    fontSize: 11,
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.12em',
+                    background: '#ede9fe',
+                    color: '#6d28d9',
+                  }}
+                >
+                  {post.subcategory.replace(/_/g, ' ')}
+                </div>
+              )}
+            </div>
 
-          <p
-            style={{
-              margin: 0,
-              fontSize: 16,
-              fontWeight: 800,
-              color: '#0f172a',
-              overflowWrap: 'anywhere',
-            }}
-          >
-            {post.title}
-          </p>
-
-          {post.description && (
             <p
               style={{
-                marginTop: 10,
-                marginBottom: 0,
-                fontSize: 14,
-                lineHeight: 1.55,
-                color: '#475569',
+                margin: 0,
+                fontSize: 16,
+                fontWeight: 800,
+                color: '#0f172a',
                 overflowWrap: 'anywhere',
               }}
             >
-              {post.description}
+              {post.title}
             </p>
-          )}
 
-          <p style={{ marginTop: 10, marginBottom: 0, fontSize: 13, color: '#64748b' }}>
-            Posted {formatDateTime(post.created_at)}
-          </p>
-
-          <div style={{ marginTop: 14, display: 'grid', gap: 10 }}>
-            {attachments.length === 0 && (
-              <div
+            {post.description && (
+              <p
                 style={{
-                  borderRadius: 18,
-                  background: '#ffffff',
-                  border: '1px solid rgba(15,23,42,0.08)',
-                  padding: 14,
+                  marginTop: 10,
+                  marginBottom: 0,
                   fontSize: 14,
+                  lineHeight: 1.55,
                   color: '#475569',
+                  overflowWrap: 'anywhere',
                 }}
               >
-                No files attached.
-              </div>
+                {post.description}
+              </p>
             )}
 
-            {attachments.map((attachment, index) => (
-              <div
-                key={attachment.id}
-                style={{
-                  borderRadius: 18,
-                  background: '#ffffff',
-                  border: '1px solid rgba(15,23,42,0.08)',
-                  padding: 14,
-                  display: 'grid',
-                  gap: 12,
-                }}
-              >
-                <div style={{ minWidth: 0 }}>
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: 14,
-                      fontWeight: 700,
-                      lineHeight: 1.45,
-                      color: '#0f172a',
-                      overflowWrap: 'anywhere',
-                    }}
-                  >
-                    {attachments.length > 1 ? `Page ${index + 1}: ` : ''}
-                    {attachment.file_name}
-                  </p>
-                  <p style={{ marginTop: 6, marginBottom: 0, fontSize: 12, color: '#64748b' }}>
-                    {attachment.file_type || 'Unknown file type'}
-                  </p>
-                </div>
-                <div>
-                  <button type="button" onClick={() => void onOpenAttachment(attachment)} style={secondaryButtonStyle()}>
-                    View File
-                  </button>
-                </div>
-              </div>
-            ))}
+            <p style={{ marginTop: 10, marginBottom: 0, fontSize: 13, color: '#64748b' }}>
+              Posted {formatDateTime(post.created_at)}
+            </p>
+          </div>
+
+          <div style={{ justifySelf: 'end' }}>
+            <button
+              type="button"
+              onClick={() => void onDeletePost(post)}
+              disabled={busyDeleting}
+              style={{ ...buttonStyle(false, true), opacity: busyDeleting ? 0.7 : 1 }}
+            >
+              {busyDeleting ? 'Deleting...' : 'Delete'}
+            </button>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            onClick={() => void onDeletePost(post)}
-            disabled={busyDeleting}
-            style={{ ...buttonStyle(false, true), opacity: busyDeleting ? 0.7 : 1 }}
-          >
-            {busyDeleting ? 'Deleting...' : 'Delete'}
-          </button>
+        <div style={{ display: 'grid', gap: 10, width: '100%' }}>
+          {attachments.length === 0 && (
+            <div
+              style={{
+                borderRadius: 18,
+                background: '#ffffff',
+                border: '1px solid rgba(15,23,42,0.08)',
+                padding: 14,
+                fontSize: 14,
+                color: '#475569',
+              }}
+            >
+              No files attached.
+            </div>
+          )}
+
+          {attachments.map((attachment, index) => (
+            <div
+              key={attachment.id}
+              style={{
+                borderRadius: 18,
+                background: '#ffffff',
+                border: '1px solid rgba(15,23,42,0.08)',
+                padding: 14,
+                display: 'grid',
+                gap: 12,
+                width: '100%',
+              }}
+            >
+              <div style={{ minWidth: 0, width: '100%' }}>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 14,
+                    fontWeight: 700,
+                    lineHeight: 1.45,
+                    color: '#0f172a',
+                    overflowWrap: 'anywhere',
+                    wordBreak: 'break-word',
+                  }}
+                >
+                  {attachments.length > 1 ? `Page ${index + 1}: ` : ''}
+                  {attachment.file_name}
+                </p>
+                <p style={{ marginTop: 6, marginBottom: 0, fontSize: 12, color: '#64748b' }}>
+                  {attachment.file_type || 'Unknown file type'}
+                </p>
+              </div>
+              <div>
+                <button type="button" onClick={() => void onOpenAttachment(attachment)} style={secondaryButtonStyle()}>
+                  View File
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
