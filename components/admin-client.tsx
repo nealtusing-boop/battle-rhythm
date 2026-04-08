@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/browser';
 import type { Profile } from '@/lib/types';
 
@@ -556,6 +557,7 @@ function normalizeAlerts(rows: any[] | null | undefined): ExistingAlert[] {
 
 export function AdminClient() {
   const supabase = useMemo(() => createClient(), []);
+  const router = useRouter();
 
   const [active, setActive] = useState<TabId>('alerts');
   const [status, setStatus] = useState<string | null>(null);
@@ -574,7 +576,6 @@ export function AdminClient() {
   const [reactivationExpiresTime, setReactivationExpiresTime] = useState(defaultExpiry.time);
   const [busyDeletingAlertId, setBusyDeletingAlertId] = useState<string | null>(null);
   const [busyRepostingAlert, setBusyRepostingAlert] = useState(false);
-  const [busyPostingAlert, setBusyPostingAlert] = useState(false);
   const [busyUpdatingUserId, setBusyUpdatingUserId] = useState<string | null>(null);
 
   const [docTitle, setDocTitle] = useState('');
@@ -585,8 +586,11 @@ export function AdminClient() {
   const [alertSelectedFiles, setAlertSelectedFiles] = useState<File[]>([]);
   const [busyUploading, setBusyUploading] = useState(false);
   const [busyDeletingPostId, setBusyDeletingPostId] = useState<string | null>(null);
-  const postingAlertRef = useRef(false);
-  const uploadingDocumentRef = useRef(false);
+
+  const selectedFilesRef = useRef<File[]>([]);
+  const alertSelectedFilesRef = useRef<File[]>([]);
+  const uploadInFlightRef = useRef(false);
+  const alertPostInFlightRef = useRef(false);
 
   useEffect(() => {
     void loadInitial();
@@ -671,10 +675,6 @@ export function AdminClient() {
     setDocumentPosts(normalizeDocumentPosts(posts));
   }
 
-  async function refreshAdminData() {
-    await loadInitial();
-  }
-
   const activeAlerts = useMemo(() => existingAlerts.filter((alert) => isAlertCurrentlyActive(alert)), [existingAlerts]);
   const inactiveAlerts = useMemo(() => existingAlerts.filter((alert) => !isAlertCurrentlyActive(alert)), [existingAlerts]);
 
@@ -736,6 +736,7 @@ export function AdminClient() {
   function resetDocumentForm() {
     setDocTitle('');
     setDocDescription('');
+    selectedFilesRef.current = [];
     setSelectedFiles([]);
   }
 
@@ -756,12 +757,17 @@ export function AdminClient() {
           next.push(file);
         }
       }
+      selectedFilesRef.current = next;
       return next;
     });
   }
 
   function removeSelectedFile(indexToRemove: number) {
-    setSelectedFiles((current) => current.filter((_, index) => index !== indexToRemove));
+    setSelectedFiles((current) => {
+      const next = current.filter((_, index) => index !== indexToRemove);
+      selectedFilesRef.current = next;
+      return next;
+    });
   }
 
   function appendAlertFiles(fileList: FileList | null) {
@@ -781,12 +787,17 @@ export function AdminClient() {
           next.push(file);
         }
       }
+      alertSelectedFilesRef.current = next;
       return next;
     });
   }
 
   function removeAlertFile(indexToRemove: number) {
-    setAlertSelectedFiles((current) => current.filter((_, index) => index !== indexToRemove));
+    setAlertSelectedFiles((current) => {
+      const next = current.filter((_, index) => index !== indexToRemove);
+      alertSelectedFilesRef.current = next;
+      return next;
+    });
   }
 
   function resetAlertForm() {
@@ -794,6 +805,7 @@ export function AdminClient() {
     setAlertMessage('');
     setAlertExpiresDate(next.date);
     setAlertExpiresTime(next.time);
+    alertSelectedFilesRef.current = [];
     setAlertSelectedFiles([]);
   }
 
@@ -832,7 +844,7 @@ export function AdminClient() {
       return false;
     }
 
-    const files = values.files ?? [];
+    const files = values.files ?? alertSelectedFilesRef.current;
     const uploadedPaths: string[] = [];
     let insertedAlertId: string | null = null;
 
@@ -893,7 +905,7 @@ export function AdminClient() {
         // ignore push failure
       }
 
-      await refreshAdminData();
+      await loadInitial();
       return true;
     } catch (error) {
       if (uploadedPaths.length > 0) {
@@ -910,10 +922,9 @@ export function AdminClient() {
   }
 
   async function createAlert() {
-    if (postingAlertRef.current) return;
+    if (alertPostInFlightRef.current) return;
 
-    postingAlertRef.current = true;
-    setBusyPostingAlert(true);
+    alertPostInFlightRef.current = true;
     setStatus(null);
 
     try {
@@ -921,7 +932,7 @@ export function AdminClient() {
         message: alertMessage,
         expiresDate: alertExpiresDate,
         expiresTime: alertExpiresTime,
-        files: alertSelectedFiles,
+        files: alertSelectedFilesRef.current,
       });
 
       if (!ok) return;
@@ -929,8 +940,7 @@ export function AdminClient() {
       resetAlertForm();
       setStatus('Alert posted.');
     } finally {
-      postingAlertRef.current = false;
-      setBusyPostingAlert(false);
+      alertPostInFlightRef.current = false;
     }
   }
 
@@ -967,7 +977,7 @@ export function AdminClient() {
 
     setBusyDeletingAlertId(null);
     setStatus('Alert deleted.');
-    await refreshAdminData();
+    await loadInitial();
   }
 
   async function updateUser(userId: string, updates: Partial<ManagedProfile>) {
@@ -984,7 +994,7 @@ export function AdminClient() {
 
     setBusyUpdatingUserId(null);
     setStatus('User updated.');
-    await refreshAdminData();
+    await loadInitial();
   }
 
   async function toggleUserActive(profile: ManagedProfile) {
@@ -1032,23 +1042,25 @@ export function AdminClient() {
     description?: string;
     allowMultiplePosts?: boolean;
   }) {
-    if (uploadingDocumentRef.current) return;
+    if (uploadInFlightRef.current) return;
 
     setStatus(null);
 
-    if (selectedFiles.length === 0) {
+    const filesToUpload = selectedFilesRef.current;
+    if (filesToUpload.length === 0) {
       setStatus('Select at least one file first.');
       return;
     }
 
     const subcategory = options.subcategory ?? null;
     const trimmedTitle = (options.title ?? docTitle).trim() || inferDocumentTitle(options.category, subcategory);
+
+    uploadInFlightRef.current = true;
+    setBusyUploading(true);
+
     const description = (options.description ?? docDescription).trim() || null;
     const uploadedPaths: string[] = [];
     let insertedPostId: string | null = null;
-
-    uploadingDocumentRef.current = true;
-    setBusyUploading(true);
 
     try {
       const { data: insertedPost, error: postError } = await supabase
@@ -1071,7 +1083,7 @@ export function AdminClient() {
       insertedPostId = insertedPost.id;
 
       const attachmentRows = await Promise.all(
-        selectedFiles.map(async (file, index) => {
+        filesToUpload.map(async (file, index) => {
           const storagePath = buildStoragePath(options.category, subcategory, file.name);
           const { error: uploadError } = await supabase.storage.from(DOC_BUCKET).upload(storagePath, file, {
             cacheControl: '3600',
@@ -1106,19 +1118,18 @@ export function AdminClient() {
 
       resetDocumentForm();
       setStatus('Document post uploaded.');
-      await refreshAdminData();
+      await loadInitial();
     } catch (error) {
       if (uploadedPaths.length > 0) {
         await supabase.storage.from(DOC_BUCKET).remove(uploadedPaths);
       }
-
       if (insertedPostId) {
+        await supabase.from('document_attachments').delete().eq('post_id', insertedPostId);
         await supabase.from('document_posts').delete().eq('id', insertedPostId);
       }
-
       setStatus(error instanceof Error ? error.message : 'Upload failed.');
     } finally {
-      uploadingDocumentRef.current = false;
+      uploadInFlightRef.current = false;
       setBusyUploading(false);
     }
   }
@@ -1138,7 +1149,8 @@ export function AdminClient() {
       if (error) throw error;
 
       setStatus('Document post deleted.');
-      await refreshAdminData();
+      await loadInitial();
+      router.refresh();
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Unable to delete post.');
     } finally {
@@ -1471,13 +1483,8 @@ export function AdminClient() {
                 )}
 
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    onClick={createAlert}
-                    disabled={busyPostingAlert}
-                    style={{ ...buttonStyle(true), opacity: busyPostingAlert ? 0.7 : 1, cursor: busyPostingAlert ? 'default' : 'pointer' }}
-                  >
-                    {busyPostingAlert ? 'Posting...' : 'Post Alert'}
+                  <button type="button" onClick={createAlert} disabled={alertPostInFlightRef.current} style={{ ...buttonStyle(true), opacity: alertPostInFlightRef.current ? 0.7 : 1 }}>
+                    {alertPostInFlightRef.current ? 'Posting...' : 'Post Alert'}
                   </button>
                   <button type="button" onClick={resetAlertForm} style={secondaryButtonStyle()}>
                     Clear
