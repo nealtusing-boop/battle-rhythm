@@ -7,8 +7,10 @@ import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
 const DOC_BUCKET = 'battle-rhythm-docs';
+const SIGNED_URL_TTL_SECONDS = 60 * 60;
+const SIGNED_URL_CACHE_WINDOW_MS = 50 * 60 * 1000;
 
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
 
 type Attachment = {
   id: string;
@@ -28,6 +30,13 @@ type ResolvedAttachment = Attachment & {
   signedUrl: string;
   kind: 'pdf' | 'image' | 'other';
 };
+
+type SignedUrlCacheEntry = {
+  url: string;
+  expiresAt: number;
+};
+
+const signedUrlCache = new Map<string, SignedUrlCacheEntry>();
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -66,10 +75,28 @@ function loadingPanelStyle() {
   } as const;
 }
 
+function getCachedSignedUrl(path: string) {
+  const cached = signedUrlCache.get(path);
+  if (!cached) return null;
+  if (cached.expiresAt <= Date.now()) {
+    signedUrlCache.delete(path);
+    return null;
+  }
+  return cached.url;
+}
+
+function setCachedSignedUrl(path: string, url: string) {
+  signedUrlCache.set(path, {
+    url,
+    expiresAt: Date.now() + SIGNED_URL_CACHE_WINDOW_MS,
+  });
+}
+
 function useResolvedAttachments(attachments: Attachment[], open: boolean) {
   const [resolved, setResolved] = useState<ResolvedAttachment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadingLabel, setLoadingLabel] = useState('Preparing attachment preview...');
 
   useEffect(() => {
     let isActive = true;
@@ -79,19 +106,52 @@ function useResolvedAttachments(attachments: Attachment[], open: boolean) {
         setResolved([]);
         setLoading(false);
         setError(null);
+        setLoadingLabel('Preparing attachment preview...');
         return;
       }
 
       setLoading(true);
       setError(null);
+      setLoadingLabel('Preparing attachment preview...');
+
+      const sortedAttachments = sortAttachments(attachments);
+      const withCache = sortedAttachments.map((attachment) => ({
+        attachment,
+        cachedUrl: getCachedSignedUrl(attachment.storage_path),
+      }));
+
+      const cachedResolved = withCache
+        .filter((entry) => !!entry.cachedUrl)
+        .map((entry) => ({
+          ...entry.attachment,
+          signedUrl: entry.cachedUrl!,
+          kind: getFileKind(entry.attachment.file_name, entry.attachment.file_type),
+        })) satisfies ResolvedAttachment[];
+
+      const missing = withCache.filter((entry) => !entry.cachedUrl).map((entry) => entry.attachment);
+
+      if (missing.length === 0) {
+        if (!isActive) return;
+        setResolved(cachedResolved);
+        setLoading(false);
+        setError(null);
+        setLoadingLabel('Preparing attachment preview...');
+        return;
+      }
+
+      setLoadingLabel(
+        cachedResolved.length > 0
+          ? 'Finishing attachment prep...'
+          : `Preparing ${missing.length} file${missing.length === 1 ? '' : 's'}...`,
+      );
 
       const supabase = createClient();
-      const sortedAttachments = sortAttachments(attachments);
-      const paths = sortedAttachments.map((attachment) => attachment.storage_path);
-
       const { data, error: signedUrlError } = await supabase.storage
         .from(DOC_BUCKET)
-        .createSignedUrls(paths, 60 * 60);
+        .createSignedUrls(
+          missing.map((attachment) => attachment.storage_path),
+          SIGNED_URL_TTL_SECONDS,
+        );
 
       if (!isActive) return;
 
@@ -102,17 +162,29 @@ function useResolvedAttachments(attachments: Attachment[], open: boolean) {
         return;
       }
 
+      missing.forEach((attachment, index) => {
+        const signedUrl = data?.[index]?.signedUrl;
+        if (signedUrl) {
+          setCachedSignedUrl(attachment.storage_path, signedUrl);
+        }
+      });
+
       const resolvedItems = sortedAttachments
-        .map((attachment, index) => ({
-          ...attachment,
-          signedUrl: data?.[index]?.signedUrl || '',
-          kind: getFileKind(attachment.file_name, attachment.file_type),
-        }))
-        .filter((item) => !!item.signedUrl) satisfies ResolvedAttachment[];
+        .map((attachment) => {
+          const signedUrl = getCachedSignedUrl(attachment.storage_path);
+          if (!signedUrl) return null;
+          return {
+            ...attachment,
+            signedUrl,
+            kind: getFileKind(attachment.file_name, attachment.file_type),
+          };
+        })
+        .filter(Boolean) as ResolvedAttachment[];
 
       setResolved(resolvedItems);
       setLoading(false);
       setError(null);
+      setLoadingLabel('Preparing attachment preview...');
     }
 
     void run();
@@ -122,7 +194,7 @@ function useResolvedAttachments(attachments: Attachment[], open: boolean) {
     };
   }, [attachments, open]);
 
-  return { resolved, loading, error };
+  return { resolved, loading, error, loadingLabel };
 }
 
 function ghostButtonStyle(selected = false, disabled = false) {
@@ -169,6 +241,7 @@ function emptyStyle() {
 function PDFPreview({ url }: { url: string }) {
   const [numPages, setNumPages] = useState(0);
   const [zoom, setZoom] = useState(1);
+  const [loadingPdf, setLoadingPdf] = useState(true);
 
   return (
     <div style={{ height: '100%', overflow: 'auto', background: '#e5e7eb' }}>
@@ -197,8 +270,33 @@ function PDFPreview({ url }: { url: string }) {
       </div>
 
       <div style={{ display: 'grid', justifyContent: 'center', gap: 16, padding: 16 }}>
-        <Document file={url} onLoadSuccess={({ numPages: pages }) => setNumPages(pages)} loading="Loading PDF...">
-          {Array.from({ length: numPages }, (_, i) => (
+        <Document
+          file={url}
+          onLoadSuccess={({ numPages: pages }) => {
+            setNumPages(pages);
+            setLoadingPdf(false);
+          }}
+          onLoadError={() => setLoadingPdf(false)}
+          loading={
+            <div
+              style={{
+                minHeight: 320,
+                minWidth: 280,
+                borderRadius: 18,
+                background: '#ffffff',
+                border: '1px solid rgba(15,23,42,0.08)',
+                display: 'grid',
+                placeItems: 'center',
+                color: '#475569',
+                fontWeight: 700,
+                padding: 24,
+              }}
+            >
+              Loading PDF…
+            </div>
+          }
+        >
+          {loadingPdf && numPages === 0 ? null : Array.from({ length: numPages }, (_, i) => (
             <Page key={i + 1} pageNumber={i + 1} scale={zoom} />
           ))}
         </Document>
@@ -324,7 +422,7 @@ export function DocumentAttachmentViewer({
   const [open, setOpen] = useState(defaultOpen);
   const [hasAutoOpened, setHasAutoOpened] = useState(false);
   const initialAutoOpenDoneRef = useRef(false);
-  const { resolved, loading, error } = useResolvedAttachments(normalizedAttachments, open);
+  const { resolved, loading, error, loadingLabel } = useResolvedAttachments(normalizedAttachments, open);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -396,8 +494,13 @@ export function DocumentAttachmentViewer({
                 borderBottom: '1px solid rgba(15,23,42,0.08)',
               }}
             >
-              <div style={{ minWidth: 0, fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
-                {selected?.file_name || (loading ? 'Preparing attachment...' : 'Attachments')}
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
+                  {selected?.file_name || (loading ? 'Preparing attachment...' : 'Attachments')}
+                </div>
+                {loading && (
+                  <div style={{ marginTop: 4, fontSize: 13, color: '#64748b', fontWeight: 600 }}>{loadingLabel}</div>
+                )}
               </div>
 
               <button type="button" onClick={() => setOpen(false)} style={ghostButtonStyle()}>
@@ -431,13 +534,25 @@ export function DocumentAttachmentViewer({
 
             <div style={{ minHeight: 0 }}>
               {loading ? (
-                <ViewerLoadingState label="Loading attachment preview..." />
+                <ViewerLoadingState label={loadingLabel} />
               ) : error ? (
                 <div style={{ padding: 24, display: 'grid', gap: 12, color: '#475569' }}>
                   <div>{error}</div>
-                  <button type="button" onClick={() => setOpen(false)} style={triggerButtonStyle()}>
-                    Close
-                  </button>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    <button type="button" onClick={() => setOpen(false)} style={triggerButtonStyle()}>
+                      Close
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOpen(false);
+                        window.setTimeout(() => setOpen(true), 10);
+                      }}
+                      style={ghostButtonStyle()}
+                    >
+                      Retry
+                    </button>
+                  </div>
                 </div>
               ) : selected ? (
                 <FilePreview file={selected} />

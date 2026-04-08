@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/browser';
 import type { Profile } from '@/lib/types';
 
@@ -57,6 +56,13 @@ type DocumentPost = {
   created_at: string;
   updated_at: string;
   attachments?: DocumentAttachment[] | null;
+};
+
+type UploadProgress = {
+  label: string;
+  completed: number;
+  total: number;
+  phase: 'uploading' | 'saving' | 'finishing';
 };
 
 function sectionStyle() {
@@ -141,6 +147,67 @@ function buttonStyle(primary = false, danger = false) {
 
 function secondaryButtonStyle() {
   return buttonStyle(false, false);
+}
+
+function statusPanelStyle(kind: 'default' | 'success' | 'error' = 'default') {
+  const tones = {
+    default: {
+      background: '#f8fafc',
+      border: '1px solid rgba(15,23,42,0.08)',
+      color: '#334155',
+    },
+    success: {
+      background: '#ecfdf5',
+      border: '1px solid rgba(16,185,129,0.20)',
+      color: '#065f46',
+    },
+    error: {
+      background: '#fef2f2',
+      border: '1px solid rgba(239,68,68,0.18)',
+      color: '#991b1b',
+    },
+  } as const;
+
+  return {
+    borderRadius: 18,
+    padding: '14px 16px',
+    ...tones[kind],
+  } as const;
+}
+
+function progressBarTrackStyle() {
+  return {
+    width: '100%',
+    height: 10,
+    borderRadius: 999,
+    overflow: 'hidden',
+    background: 'rgba(148,163,184,0.20)',
+  } as const;
+}
+
+function progressBarFillStyle(percent: number) {
+  return {
+    width: `${Math.max(percent === 0 ? 0 : 8, percent)}%`,
+    height: '100%',
+    borderRadius: 999,
+    background: 'linear-gradient(90deg, #8b1538 0%, #6f102d 100%)',
+    transition: 'width 0.18s ease',
+  } as const;
+}
+
+function uploadProgressPercent(progress: UploadProgress) {
+  if (progress.total <= 0) return 100;
+  return Math.min(100, Math.round((progress.completed / progress.total) * 100));
+}
+
+function isErrorStatusMessage(value: string | null) {
+  if (!value) return false;
+  return /error|failed|unable|invalid|could not|cannot|select at least/i.test(value);
+}
+
+function isSuccessStatusMessage(value: string | null) {
+  if (!value) return false;
+  return /posted|uploaded|deleted|updated|reposted/i.test(value);
 }
 
 function labelStyle() {
@@ -557,7 +624,6 @@ function normalizeAlerts(rows: any[] | null | undefined): ExistingAlert[] {
 
 export function AdminClient() {
   const supabase = useMemo(() => createClient(), []);
-  const router = useRouter();
 
   const [active, setActive] = useState<TabId>('alerts');
   const [status, setStatus] = useState<string | null>(null);
@@ -585,6 +651,8 @@ export function AdminClient() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [alertSelectedFiles, setAlertSelectedFiles] = useState<File[]>([]);
   const [busyUploading, setBusyUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
+  const [alertProgress, setAlertProgress] = useState<UploadProgress | null>(null);
   const [busyDeletingPostId, setBusyDeletingPostId] = useState<string | null>(null);
 
   const selectedFilesRef = useRef<File[]>([]);
@@ -886,8 +954,11 @@ export function AdminClient() {
       insertedAlertId = data.id;
 
       if (files.length > 0) {
-        const attachmentRows = await Promise.all(
-          files.map(async (file, index) => {
+        const progressRun = await uploadFilesWithProgress({
+          files,
+          initialLabel: `Starting ${files.length} alert attachment${files.length === 1 ? '' : 's'}...`,
+          setProgress: setAlertProgress,
+          onFileComplete: async (file, index) => {
             const storagePath = buildAlertStoragePath(file.name);
             const { error: uploadError } = await supabase.storage.from(DOC_BUCKET).upload(storagePath, file, {
               cacheControl: '3600',
@@ -904,11 +975,20 @@ export function AdminClient() {
               file_type: file.type || null,
               sort_order: index,
             };
-          })
-        );
+          },
+        });
 
-        const { error: attachmentError } = await supabase.from('alert_attachments').insert(attachmentRows);
+        progressRun.markSaving('Saving alert attachments...');
+        const { error: attachmentError } = await supabase.from('alert_attachments').insert(progressRun.rows);
         if (attachmentError) throw attachmentError;
+        progressRun.markFinishing('Wrapping up alert post...');
+      } else {
+        setAlertProgress({
+          label: 'Saving alert...',
+          phase: 'saving',
+          completed: 1,
+          total: 2,
+        });
       }
 
       try {
@@ -921,6 +1001,7 @@ export function AdminClient() {
         // ignore push failure
       }
 
+      setAlertProgress((current) => current ? { ...current, label: 'Refreshing alert list...', completed: current.total, total: current.total, phase: 'finishing' } : null);
       await loadInitial();
       return true;
     } catch (error) {
@@ -957,6 +1038,7 @@ export function AdminClient() {
       setStatus('Alert posted.');
     } finally {
       alertPostInFlightRef.current = false;
+      setAlertProgress(null);
     }
   }
 
@@ -1020,6 +1102,52 @@ export function AdminClient() {
   async function toggleUserRole(profile: ManagedProfile) {
     const nextRole = profile.role === 'admin' ? 'soldier' : 'admin';
     await updateUser(profile.id, { role: nextRole as ManagedProfile['role'] });
+  }
+
+
+  async function uploadFilesWithProgress<T>(options: {
+    files: File[];
+    initialLabel: string;
+    onFileComplete: (file: File, index: number) => Promise<T> | T;
+    setProgress: (value: UploadProgress | null) => void;
+  }) {
+    const totalSteps = Math.max(options.files.length + 2, 2);
+    let completed = 0;
+
+    const setStep = (label: string, phase: UploadProgress['phase']) => {
+      options.setProgress({
+        label,
+        phase,
+        completed: Math.min(completed, totalSteps),
+        total: totalSteps,
+      });
+    };
+
+    setStep(options.initialLabel, 'uploading');
+
+    const rows = await Promise.all(
+      options.files.map(async (file, index) => {
+        const row = await options.onFileComplete(file, index);
+        completed += 1;
+        setStep(
+          `Uploaded ${Math.min(completed, options.files.length)} of ${options.files.length} file${options.files.length === 1 ? '' : 's'}.`,
+          'uploading',
+        );
+        return row;
+      }),
+    );
+
+    return {
+      rows,
+      markSaving: (label: string) => {
+        completed += 1;
+        setStep(label, 'saving');
+      },
+      markFinishing: (label: string) => {
+        completed += 1;
+        setStep(label, 'finishing');
+      },
+    };
   }
 
   async function openAttachment(attachment: DocumentAttachment) {
@@ -1098,8 +1226,11 @@ export function AdminClient() {
 
       insertedPostId = insertedPost.id;
 
-      const attachmentRows = await Promise.all(
-        filesToUpload.map(async (file, index) => {
+      const progressRun = await uploadFilesWithProgress({
+        files: filesToUpload,
+        initialLabel: `Starting ${filesToUpload.length} file upload${filesToUpload.length === 1 ? '' : 's'}...`,
+        setProgress: setUploadProgress,
+        onFileComplete: async (file, index) => {
           const storagePath = buildStoragePath(options.category, subcategory, file.name);
           const { error: uploadError } = await supabase.storage.from(DOC_BUCKET).upload(storagePath, file, {
             cacheControl: '3600',
@@ -1116,13 +1247,15 @@ export function AdminClient() {
             file_type: file.type || null,
             sort_order: index,
           };
-        })
-      );
+        },
+      });
 
-      const { error: attachmentError } = await supabase.from('document_attachments').insert(attachmentRows);
+      progressRun.markSaving('Saving attachment records...');
+      const { error: attachmentError } = await supabase.from('document_attachments').insert(progressRun.rows);
       if (attachmentError) throw attachmentError;
 
       if (!options.allowMultiplePosts) {
+        progressRun.markFinishing('Switching active document...');
         await deactivateExistingPosts(options.category, subcategory);
         const { error: activateError } = await supabase
           .from('document_posts')
@@ -1130,10 +1263,13 @@ export function AdminClient() {
           .eq('id', insertedPost.id);
 
         if (activateError) throw activateError;
+      } else {
+        progressRun.markFinishing('Wrapping up upload...');
       }
 
       resetDocumentForm();
       setStatus('Document post uploaded.');
+      setUploadProgress((current) => current ? { ...current, label: 'Refreshing documents...', completed: current.total, total: current.total, phase: 'finishing' } : null);
       await loadInitial();
     } catch (error) {
       if (uploadedPaths.length > 0) {
@@ -1147,6 +1283,7 @@ export function AdminClient() {
     } finally {
       uploadInFlightRef.current = false;
       setBusyUploading(false);
+      setUploadProgress(null);
     }
   }
 
@@ -1166,7 +1303,6 @@ export function AdminClient() {
 
       setStatus('Document post deleted.');
       await loadInitial();
-      router.refresh();
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Unable to delete post.');
     } finally {
