@@ -93,27 +93,27 @@ const hubLinks = [
   {
     href: '/weekly-training',
     title: 'PLT Training Calendar',
-    description: 'View the current weekly training schedule.',
+    description: '',
   },
   {
     href: '/long-range',
     title: 'Long Range Calendar',
-    description: 'View the current long-range calendar pages.',
+    description: '',
   },
   {
     href: '/cq-roster',
     title: 'CQ / Staff Duty Roster',
-    description: 'Open the current roster document.',
+    description: '',
   },
   {
     href: '/pt-plans',
     title: 'PT Plans',
-    description: 'Choose your squad and view the current PT plan.',
+    description: '',
   },
   {
     href: '/resources',
     title: "SOP's & Resources",
-    description: 'Access SOPs, packets, and reference documents.',
+    description: '',
   },
 ] as const;
 
@@ -195,30 +195,12 @@ export default async function HomePage() {
               color: '#ffffff',
             }}
           >
-            Welcome back
+            {formatLongDate(today)}
           </h1>
 
-          <p
-            style={{
-              marginTop: 14,
-              marginBottom: 0,
-              fontSize: 16,
-              color: 'rgba(255,255,255,0.82)',
-            }}
-          >
-            {formatLongDate(today)}
-          </p>
+         
 
-          <p
-            style={{
-              marginTop: 10,
-              marginBottom: 0,
-              fontSize: 15,
-              color: 'rgba(255,255,255,0.72)',
-            }}
-          >
-            {displayName}
-          </p>
+          
         </div>
       </section>
 
@@ -246,7 +228,7 @@ export default async function HomePage() {
                 maxWidth: 560,
               }}
             >
-              All active alerts are listed here in order of the soonest expiration.
+              
             </p>
           </div>
 
@@ -341,7 +323,7 @@ export default async function HomePage() {
                 maxWidth: 560,
               }}
             >
-              Open the current operational documents, PT plans, rosters, and platoon resources.
+              
             </p>
           </div>
 
