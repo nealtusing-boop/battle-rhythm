@@ -29,10 +29,6 @@ type ResolvedAttachment = Attachment & {
   kind: 'pdf' | 'image' | 'other';
 };
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}
-
 function getFileKind(fileName: string, fileType?: string | null): 'pdf' | 'image' | 'other' {
   const lowerName = fileName.toLowerCase();
   const lowerType = (fileType || '').toLowerCase();
@@ -166,40 +162,57 @@ function emptyStyle() {
   } as const;
 }
 
-function PDFPreview({ url }: { url: string }) {
+function useContainerWidth<T extends HTMLElement>() {
+  const ref = useRef<T | null>(null);
+  const [width, setWidth] = useState(0);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+
+    const update = () => setWidth(node.clientWidth);
+    update();
+
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+    window.addEventListener('orientationchange', update);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('orientationchange', update);
+    };
+  }, []);
+
+  return { ref, width };
+}
+
+function PDFPreview({ url, interactionKey }: { url: string; interactionKey: number }) {
   const [numPages, setNumPages] = useState(0);
-  const [zoom, setZoom] = useState(1);
+  const { ref, width } = useContainerWidth<HTMLDivElement>();
+  const pageWidth = Math.max(220, Math.floor(width - 24));
 
   return (
-    <div style={{ height: '100%', overflow: 'auto', background: '#e5e7eb' }}>
-      <div
-        style={{
-          position: 'sticky',
-          top: 'env(safe-area-inset-top)',
-          zIndex: 2,
-          display: 'flex',
-          justifyContent: 'flex-end',
-          gap: 8,
-          padding: '10px 10px max(10px, env(safe-area-inset-top)) 10px',
-          background: 'rgba(255,255,255,0.96)',
-          borderBottom: '1px solid rgba(15,23,42,0.08)',
-        }}
-      >
-        <button type="button" onClick={() => setZoom((z) => clamp(Number((z - 0.15).toFixed(2)), 0.7, 3))} style={ghostButtonStyle()}>
-          −
-        </button>
-        <div style={{ alignSelf: 'center', minWidth: 56, textAlign: 'center', color: '#475569', fontWeight: 700 }}>
-          {Math.round(zoom * 100)}%
-        </div>
-        <button type="button" onClick={() => setZoom((z) => clamp(Number((z + 0.15).toFixed(2)), 0.7, 3))} style={ghostButtonStyle()}>
-          +
-        </button>
-      </div>
-
-      <div style={{ display: 'grid', justifyContent: 'center', gap: 16, padding: 16 }}>
-        <Document file={url} onLoadSuccess={({ numPages: pages }) => setNumPages(pages)} loading="Loading PDF...">
+    <div ref={ref} style={{ height: '100%', overflow: 'auto', background: '#e5e7eb', WebkitOverflowScrolling: 'touch' }}>
+      <div style={{ display: 'grid', justifyContent: 'center', gap: 16, padding: 12, minHeight: '100%' }}>
+        <Document
+          key={`${url}-${interactionKey}-${pageWidth}`}
+          file={url}
+          onLoadSuccess={({ numPages: pages }) => setNumPages(pages)}
+          loading="Loading PDF..."
+        >
           {Array.from({ length: numPages }, (_, i) => (
-            <Page key={i + 1} pageNumber={i + 1} scale={zoom} />
+            <div
+              key={i + 1}
+              style={{
+                background: '#ffffff',
+                borderRadius: 18,
+                overflow: 'hidden',
+                boxShadow: '0 12px 28px rgba(15,23,42,0.14)',
+                maxWidth: '100%',
+              }}
+            >
+              <Page pageNumber={i + 1} width={pageWidth} renderTextLayer renderAnnotationLayer />
+            </div>
           ))}
         </Document>
       </div>
@@ -207,55 +220,41 @@ function PDFPreview({ url }: { url: string }) {
   );
 }
 
-function ImagePreview({ url, fileName }: { url: string; fileName: string }) {
-  const [zoom, setZoom] = useState(1);
-
+function ImagePreview({ url, fileName, interactionKey }: { url: string; fileName: string; interactionKey: number }) {
   return (
-    <div style={{ height: '100%', overflow: 'auto', background: '#e5e7eb' }}>
-      <div
+    <div
+      key={`${url}-${interactionKey}`}
+      style={{
+        height: '100%',
+        overflow: 'auto',
+        background: '#e5e7eb',
+        display: 'grid',
+        alignItems: 'start',
+        justifyItems: 'center',
+        padding: 12,
+        WebkitOverflowScrolling: 'touch',
+      }}
+    >
+      <img
+        src={url}
+        alt={fileName}
         style={{
-          position: 'sticky',
-          top: 'env(safe-area-inset-top)',
-          zIndex: 2,
-          display: 'flex',
-          justifyContent: 'flex-end',
-          gap: 8,
-          padding: '10px 10px max(10px, env(safe-area-inset-top)) 10px',
-          background: 'rgba(255,255,255,0.96)',
-          borderBottom: '1px solid rgba(15,23,42,0.08)',
+          display: 'block',
+          width: '100%',
+          height: 'auto',
+          maxWidth: 960,
+          borderRadius: 18,
+          background: '#ffffff',
+          boxShadow: '0 12px 28px rgba(15,23,42,0.14)',
         }}
-      >
-        <button type="button" onClick={() => setZoom((z) => clamp(Number((z - 0.15).toFixed(2)), 0.7, 4))} style={ghostButtonStyle()}>
-          −
-        </button>
-        <div style={{ alignSelf: 'center', minWidth: 56, textAlign: 'center', color: '#475569', fontWeight: 700 }}>
-          {Math.round(zoom * 100)}%
-        </div>
-        <button type="button" onClick={() => setZoom((z) => clamp(Number((z + 0.15).toFixed(2)), 0.7, 4))} style={ghostButtonStyle()}>
-          +
-        </button>
-      </div>
-
-      <div style={{ display: 'grid', justifyContent: 'center', padding: 16 }}>
-        <img
-          src={url}
-          alt={fileName}
-          style={{
-            maxWidth: '100%',
-            height: 'auto',
-            transform: `scale(${zoom})`,
-            transformOrigin: 'top center',
-            transition: 'transform 0.15s ease',
-          }}
-        />
-      </div>
+      />
     </div>
   );
 }
 
-function FilePreview({ file }: { file: ResolvedAttachment }) {
-  if (file.kind === 'pdf') return <PDFPreview url={file.signedUrl} />;
-  if (file.kind === 'image') return <ImagePreview url={file.signedUrl} fileName={file.file_name} />;
+function FilePreview({ file, interactionKey }: { file: ResolvedAttachment; interactionKey: number }) {
+  if (file.kind === 'pdf') return <PDFPreview url={file.signedUrl} interactionKey={interactionKey} />;
+  if (file.kind === 'image') return <ImagePreview url={file.signedUrl} fileName={file.file_name} interactionKey={interactionKey} />;
 
   return (
     <div style={{ padding: 24, display: 'grid', gap: 12 }}>
@@ -326,6 +325,8 @@ export function DocumentAttachmentViewer({
   const initialAutoOpenDoneRef = useRef(false);
   const { resolved, loading, error } = useResolvedAttachments(normalizedAttachments, open);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [chromeVisible, setChromeVisible] = useState(true);
+  const [interactionKey, setInteractionKey] = useState(0);
 
   useEffect(() => {
     if (defaultOpen && normalizedAttachments.length > 0 && !initialAutoOpenDoneRef.current) {
@@ -345,6 +346,35 @@ export function DocumentAttachmentViewer({
       setSelectedId(resolved[0].id);
     }
   }, [resolved, selectedId]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const resetViewer = () => {
+      setInteractionKey((current) => current + 1);
+      setChromeVisible(true);
+    };
+
+    window.addEventListener('resize', resetViewer);
+    window.addEventListener('orientationchange', resetViewer);
+
+    return () => {
+      window.removeEventListener('resize', resetViewer);
+      window.removeEventListener('orientationchange', resetViewer);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (open) {
+      setChromeVisible(true);
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = '';
+      };
+    }
+
+    return undefined;
+  }, [open]);
 
   const selected = resolved.find((file) => file.id === selectedId) || resolved[0];
   const currentButtonLabel = hasAutoOpened && !open ? 'Open Attachment' : buttonLabel;
@@ -368,15 +398,16 @@ export function DocumentAttachmentViewer({
             zIndex: 1000,
             background: 'rgba(15,23,42,0.82)',
             backdropFilter: 'blur(6px)',
-            paddingTop: 'max(16px, env(safe-area-inset-top))',
-            paddingRight: 16,
-            paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
-            paddingLeft: 16,
+            paddingTop: 'max(12px, env(safe-area-inset-top))',
+            paddingRight: 12,
+            paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
+            paddingLeft: 12,
             display: 'grid',
           }}
         >
           <div
             style={{
+              position: 'relative',
               width: '100%',
               maxWidth: 1100,
               height: '100%',
@@ -385,45 +416,32 @@ export function DocumentAttachmentViewer({
               background: '#ffffff',
               overflow: 'hidden',
               display: 'grid',
-              gridTemplateRows: 'auto auto 1fr',
+              gridTemplateRows: resolved.length > 1 ? 'auto 1fr' : '1fr',
               boxShadow: '0 24px 80px rgba(15,23,42,0.35)',
             }}
           >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 12,
-                padding: 'max(14px, env(safe-area-inset-top)) 16px 14px 16px',
-                borderBottom: '1px solid rgba(15,23,42,0.08)',
-              }}
-            >
-              <div style={{ minWidth: 0, fontSize: 15, fontWeight: 800, letterSpacing: '-0.02em', color: '#0f172a' }}>
-                {selected?.file_name || (loading ? 'Preparing attachment...' : 'Attachments')}
-              </div>
-
-              <button type="button" onClick={() => setOpen(false)} style={ghostButtonStyle()}>
-                Close
-              </button>
-            </div>
-
             {resolved.length > 1 && (
               <div
                 style={{
-                  display: 'flex',
+                  position: 'relative',
+                  zIndex: 3,
+                  display: chromeVisible ? 'flex' : 'none',
                   gap: 8,
                   flexWrap: 'wrap',
-                  padding: '12px 16px',
+                  padding: '74px 16px 12px',
                   borderBottom: '1px solid rgba(15,23,42,0.08)',
                   overflowX: 'auto',
+                  background: 'rgba(255,255,255,0.96)',
                 }}
               >
                 {resolved.map((file) => (
                   <button
                     key={file.id}
                     type="button"
-                    onClick={() => setSelectedId(file.id)}
+                    onClick={() => {
+                      setSelectedId(file.id);
+                      setInteractionKey((current) => current + 1);
+                    }}
                     style={ghostButtonStyle(selected?.id === file.id)}
                   >
                     {file.file_name}
@@ -432,7 +450,37 @@ export function DocumentAttachmentViewer({
               </div>
             )}
 
-            <div style={{ minHeight: 0 }}>
+            <div
+              onClick={() => setChromeVisible((current) => !current)}
+              style={{ minHeight: 0, position: 'relative', background: '#e5e7eb' }}
+            >
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  zIndex: 4,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  padding: 'max(12px, env(safe-area-inset-top)) 14px 12px',
+                  background: chromeVisible ? 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.84) 72%, rgba(255,255,255,0) 100%)' : 'transparent',
+                  opacity: chromeVisible ? 1 : 0,
+                  pointerEvents: chromeVisible ? 'auto' : 'none',
+                  transition: 'opacity 0.18s ease',
+                }}
+              >
+                <div style={{ minWidth: 0, fontSize: 15, fontWeight: 800, letterSpacing: '-0.02em', color: '#0f172a' }}>
+                  {selected?.file_name || (loading ? 'Preparing attachment...' : 'Attachments')}
+                </div>
+
+                <button type="button" onClick={() => setOpen(false)} style={ghostButtonStyle()}>
+                  Close
+                </button>
+              </div>
+
               {loading ? (
                 <ViewerLoadingState label="Loading attachment preview..." />
               ) : error ? (
@@ -443,7 +491,7 @@ export function DocumentAttachmentViewer({
                   </button>
                 </div>
               ) : selected ? (
-                <FilePreview file={selected} />
+                <FilePreview file={selected} interactionKey={interactionKey} />
               ) : (
                 <div style={{ padding: 24, color: '#475569' }}>{emptyMessage}</div>
               )}
@@ -519,7 +567,6 @@ export function DocumentAttachmentListViewer({
         attachments={sortAttachments(attachments)}
         emptyMessage={emptyMessage}
         buttonLabel={buttonLabel || (attachments.length === 1 ? 'Open Attachment' : 'Open Attachments')}
-        defaultOpen={autoOpenSingle && attachments.length === 1}
       />
     );
   }

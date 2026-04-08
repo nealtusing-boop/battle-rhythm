@@ -13,7 +13,7 @@ const tabs = [
   { id: 'long_range', label: 'Long Range' },
   { id: 'cq_roster', label: 'CQ / Staff' },
   { id: 'pt_plans', label: 'PT Plans' },
-  { id: 'resources', label: 'SOPs & Resources' },
+  { id: 'resources', label: 'SOPs' },
   { id: 'users', label: 'Users' },
 ] as const;
 
@@ -67,9 +67,11 @@ function sectionStyle() {
     boxShadow: '0 18px 44px rgba(15,23,42,0.14)',
     color: '#0f172a',
     width: '100%',
+    minWidth: 0,
     maxWidth: '100%',
     overflowX: 'hidden',
     boxSizing: 'border-box',
+    justifySelf: 'stretch',
   } as const;
 }
 
@@ -382,6 +384,9 @@ function DocumentPostCard({
         border: '1px solid rgba(15,23,42,0.08)',
         padding: '18px 18px',
         minWidth: 0,
+        width: '100%',
+        maxWidth: '100%',
+        boxSizing: 'border-box',
       }}
     >
       <div
@@ -1031,10 +1036,21 @@ export function AdminClient() {
 
   async function openAttachment(attachment: DocumentAttachment) {
     setStatus(null);
+
+    const popup = typeof window !== 'undefined' ? window.open('', '_blank', 'noopener,noreferrer') : null;
+
     const { data, error } = await supabase.storage.from(DOC_BUCKET).createSignedUrl(attachment.storage_path, 60);
 
     if (error || !data?.signedUrl) {
+      if (popup && !popup.closed) {
+        popup.close();
+      }
       setStatus(error?.message || 'Unable to open file.');
+      return;
+    }
+
+    if (popup && !popup.closed) {
+      popup.location.href = data.signedUrl;
       return;
     }
 
