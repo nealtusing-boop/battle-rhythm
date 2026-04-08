@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/browser';
 import type { Profile } from '@/lib/types';
 
@@ -557,7 +556,6 @@ function normalizeAlerts(rows: any[] | null | undefined): ExistingAlert[] {
 
 export function AdminClient() {
   const supabase = useMemo(() => createClient(), []);
-  const router = useRouter();
 
   const [active, setActive] = useState<TabId>('alerts');
   const [status, setStatus] = useState<string | null>(null);
@@ -576,6 +574,7 @@ export function AdminClient() {
   const [reactivationExpiresTime, setReactivationExpiresTime] = useState(defaultExpiry.time);
   const [busyDeletingAlertId, setBusyDeletingAlertId] = useState<string | null>(null);
   const [busyRepostingAlert, setBusyRepostingAlert] = useState(false);
+  const [busyPostingAlert, setBusyPostingAlert] = useState(false);
   const [busyUpdatingUserId, setBusyUpdatingUserId] = useState<string | null>(null);
 
   const [docTitle, setDocTitle] = useState('');
@@ -586,6 +585,8 @@ export function AdminClient() {
   const [alertSelectedFiles, setAlertSelectedFiles] = useState<File[]>([]);
   const [busyUploading, setBusyUploading] = useState(false);
   const [busyDeletingPostId, setBusyDeletingPostId] = useState<string | null>(null);
+  const postingAlertRef = useRef(false);
+  const uploadingDocumentRef = useRef(false);
 
   useEffect(() => {
     void loadInitial();
@@ -668,6 +669,10 @@ export function AdminClient() {
     setSoldiers(safeProfiles);
     setExistingAlerts(normalizeAlerts(alerts));
     setDocumentPosts(normalizeDocumentPosts(posts));
+  }
+
+  async function refreshAdminData() {
+    await loadInitial();
   }
 
   const activeAlerts = useMemo(() => existingAlerts.filter((alert) => isAlertCurrentlyActive(alert)), [existingAlerts]);
@@ -853,32 +858,26 @@ export function AdminClient() {
       insertedAlertId = data.id;
 
       if (files.length > 0) {
-        const attachmentRows: Array<{
-          alert_id: string;
-          storage_path: string;
-          file_name: string;
-          file_type: string | null;
-          sort_order: number;
-        }> = [];
+        const attachmentRows = await Promise.all(
+          files.map(async (file, index) => {
+            const storagePath = buildAlertStoragePath(file.name);
+            const { error: uploadError } = await supabase.storage.from(DOC_BUCKET).upload(storagePath, file, {
+              cacheControl: '3600',
+              upsert: false,
+            });
 
-        for (const [index, file] of files.entries()) {
-          const storagePath = buildAlertStoragePath(file.name);
-          const { error: uploadError } = await supabase.storage.from(DOC_BUCKET).upload(storagePath, file, {
-            cacheControl: '3600',
-            upsert: false,
-          });
+            if (uploadError) throw uploadError;
 
-          if (uploadError) throw uploadError;
-
-          uploadedPaths.push(storagePath);
-          attachmentRows.push({
-            alert_id: data.id,
-            storage_path: storagePath,
-            file_name: file.name,
-            file_type: file.type || null,
-            sort_order: index,
-          });
-        }
+            uploadedPaths.push(storagePath);
+            return {
+              alert_id: data.id,
+              storage_path: storagePath,
+              file_name: file.name,
+              file_type: file.type || null,
+              sort_order: index,
+            };
+          })
+        );
 
         const { error: attachmentError } = await supabase.from('alert_attachments').insert(attachmentRows);
         if (attachmentError) throw attachmentError;
@@ -894,8 +893,7 @@ export function AdminClient() {
         // ignore push failure
       }
 
-      await loadInitial();
-      router.refresh();
+      await refreshAdminData();
       return true;
     } catch (error) {
       if (uploadedPaths.length > 0) {
@@ -912,18 +910,28 @@ export function AdminClient() {
   }
 
   async function createAlert() {
+    if (postingAlertRef.current) return;
+
+    postingAlertRef.current = true;
+    setBusyPostingAlert(true);
     setStatus(null);
-    const ok = await postAlert({
-      message: alertMessage,
-      expiresDate: alertExpiresDate,
-      expiresTime: alertExpiresTime,
-      files: alertSelectedFiles,
-    });
 
-    if (!ok) return;
+    try {
+      const ok = await postAlert({
+        message: alertMessage,
+        expiresDate: alertExpiresDate,
+        expiresTime: alertExpiresTime,
+        files: alertSelectedFiles,
+      });
 
-    resetAlertForm();
-    setStatus('Alert posted.');
+      if (!ok) return;
+
+      resetAlertForm();
+      setStatus('Alert posted.');
+    } finally {
+      postingAlertRef.current = false;
+      setBusyPostingAlert(false);
+    }
   }
 
   async function repostAlert() {
@@ -959,8 +967,7 @@ export function AdminClient() {
 
     setBusyDeletingAlertId(null);
     setStatus('Alert deleted.');
-    await loadInitial();
-    router.refresh();
+    await refreshAdminData();
   }
 
   async function updateUser(userId: string, updates: Partial<ManagedProfile>) {
@@ -977,8 +984,7 @@ export function AdminClient() {
 
     setBusyUpdatingUserId(null);
     setStatus('User updated.');
-    await loadInitial();
-    router.refresh();
+    await refreshAdminData();
   }
 
   async function toggleUserActive(profile: ManagedProfile) {
@@ -1026,6 +1032,8 @@ export function AdminClient() {
     description?: string;
     allowMultiplePosts?: boolean;
   }) {
+    if (uploadingDocumentRef.current) return;
+
     setStatus(null);
 
     if (selectedFiles.length === 0) {
@@ -1035,17 +1043,14 @@ export function AdminClient() {
 
     const subcategory = options.subcategory ?? null;
     const trimmedTitle = (options.title ?? docTitle).trim() || inferDocumentTitle(options.category, subcategory);
-
-    setBusyUploading(true);
-
     const description = (options.description ?? docDescription).trim() || null;
     const uploadedPaths: string[] = [];
+    let insertedPostId: string | null = null;
+
+    uploadingDocumentRef.current = true;
+    setBusyUploading(true);
 
     try {
-      if (!options.allowMultiplePosts) {
-        await deactivateExistingPosts(options.category, subcategory);
-      }
-
       const { data: insertedPost, error: postError } = await supabase
         .from('document_posts')
         .insert({
@@ -1053,7 +1058,7 @@ export function AdminClient() {
           category: options.category,
           subcategory,
           description,
-          is_active: true,
+          is_active: options.allowMultiplePosts ? true : false,
           created_by: currentUserId,
         })
         .select('id')
@@ -1063,46 +1068,57 @@ export function AdminClient() {
         throw postError || new Error('Unable to create post.');
       }
 
-      const attachmentRows: Array<{
-        post_id: string;
-        storage_path: string;
-        file_name: string;
-        file_type: string | null;
-        sort_order: number;
-      }> = [];
+      insertedPostId = insertedPost.id;
 
-      for (const [index, file] of selectedFiles.entries()) {
-        const storagePath = buildStoragePath(options.category, subcategory, file.name);
-        const { error: uploadError } = await supabase.storage.from(DOC_BUCKET).upload(storagePath, file, {
-          cacheControl: '3600',
-          upsert: false,
-        });
+      const attachmentRows = await Promise.all(
+        selectedFiles.map(async (file, index) => {
+          const storagePath = buildStoragePath(options.category, subcategory, file.name);
+          const { error: uploadError } = await supabase.storage.from(DOC_BUCKET).upload(storagePath, file, {
+            cacheControl: '3600',
+            upsert: false,
+          });
 
-        if (uploadError) throw uploadError;
+          if (uploadError) throw uploadError;
 
-        uploadedPaths.push(storagePath);
-        attachmentRows.push({
-          post_id: insertedPost.id,
-          storage_path: storagePath,
-          file_name: file.name,
-          file_type: file.type || null,
-          sort_order: index,
-        });
-      }
+          uploadedPaths.push(storagePath);
+          return {
+            post_id: insertedPost.id,
+            storage_path: storagePath,
+            file_name: file.name,
+            file_type: file.type || null,
+            sort_order: index,
+          };
+        })
+      );
 
       const { error: attachmentError } = await supabase.from('document_attachments').insert(attachmentRows);
       if (attachmentError) throw attachmentError;
 
+      if (!options.allowMultiplePosts) {
+        await deactivateExistingPosts(options.category, subcategory);
+        const { error: activateError } = await supabase
+          .from('document_posts')
+          .update({ is_active: true })
+          .eq('id', insertedPost.id);
+
+        if (activateError) throw activateError;
+      }
+
       resetDocumentForm();
       setStatus('Document post uploaded.');
-      await loadInitial();
-      router.refresh();
+      await refreshAdminData();
     } catch (error) {
-      for (const path of uploadedPaths) {
-        await supabase.storage.from(DOC_BUCKET).remove([path]);
+      if (uploadedPaths.length > 0) {
+        await supabase.storage.from(DOC_BUCKET).remove(uploadedPaths);
       }
+
+      if (insertedPostId) {
+        await supabase.from('document_posts').delete().eq('id', insertedPostId);
+      }
+
       setStatus(error instanceof Error ? error.message : 'Upload failed.');
     } finally {
+      uploadingDocumentRef.current = false;
       setBusyUploading(false);
     }
   }
@@ -1122,8 +1138,7 @@ export function AdminClient() {
       if (error) throw error;
 
       setStatus('Document post deleted.');
-      await loadInitial();
-      router.refresh();
+      await refreshAdminData();
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Unable to delete post.');
     } finally {
@@ -1456,8 +1471,13 @@ export function AdminClient() {
                 )}
 
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  <button type="button" onClick={createAlert} style={buttonStyle(true)}>
-                    Post Alert
+                  <button
+                    type="button"
+                    onClick={createAlert}
+                    disabled={busyPostingAlert}
+                    style={{ ...buttonStyle(true), opacity: busyPostingAlert ? 0.7 : 1, cursor: busyPostingAlert ? 'default' : 'pointer' }}
+                  >
+                    {busyPostingAlert ? 'Posting...' : 'Post Alert'}
                   </button>
                   <button type="button" onClick={resetAlertForm} style={secondaryButtonStyle()}>
                     Clear

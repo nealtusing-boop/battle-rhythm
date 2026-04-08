@@ -9,7 +9,7 @@ export default function ProtectedAppTemplate({ children }: { children: React.Rea
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setReady(true);
-    }, 1400);
+    }, 120);
 
     return () => window.clearTimeout(timer);
   }, []);
