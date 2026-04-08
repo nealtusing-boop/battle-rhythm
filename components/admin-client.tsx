@@ -13,7 +13,7 @@ const tabs = [
   { id: 'long_range', label: 'Long Range' },
   { id: 'cq_roster', label: 'CQ / Staff' },
   { id: 'pt_plans', label: 'PT Plans' },
-  { id: 'resources', label: 'SOPs' },
+  { id: 'resources', label: 'SOPs & Resources' },
   { id: 'users', label: 'Users' },
 ] as const;
 
