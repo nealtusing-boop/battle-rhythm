@@ -283,7 +283,7 @@ export function DocumentAttachmentViewer({
   }, [resolved, selectedId]);
 
   const selected = resolved.find((file) => file.id === selectedId) || resolved[0];
-  const currentButtonLabel = hasAutoOpened && !open ? 'Reopen Attachment' : buttonLabel;
+  const currentButtonLabel = hasAutoOpened && !open ? 'Open Attachment' : buttonLabel;
 
   if (normalizedAttachments.length === 0) {
     return <div style={emptyStyle()}>{emptyMessage}</div>;
