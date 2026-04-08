@@ -740,12 +740,16 @@ export function AdminClient() {
     setSelectedFiles([]);
   }
 
-  function appendSelectedFiles(fileList: FileList | null) {
-    if (!fileList || fileList.length === 0) return;
+  function appendSelectedFiles(fileList: FileList | File[] | null) {
+    if (!fileList) return;
 
-    setSelectedFiles((current) => {
+    const incomingFiles = Array.isArray(fileList) ? fileList : Array.from(fileList);
+    if (incomingFiles.length === 0) return;
+
+    const mergeFiles = (current: File[]) => {
       const next = [...current];
-      for (const file of Array.from(fileList)) {
+
+      for (const file of incomingFiles) {
         const duplicate = next.some(
           (existing) =>
             existing.name === file.name &&
@@ -757,9 +761,13 @@ export function AdminClient() {
           next.push(file);
         }
       }
+
       selectedFilesRef.current = next;
       return next;
-    });
+    };
+
+    selectedFilesRef.current = mergeFiles(selectedFilesRef.current);
+    setSelectedFiles(selectedFilesRef.current);
   }
 
   function removeSelectedFile(indexToRemove: number) {
@@ -770,12 +778,16 @@ export function AdminClient() {
     });
   }
 
-  function appendAlertFiles(fileList: FileList | null) {
-    if (!fileList || fileList.length === 0) return;
+  function appendAlertFiles(fileList: FileList | File[] | null) {
+    if (!fileList) return;
 
-    setAlertSelectedFiles((current) => {
+    const incomingFiles = Array.isArray(fileList) ? fileList : Array.from(fileList);
+    if (incomingFiles.length === 0) return;
+
+    const mergeFiles = (current: File[]) => {
       const next = [...current];
-      for (const file of Array.from(fileList)) {
+
+      for (const file of incomingFiles) {
         const duplicate = next.some(
           (existing) =>
             existing.name === file.name &&
@@ -787,9 +799,13 @@ export function AdminClient() {
           next.push(file);
         }
       }
+
       alertSelectedFilesRef.current = next;
       return next;
-    });
+    };
+
+    alertSelectedFilesRef.current = mergeFiles(alertSelectedFilesRef.current);
+    setAlertSelectedFiles(alertSelectedFilesRef.current);
   }
 
   function removeAlertFile(indexToRemove: number) {
@@ -1228,7 +1244,8 @@ export function AdminClient() {
                 accept=".pdf,image/*"
                 multiple
                 onChange={(e) => {
-                  appendSelectedFiles(e.target.files);
+                  const files = Array.from(e.currentTarget.files ?? []);
+                  appendSelectedFiles(files);
                   e.currentTarget.value = '';
                 }}
                 style={{ ...inputStyle(), padding: 12 }}
@@ -1437,7 +1454,8 @@ export function AdminClient() {
                     accept=".pdf,image/*,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
                     multiple
                     onChange={(e) => {
-                      appendAlertFiles(e.target.files);
+                      const files = Array.from(e.currentTarget.files ?? []);
+                      appendAlertFiles(files);
                       e.currentTarget.value = '';
                     }}
                     style={{ ...inputStyle(), padding: 12 }}
