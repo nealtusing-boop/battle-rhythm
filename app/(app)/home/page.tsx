@@ -83,7 +83,7 @@ function actionButtonStyle(primary = true) {
 const hubLinks = [
   {
     href: '/weekly-training',
-    title: 'Weekly Training Calendar',
+    title: 'PLT Training Calendar',
     description: 'View the current weekly training schedule.',
   },
   {
@@ -103,7 +103,7 @@ const hubLinks = [
   },
   {
     href: '/resources',
-    title: 'Resources',
+    title: "SOP's & Resources",
     description: 'Access SOPs, packets, and reference documents.',
   },
 ] as const;

@@ -1,7 +1,17 @@
-export const dynamic = 'force-dynamic';
+'use client';
 
-import { createClient } from '@/lib/supabase/server';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/browser';
 import { AlertsBadgeClearer } from './alerts-badge-clearer';
+import { DocumentAttachmentViewer } from '@/components/document-attachment-viewer';
+
+type AlertAttachment = {
+  id: string;
+  storage_path: string;
+  file_name: string;
+  sort_order: number;
+  file_type?: string | null;
+};
 
 type Alert = {
   id: string;
@@ -9,6 +19,7 @@ type Alert = {
   created_at: string;
   expires_at: string | null;
   is_active: boolean | null;
+  attachments: AlertAttachment[];
 };
 
 function formatDateTime(value: string | null) {
@@ -23,18 +34,56 @@ function formatDateTime(value: string | null) {
   });
 }
 
-export default async function AlertsPage() {
-  const supabase = await createClient();
+export default function AlertsPage() {
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const { data } = await supabase
-    .from('alerts')
-    .select('id, message, created_at, expires_at, is_active')
-    .eq('is_active', true)
-    .or('expires_at.is.null,expires_at.gt.now()')
-    .order('expires_at', { ascending: true, nullsFirst: false })
-    .order('created_at', { ascending: false });
+  useEffect(() => {
+    const supabase = createClient();
 
-  const alerts = (data ?? []) as Alert[];
+    async function fetchAlerts() {
+      setLoading(true);
+
+      const { data, error } = await supabase
+        .from('alerts')
+        .select(
+          `
+            id,
+            message,
+            created_at,
+            expires_at,
+            is_active,
+            alert_attachments (
+              id,
+              storage_path,
+              file_name,
+              sort_order,
+              file_type
+            )
+          `
+        )
+        .eq('is_active', true)
+        .or('expires_at.is.null,expires_at.gt.now()')
+        .order('expires_at', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: false });
+
+      if (error || !data) {
+        setAlerts([]);
+        setLoading(false);
+        return;
+      }
+
+      setAlerts(
+        data.map((alert) => ({
+          ...alert,
+          attachments: [...(alert.alert_attachments || [])].sort((a, b) => a.sort_order - b.sort_order),
+        }))
+      );
+      setLoading(false);
+    }
+
+    void fetchAlerts();
+  }, []);
 
   return (
     <div style={{ display: 'grid', gap: 20 }}>
@@ -65,7 +114,21 @@ export default async function AlertsPage() {
       </section>
 
       <section style={{ display: 'grid', gap: 12 }}>
-        {alerts.length === 0 && (
+        {loading && (
+          <div
+            style={{
+              borderRadius: 30,
+              background: '#ffffff',
+              padding: 22,
+              boxShadow: '0 18px 44px rgba(15,23,42,0.14)',
+              color: '#475569',
+            }}
+          >
+            Loading...
+          </div>
+        )}
+
+        {!loading && alerts.length === 0 && (
           <div
             style={{
               borderRadius: 30,
@@ -79,44 +142,55 @@ export default async function AlertsPage() {
           </div>
         )}
 
-        {alerts.map((alert) => (
-          <article
-            key={alert.id}
-            style={{
-              borderRadius: 30,
-              background: '#ffffff',
-              padding: 22,
-              boxShadow: '0 18px 44px rgba(15,23,42,0.14)',
-              color: '#0f172a',
-            }}
-          >
-            <p
+        {!loading &&
+          alerts.map((alert) => (
+            <article
+              key={alert.id}
               style={{
-                margin: 0,
-                fontSize: 15,
-                lineHeight: 1.6,
+                borderRadius: 30,
+                background: '#ffffff',
+                padding: 22,
+                boxShadow: '0 18px 44px rgba(15,23,42,0.14)',
                 color: '#0f172a',
-                whiteSpace: 'pre-wrap',
-                overflowWrap: 'anywhere',
               }}
             >
-              {alert.message}
-            </p>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 15,
+                  lineHeight: 1.6,
+                  color: '#0f172a',
+                  whiteSpace: 'pre-wrap',
+                  overflowWrap: 'anywhere',
+                }}
+              >
+                {alert.message}
+              </p>
 
-            <p
-              style={{
-                marginTop: 12,
-                marginBottom: 0,
-                fontSize: 12,
-                color: '#64748b',
-                overflowWrap: 'anywhere',
-              }}
-            >
-              Posted {formatDateTime(alert.created_at)}
-              {alert.expires_at ? ` • Expires ${formatDateTime(alert.expires_at)}` : ''}
-            </p>
-          </article>
-        ))}
+              <p
+                style={{
+                  marginTop: 12,
+                  marginBottom: 0,
+                  fontSize: 12,
+                  color: '#64748b',
+                  overflowWrap: 'anywhere',
+                }}
+              >
+                Posted {formatDateTime(alert.created_at)}
+                {alert.expires_at ? ` • Expires ${formatDateTime(alert.expires_at)}` : ''}
+              </p>
+
+              {alert.attachments.length > 0 && (
+                <div style={{ marginTop: 16 }}>
+                  <DocumentAttachmentViewer
+                    attachments={alert.attachments}
+                    emptyMessage="No attachments."
+                    buttonLabel={alert.attachments.length === 1 ? 'Open Attachment' : 'Open Attachments'}
+                  />
+                </div>
+              )}
+            </article>
+          ))}
       </section>
     </div>
   );

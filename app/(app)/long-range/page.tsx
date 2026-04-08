@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/browser';
-import { DocumentAttachmentViewer } from '@/components/document-attachment-viewer';
+import { DocumentAttachmentListViewer } from '@/components/document-attachment-viewer';
 
 type Attachment = {
   id: string;
@@ -12,8 +12,14 @@ type Attachment = {
   file_type?: string | null;
 };
 
+type LongRangePost = {
+  id: string;
+  title: string;
+  attachments: Attachment[];
+};
+
 export default function LongRangePage() {
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [items, setItems] = useState<LongRangePost[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -22,32 +28,39 @@ export default function LongRangePage() {
     async function fetchLongRange() {
       setLoading(true);
 
-      const { data: activePost, error: postError } = await supabase
+      const { data, error } = await supabase
         .from('document_posts')
-        .select('id')
+        .select(
+          `
+            id,
+            title,
+            created_at,
+            attachments:document_attachments (
+              id,
+              storage_path,
+              file_name,
+              sort_order,
+              file_type
+            )
+          `
+        )
         .eq('category', 'long_range')
         .eq('is_active', true)
-        .single();
+        .order('created_at', { ascending: false });
 
-      if (postError || !activePost) {
-        setAttachments([]);
+      if (error || !data) {
+        setItems([]);
         setLoading(false);
         return;
       }
 
-      const { data: files, error: filesError } = await supabase
-        .from('document_attachments')
-        .select('id, storage_path, file_name, sort_order, file_type')
-        .eq('post_id', activePost.id)
-        .order('sort_order', { ascending: true });
+      const normalized = data.map((post) => ({
+        id: post.id,
+        title: post.title,
+        attachments: [...(post.attachments || [])].sort((a, b) => a.sort_order - b.sort_order),
+      }));
 
-      if (filesError || !files) {
-        setAttachments([]);
-        setLoading(false);
-        return;
-      }
-
-      setAttachments(files);
+      setItems(normalized);
       setLoading(false);
     }
 
@@ -55,16 +68,22 @@ export default function LongRangePage() {
   }, []);
 
   return (
-    <div style={{ padding: 16 }}>
+    <div style={{ padding: 16, display: 'grid', gap: 16 }}>
+      <h1
+        style={{
+          margin: 0,
+          fontSize: 22,
+          fontWeight: 800,
+          color: '#ffffff',
+        }}
+      >
+        Long Range Calendar
+      </h1>
+
       {loading ? (
         <p style={{ color: '#ffffff', margin: 0 }}>Loading...</p>
       ) : (
-        <DocumentAttachmentViewer
-          attachments={attachments}
-          emptyMessage="No long range calendar posted."
-          autoOpen
-          onCloseHref="/home"
-        />
+        <DocumentAttachmentListViewer items={items} emptyMessage="No long range calendar posted." />
       )}
     </div>
   );

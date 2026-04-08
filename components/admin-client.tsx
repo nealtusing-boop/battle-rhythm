@@ -9,11 +9,11 @@ const DOC_BUCKET = 'battle-rhythm-docs';
 
 const tabs = [
   { id: 'alerts', label: 'Alerts' },
-  { id: 'weekly_training', label: 'Weekly Training' },
+  { id: 'weekly_training', label: 'PLT Training Calendar' },
   { id: 'long_range', label: 'Long Range' },
   { id: 'cq_roster', label: 'CQ / Staff Duty' },
   { id: 'pt_plans', label: 'PT Plans' },
-  { id: 'resources', label: 'Resources' },
+  { id: 'resources', label: "SOP's & Resources" },
   { id: 'users', label: 'Users' },
 ] as const;
 
@@ -29,6 +29,7 @@ type ExistingAlert = {
   created_by: string | null;
   expires_at: string | null;
   is_active: boolean | null;
+  alert_attachments?: DocumentAttachment[] | null;
 };
 
 type ManagedProfile = Profile & {
@@ -192,8 +193,14 @@ function buildStoragePath(category: DocumentCategory, subcategory: string | null
   return `${getFileFolder(category, subcategory)}/${stamp}-${safeName}`;
 }
 
+function buildAlertStoragePath(fileName: string) {
+  const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return `alerts/${stamp}-${safeName}`;
+}
+
 function inferDocumentTitle(category: DocumentCategory, subcategory: string | null) {
-  if (category === 'weekly_training') return 'Weekly Training';
+  if (category === 'weekly_training') return 'PLT Training Calendar';
   if (category === 'long_range') return 'Long Range Calendar';
   if (category === 'cq_roster') return subcategory === 'staff_duty' ? 'Staff Duty Roster' : 'CQ Roster';
   if (category === 'pt_plan') {
@@ -536,6 +543,18 @@ function normalizeDocumentPosts(rows: any[] | null | undefined): DocumentPost[] 
   }));
 }
 
+function normalizeAlerts(rows: any[] | null | undefined): ExistingAlert[] {
+  return (rows ?? []).map((row) => ({
+    id: row.id,
+    message: row.message,
+    created_at: row.created_at,
+    created_by: row.created_by,
+    expires_at: row.expires_at,
+    is_active: row.is_active ?? true,
+    alert_attachments: (row.alert_attachments ?? []) as DocumentAttachment[],
+  }));
+}
+
 export function AdminClient() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
@@ -564,6 +583,7 @@ export function AdminClient() {
   const [ptSubcategory, setPtSubcategory] = useState<PtSubcategory>('1st_squad');
   const [cqSubcategory, setCqSubcategory] = useState<CqRosterSubcategory>('cq');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [alertSelectedFiles, setAlertSelectedFiles] = useState<File[]>([]);
   const [busyUploading, setBusyUploading] = useState(false);
   const [busyDeletingPostId, setBusyDeletingPostId] = useState<string | null>(null);
 
@@ -588,7 +608,24 @@ export function AdminClient() {
         .order('full_name', { ascending: true }),
       supabase
         .from('alerts')
-        .select('id, message, created_at, created_by, expires_at, is_active')
+        .select(
+          `
+            id,
+            message,
+            created_at,
+            created_by,
+            expires_at,
+            is_active,
+            alert_attachments (
+              id,
+              storage_path,
+              file_name,
+              file_type,
+              sort_order,
+              created_at
+            )
+          `
+        )
         .order('created_at', { ascending: false }),
       supabase
         .from('document_posts')
@@ -629,7 +666,7 @@ export function AdminClient() {
 
     setCurrentUserId(user?.id ?? null);
     setSoldiers(safeProfiles);
-    setExistingAlerts((alerts ?? []) as ExistingAlert[]);
+    setExistingAlerts(normalizeAlerts(alerts));
     setDocumentPosts(normalizeDocumentPosts(posts));
   }
 
@@ -675,6 +712,22 @@ export function AdminClient() {
     [documentPosts]
   );
 
+  const weeklyTrainingPosts = useMemo(
+    () =>
+      documentPosts
+        .filter((post) => post.category === 'weekly_training' && post.is_active)
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+    [documentPosts]
+  );
+
+  const longRangePosts = useMemo(
+    () =>
+      documentPosts
+        .filter((post) => post.category === 'long_range' && post.is_active)
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+    [documentPosts]
+  );
+
   function resetDocumentForm() {
     setDocTitle('');
     setDocDescription('');
@@ -706,11 +759,37 @@ export function AdminClient() {
     setSelectedFiles((current) => current.filter((_, index) => index !== indexToRemove));
   }
 
+  function appendAlertFiles(fileList: FileList | null) {
+    if (!fileList || fileList.length === 0) return;
+
+    setAlertSelectedFiles((current) => {
+      const next = [...current];
+      for (const file of Array.from(fileList)) {
+        const duplicate = next.some(
+          (existing) =>
+            existing.name === file.name &&
+            existing.size === file.size &&
+            existing.lastModified === file.lastModified
+        );
+
+        if (!duplicate) {
+          next.push(file);
+        }
+      }
+      return next;
+    });
+  }
+
+  function removeAlertFile(indexToRemove: number) {
+    setAlertSelectedFiles((current) => current.filter((_, index) => index !== indexToRemove));
+  }
+
   function resetAlertForm() {
     const next = splitExpirationForForm(null);
     setAlertMessage('');
     setAlertExpiresDate(next.date);
     setAlertExpiresTime(next.time);
+    setAlertSelectedFiles([]);
   }
 
   function openReactivateAlert(alert: ExistingAlert) {
@@ -734,6 +813,7 @@ export function AdminClient() {
     message: string;
     expiresDate: string;
     expiresTime: string;
+    files?: File[];
   }) {
     const trimmed = values.message.trim();
     if (!trimmed) {
@@ -747,37 +827,88 @@ export function AdminClient() {
       return false;
     }
 
-    const { data, error } = await supabase
-      .from('alerts')
-      .insert({
-        message: trimmed,
-        priority: 'medium',
-        requires_ack: false,
-        created_by: currentUserId,
-        expires_at: expiresAt,
-        is_active: true,
-      })
-      .select('id, message, created_at, created_by, expires_at, is_active')
-      .single();
-
-    if (error) {
-      setStatus(error.message);
-      return false;
-    }
+    const files = values.files ?? [];
+    const uploadedPaths: string[] = [];
+    let insertedAlertId: string | null = null;
 
     try {
-      await fetch('/api/push/alert', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-    } catch {
-      // ignore push failure
-    }
+      const { data, error } = await supabase
+        .from('alerts')
+        .insert({
+          message: trimmed,
+          priority: 'medium',
+          requires_ack: false,
+          created_by: currentUserId,
+          expires_at: expiresAt,
+          is_active: true,
+        })
+        .select('id, message, created_at, created_by, expires_at, is_active')
+        .single();
 
-    await loadInitial();
-    router.refresh();
-    return true;
+      if (error || !data) {
+        setStatus(error?.message || 'Unable to create alert.');
+        return false;
+      }
+
+      insertedAlertId = data.id;
+
+      if (files.length > 0) {
+        const attachmentRows: Array<{
+          alert_id: string;
+          storage_path: string;
+          file_name: string;
+          file_type: string | null;
+          sort_order: number;
+        }> = [];
+
+        for (const [index, file] of files.entries()) {
+          const storagePath = buildAlertStoragePath(file.name);
+          const { error: uploadError } = await supabase.storage.from(DOC_BUCKET).upload(storagePath, file, {
+            cacheControl: '3600',
+            upsert: false,
+          });
+
+          if (uploadError) throw uploadError;
+
+          uploadedPaths.push(storagePath);
+          attachmentRows.push({
+            alert_id: data.id,
+            storage_path: storagePath,
+            file_name: file.name,
+            file_type: file.type || null,
+            sort_order: index,
+          });
+        }
+
+        const { error: attachmentError } = await supabase.from('alert_attachments').insert(attachmentRows);
+        if (attachmentError) throw attachmentError;
+      }
+
+      try {
+        await fetch('/api/push/alert', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+      } catch {
+        // ignore push failure
+      }
+
+      await loadInitial();
+      router.refresh();
+      return true;
+    } catch (error) {
+      if (uploadedPaths.length > 0) {
+        await supabase.storage.from(DOC_BUCKET).remove(uploadedPaths);
+      }
+
+      if (insertedAlertId) {
+        await supabase.from('alerts').delete().eq('id', insertedAlertId);
+      }
+
+      setStatus(error instanceof Error ? error.message : 'Unable to post alert.');
+      return false;
+    }
   }
 
   async function createAlert() {
@@ -786,6 +917,7 @@ export function AdminClient() {
       message: alertMessage,
       expiresDate: alertExpiresDate,
       expiresTime: alertExpiresTime,
+      files: alertSelectedFiles,
     });
 
     if (!ok) return;
@@ -1172,7 +1304,7 @@ export function AdminClient() {
               Admin Controls
             </h2>
             <p style={{ marginTop: 8, marginBottom: 0, fontSize: 14, color: '#64748b' }}>
-              Manage alerts, uploaded documents, PT plans, resources, and users in one place.
+              Manage alerts, uploaded documents, PT plans, SOP's & resources, and users in one place.
             </p>
           </div>
 
@@ -1271,6 +1403,58 @@ export function AdminClient() {
                   </label>
                 </div>
 
+                <label style={labelStyle()}>
+                  <span style={fieldLabelTextStyle()}>Alert attachments (optional)</span>
+                  <input
+                    type="file"
+                    accept=".pdf,image/*,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+                    multiple
+                    onChange={(e) => {
+                      appendAlertFiles(e.target.files);
+                      e.currentTarget.value = '';
+                    }}
+                    style={{ ...inputStyle(), padding: 12 }}
+                  />
+                </label>
+
+                {alertSelectedFiles.length > 0 && (
+                  <div
+                    style={{
+                      borderRadius: 20,
+                      border: '1px solid rgba(15,23,42,0.08)',
+                      background: '#f8fafc',
+                      padding: 16,
+                      display: 'grid',
+                      gap: 8,
+                    }}
+                  >
+                    {alertSelectedFiles.map((file, index) => (
+                      <div
+                        key={`${file.name}-${index}`}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 12,
+                          flexWrap: 'wrap',
+                        }}
+                      >
+                        <div style={{ fontSize: 14, color: '#334155', overflowWrap: 'anywhere', flex: 1, minWidth: 0 }}>
+                          {alertSelectedFiles.length > 1 ? `${index + 1}. ` : ''}
+                          {file.name}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeAlertFile(index)}
+                          style={{ ...secondaryButtonStyle(), padding: '8px 12px' }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                   <button type="button" onClick={createAlert} style={buttonStyle(true)}>
                     Post Alert
@@ -1330,6 +1514,43 @@ export function AdminClient() {
                       Posted {formatDateTime(alert.created_at)}
                       {alert.expires_at ? ` • Expires ${formatDateTime(alert.expires_at)}` : ''}
                     </p>
+
+                    {sortAttachments(alert.alert_attachments).length > 0 && (
+                      <div style={{ marginTop: 14, display: 'grid', gap: 10 }}>
+                        {sortAttachments(alert.alert_attachments).map((attachment) => (
+                          <div
+                            key={attachment.id}
+                            style={{
+                              borderRadius: 18,
+                              background: '#ffffff',
+                              border: '1px solid rgba(15,23,42,0.08)',
+                              padding: 14,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: 12,
+                              flexWrap: 'wrap',
+                            }}
+                          >
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#0f172a', overflowWrap: 'anywhere' }}>
+                                {attachment.file_name}
+                              </p>
+                              <p style={{ marginTop: 6, marginBottom: 0, fontSize: 12, color: '#64748b' }}>
+                                {attachment.file_type || 'Unknown file type'}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => void openAttachment(attachment)}
+                              style={secondaryButtonStyle()}
+                            >
+                              View File
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
                     <div style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                       <button type="button" onClick={() => openReactivateAlert(alert)} style={secondaryButtonStyle()}>
@@ -1397,6 +1618,43 @@ export function AdminClient() {
                       {alert.expires_at ? ` • Expired ${formatDateTime(alert.expires_at)}` : ''}
                     </p>
 
+                    {sortAttachments(alert.alert_attachments).length > 0 && (
+                      <div style={{ marginTop: 14, display: 'grid', gap: 10 }}>
+                        {sortAttachments(alert.alert_attachments).map((attachment) => (
+                          <div
+                            key={attachment.id}
+                            style={{
+                              borderRadius: 18,
+                              background: '#ffffff',
+                              border: '1px solid rgba(15,23,42,0.08)',
+                              padding: 14,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: 12,
+                              flexWrap: 'wrap',
+                            }}
+                          >
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#0f172a', overflowWrap: 'anywhere' }}>
+                                {attachment.file_name}
+                              </p>
+                              <p style={{ marginTop: 6, marginBottom: 0, fontSize: 12, color: '#64748b' }}>
+                                {attachment.file_type || 'Unknown file type'}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => void openAttachment(attachment)}
+                              style={secondaryButtonStyle()}
+                            >
+                              View File
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     <div style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                       <button type="button" onClick={() => openReactivateAlert(alert)} style={secondaryButtonStyle()}>
                         Reactivate
@@ -1417,27 +1675,96 @@ export function AdminClient() {
           </>
         )}
 
-        {active === 'weekly_training' &&
-          renderDocumentUploader({
-            heading: 'Weekly Training Upload',
-            description: 'Upload the current weekly training document. Soldiers will just get a single Open Document button on their page.',
-            category: 'weekly_training',
-            currentPost: currentWeeklyPost,
-            titlePlaceholder: '',
-            buttonLabel: 'Upload Weekly Training',
-            showTitle: false,
-            showDescription: false,
-          })}
+        {active === 'weekly_training' && (
+          <>
+            {renderDocumentUploader({
+              heading: 'PLT Training Calendar Upload',
+              description: 'Upload one or more PLT training calendar files. Soldiers will see each upload as its own item, just like SOPs & resources.',
+              category: 'weekly_training',
+              currentPost: currentWeeklyPost,
+              allowMultiplePosts: true,
+              titlePlaceholder: 'Example: PLT Training Calendar - 15 APR 2026',
+              buttonLabel: 'Upload PLT Training Calendar',
+              showTitle: true,
+              showDescription: false,
+            })}
 
-        {active === 'long_range' &&
-          renderDocumentUploader({
-            heading: 'Long Range Calendar Upload',
-            description: 'Upload the current long-range calendar. Add all pages in order so soldiers can view the full packet.',
-            category: 'long_range',
-            currentPost: currentLongRangePost,
-            titlePlaceholder: 'Example: Long Range Calendar - April 2026',
-            buttonLabel: 'Upload Long Range Calendar',
-          })}
+            <section style={sectionStyle()}>
+              <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 24, fontWeight: 800 }}>Current PLT Training Calendar Posts</h2>
+              <div style={{ display: 'grid', gap: 12 }}>
+                {weeklyTrainingPosts.length === 0 && (
+                  <div
+                    style={{
+                      borderRadius: 22,
+                      background: '#f8fafc',
+                      padding: 16,
+                      border: '1px solid rgba(15,23,42,0.08)',
+                      fontSize: 14,
+                      color: '#475569',
+                    }}
+                  >
+                    No PLT training calendar posts uploaded yet.
+                  </div>
+                )}
+
+                {weeklyTrainingPosts.map((post) => (
+                  <DocumentPostCard
+                    key={post.id}
+                    post={post}
+                    onOpenAttachment={openAttachment}
+                    onDeletePost={deleteDocumentPost}
+                    busyDeleting={busyDeletingPostId === post.id}
+                  />
+                ))}
+              </div>
+            </section>
+          </>
+        )}
+
+        {active === 'long_range' && (
+          <>
+            {renderDocumentUploader({
+              heading: 'Long Range Calendar Upload',
+              description: 'Upload one or more long range calendar files. Soldiers will see each upload as its own item, just like SOPs & resources.',
+              category: 'long_range',
+              currentPost: currentLongRangePost,
+              allowMultiplePosts: true,
+              titlePlaceholder: 'Example: Long Range Calendar - April 2026',
+              buttonLabel: 'Upload Long Range Calendar',
+              showTitle: true,
+            })}
+
+            <section style={sectionStyle()}>
+              <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 24, fontWeight: 800 }}>Current Long Range Calendar Posts</h2>
+              <div style={{ display: 'grid', gap: 12 }}>
+                {longRangePosts.length === 0 && (
+                  <div
+                    style={{
+                      borderRadius: 22,
+                      background: '#f8fafc',
+                      padding: 16,
+                      border: '1px solid rgba(15,23,42,0.08)',
+                      fontSize: 14,
+                      color: '#475569',
+                    }}
+                  >
+                    No long range calendar posts uploaded yet.
+                  </div>
+                )}
+
+                {longRangePosts.map((post) => (
+                  <DocumentPostCard
+                    key={post.id}
+                    post={post}
+                    onOpenAttachment={openAttachment}
+                    onDeletePost={deleteDocumentPost}
+                    busyDeleting={busyDeletingPostId === post.id}
+                  />
+                ))}
+              </div>
+            </section>
+          </>
+        )}
 
         {active === 'cq_roster' && (
           <>
@@ -1682,8 +2009,8 @@ export function AdminClient() {
         {active === 'resources' && (
           <>
             {renderDocumentUploader({
-              heading: 'Resource Upload',
-              description: 'Upload SOPs, cherry packets, inspectable item references, or other standing documents. Resources stay listed by title and open fullscreen when tapped.',
+              heading: "SOP's & Resources Upload",
+              description: 'Upload SOPs, cherry packets, inspectable item references, or other standing documents. These stay listed by title and open fullscreen when tapped.',
               category: 'resource',
               allowMultiplePosts: true,
               titlePlaceholder: 'Example: Platoon SOP',
@@ -1693,7 +2020,7 @@ export function AdminClient() {
             })}
 
             <section style={sectionStyle()}>
-              <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 24, fontWeight: 800 }}>Current Resources</h2>
+              <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 24, fontWeight: 800 }}>Current SOP's & Resources</h2>
               <div style={{ display: 'grid', gap: 12 }}>
                 {resourcePosts.length === 0 && (
                   <div

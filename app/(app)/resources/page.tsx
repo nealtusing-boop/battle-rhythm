@@ -84,7 +84,7 @@ export default function ResourcesPage() {
           color: '#ffffff',
         }}
       >
-        Resources
+        SOP's & Resources
       </h1>
 
       {loading ? (

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode, type TouchEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/browser';
 import { Document, Page, pdfjs } from 'react-pdf';
@@ -29,6 +29,82 @@ type DocumentListItem = {
   title: string;
   attachments: Attachment[];
 };
+
+
+type PinchHandlers = {
+  onTouchStart: (event: TouchEvent<HTMLElement>) => void;
+  onTouchMove: (event: TouchEvent<HTMLElement>) => void;
+  onTouchEnd: () => void;
+  onTouchCancel: () => void;
+};
+
+function getTouchDistance(touches: TouchList) {
+  if (touches.length < 2) return 0;
+
+  const first = touches[0];
+  const second = touches[1];
+  const deltaX = first.clientX - second.clientX;
+  const deltaY = first.clientY - second.clientY;
+
+  return Math.hypot(deltaX, deltaY);
+}
+
+function usePinchZoom({
+  initialZoom = 1,
+  minZoom,
+  maxZoom,
+}: {
+  initialZoom?: number;
+  minZoom: number;
+  maxZoom: number;
+}) {
+  const [zoom, setZoom] = useState(initialZoom);
+  const pinchStartDistanceRef = useRef(0);
+  const pinchStartZoomRef = useRef(initialZoom);
+
+  function handleTouchStart(event: TouchEvent<HTMLElement>) {
+    if (event.touches.length < 2) return;
+
+    pinchStartDistanceRef.current = getTouchDistance(event.touches);
+    pinchStartZoomRef.current = zoom;
+  }
+
+  function handleTouchMove(event: TouchEvent<HTMLElement>) {
+    if (event.touches.length < 2 || pinchStartDistanceRef.current === 0) return;
+
+    event.preventDefault();
+    const nextDistance = getTouchDistance(event.touches);
+    const ratio = nextDistance / pinchStartDistanceRef.current;
+    const nextZoom = clamp(Number((pinchStartZoomRef.current * ratio).toFixed(2)), minZoom, maxZoom);
+    setZoom(nextZoom);
+  }
+
+  function clearPinchState() {
+    pinchStartDistanceRef.current = 0;
+    pinchStartZoomRef.current = zoom;
+  }
+
+  function zoomIn(step = 0.1) {
+    setZoom((current) => clamp(Number((current + step).toFixed(2)), minZoom, maxZoom));
+  }
+
+  function zoomOut(step = 0.1) {
+    setZoom((current) => clamp(Number((current - step).toFixed(2)), minZoom, maxZoom));
+  }
+
+  return {
+    zoom,
+    setZoom,
+    zoomIn,
+    zoomOut,
+    pinchHandlers: {
+      onTouchStart: handleTouchStart,
+      onTouchMove: handleTouchMove,
+      onTouchEnd: clearPinchState,
+      onTouchCancel: clearPinchState,
+    } satisfies PinchHandlers,
+  };
+}
 
 function getFileKind(fileName: string, fileType?: string | null): 'pdf' | 'image' | 'other' {
   const lowerName = fileName.toLowerCase();
@@ -134,7 +210,7 @@ function RotateHint() {
         color: '#64748b',
       }}
     >
-      Rotate your phone for the easiest view of landscape schedules.
+      Rotate your phone for the easiest view of landscape schedules. Pinch to zoom is enabled.
     </p>
   );
 }
@@ -249,7 +325,11 @@ function PDFPages({
   fileName: string;
 }) {
   const [numPages, setNumPages] = useState(0);
-  const [zoom, setZoom] = useState(1);
+  const { zoom, zoomIn, zoomOut, pinchHandlers } = usePinchZoom({
+    initialZoom: 1,
+    minZoom: 0.7,
+    maxZoom: 3,
+  });
   const [pageWidth, setPageWidth] = useState(1200);
 
   useEffect(() => {
@@ -302,30 +382,32 @@ function PDFPages({
           <div style={{ marginTop: 4, fontSize: 12, color: '#64748b' }}>
             {numPages > 0 ? `${numPages} page${numPages === 1 ? '' : 's'}` : 'Loading pages...'}
           </div>
+          <div style={{ marginTop: 4, fontSize: 12, color: '#64748b' }}>Pinch to zoom or use the controls.</div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button
-            type="button"
-            onClick={() => setZoom((current) => clamp(Number((current - 0.1).toFixed(2)), 0.7, 1.8))}
-            style={toolbarButtonStyle()}
-          >
+          <button type="button" onClick={() => zoomOut()} style={toolbarButtonStyle()}>
             −
           </button>
           <div style={{ minWidth: 58, textAlign: 'center', fontSize: 13, fontWeight: 800, color: '#374151' }}>
             {Math.round(zoom * 100)}%
           </div>
-          <button
-            type="button"
-            onClick={() => setZoom((current) => clamp(Number((current + 0.1).toFixed(2)), 0.7, 1.8))}
-            style={toolbarButtonStyle()}
-          >
+          <button type="button" onClick={() => zoomIn()} style={toolbarButtonStyle()}>
             +
           </button>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gap: 16, justifyContent: 'center', minWidth: 'fit-content' }}>
+      <div
+        {...pinchHandlers}
+        style={{
+          display: 'grid',
+          gap: 16,
+          justifyContent: 'center',
+          minWidth: 'fit-content',
+          touchAction: 'none',
+        }}
+      >
         <Document
           file={url}
           loading={<div style={{ color: '#374151', padding: 16 }}>Loading PDF...</div>}
@@ -364,7 +446,11 @@ function ImagePages({
   url: string;
   fileName: string;
 }) {
-  const [zoom, setZoom] = useState(1);
+  const { zoom, zoomIn, zoomOut, pinchHandlers } = usePinchZoom({
+    initialZoom: 1,
+    minZoom: 0.7,
+    maxZoom: 4,
+  });
 
   return (
     <div style={{ display: 'grid', gap: 12 }}>
@@ -385,39 +471,37 @@ function ImagePages({
           backdropFilter: 'blur(8px)',
         }}
       >
-        <div
-          style={{
-            fontSize: 15,
-            fontWeight: 800,
-            color: '#111827',
-            overflowWrap: 'anywhere',
-          }}
-        >
-          {fileName}
+        <div>
+          <div
+            style={{
+              fontSize: 15,
+              fontWeight: 800,
+              color: '#111827',
+              overflowWrap: 'anywhere',
+            }}
+          >
+            {fileName}
+          </div>
+          <div style={{ marginTop: 4, fontSize: 12, color: '#64748b' }}>Pinch to zoom or use the controls.</div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button
-            type="button"
-            onClick={() => setZoom((current) => clamp(Number((current - 0.1).toFixed(2)), 0.7, 2.5))}
-            style={toolbarButtonStyle()}
-          >
+          <button type="button" onClick={() => zoomOut()} style={toolbarButtonStyle()}>
             −
           </button>
           <div style={{ minWidth: 58, textAlign: 'center', fontSize: 13, fontWeight: 800, color: '#374151' }}>
             {Math.round(zoom * 100)}%
           </div>
-          <button
-            type="button"
-            onClick={() => setZoom((current) => clamp(Number((current + 0.1).toFixed(2)), 0.7, 2.5))}
-            style={toolbarButtonStyle()}
-          >
+          <button type="button" onClick={() => zoomIn()} style={toolbarButtonStyle()}>
             +
           </button>
         </div>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'center', minWidth: 'fit-content' }}>
+      <div
+        style={{ display: 'flex', justifyContent: 'center', minWidth: 'fit-content', touchAction: 'none' }}
+        {...pinchHandlers}
+      >
         <img
           src={url}
           alt={fileName}
