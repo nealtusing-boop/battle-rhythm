@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/browser';
-import type { Profile } from '@/lib/types';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
+import type { Profile } from '@/lib/types';
 
 const DOC_BUCKET = 'battle-rhythm-docs';
 
@@ -197,6 +197,7 @@ function getAttachmentKind(fileName: string, fileType?: string | null): 'pdf' | 
   return 'other';
 }
 
+
 function AttachmentPdfPreview({ url }: { url: string }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -231,7 +232,6 @@ function AttachmentPdfPreview({ url }: { url: string }) {
         overflow: 'auto',
         background: '#e5e7eb',
         WebkitOverflowScrolling: 'touch',
-        touchAction: 'pan-y',
       }}
     >
       <div style={{ display: 'grid', justifyContent: 'center', gap: 16, padding: 12, minHeight: '100%' }}>
