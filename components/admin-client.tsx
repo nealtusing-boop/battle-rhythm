@@ -576,13 +576,14 @@ export function AdminClient() {
   const [reactivationExpiresTime, setReactivationExpiresTime] = useState(defaultExpiry.time);
   const [busyDeletingAlertId, setBusyDeletingAlertId] = useState<string | null>(null);
   const [busyRepostingAlert, setBusyRepostingAlert] = useState(false);
-  const [busyPostingAlert, setBusyPostingAlert] = useState(false);
   const [busyUpdatingUserId, setBusyUpdatingUserId] = useState<string | null>(null);
 
   const [docTitle, setDocTitle] = useState('');
   const [docDescription, setDocDescription] = useState('');
   const [ptSubcategory, setPtSubcategory] = useState<PtSubcategory>('1st_squad');
   const [cqSubcategory, setCqSubcategory] = useState<CqRosterSubcategory>('cq');
+  const [ptWeekLabel, setPtWeekLabel] = useState('');
+  const [cqMonthLabel, setCqMonthLabel] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [alertSelectedFiles, setAlertSelectedFiles] = useState<File[]>([]);
   const [busyUploading, setBusyUploading] = useState(false);
@@ -737,6 +738,8 @@ export function AdminClient() {
   function resetDocumentForm() {
     setDocTitle('');
     setDocDescription('');
+    setPtWeekLabel('');
+    setCqMonthLabel('');
     selectedFilesRef.current = [];
     setSelectedFiles([]);
   }
@@ -942,7 +945,6 @@ export function AdminClient() {
     if (alertPostInFlightRef.current) return;
 
     alertPostInFlightRef.current = true;
-    setBusyPostingAlert(true);
     setStatus(null);
 
     try {
@@ -959,7 +961,6 @@ export function AdminClient() {
       setStatus('Alert posted.');
     } finally {
       alertPostInFlightRef.current = false;
-      setBusyPostingAlert(false);
     }
   }
 
@@ -996,23 +997,6 @@ export function AdminClient() {
 
     setBusyDeletingAlertId(null);
     setStatus('Alert deleted.');
-    await loadInitial();
-  }
-
-  async function setAlertActive(alertId: string, nextActive: boolean) {
-    setStatus(null);
-    setBusyDeletingAlertId(alertId);
-
-    const { error } = await supabase.from('alerts').update({ is_active: nextActive }).eq('id', alertId);
-
-    if (error) {
-      setStatus(error.message);
-      setBusyDeletingAlertId(null);
-      return;
-    }
-
-    setBusyDeletingAlertId(null);
-    setStatus(nextActive ? 'Alert reactivated.' : 'Alert made inactive.');
     await loadInitial();
   }
 
@@ -1521,8 +1505,8 @@ export function AdminClient() {
                 )}
 
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  <button type="button" onClick={createAlert} disabled={busyPostingAlert} style={{ ...buttonStyle(true), opacity: busyPostingAlert ? 0.7 : 1 }}>
-                    {busyPostingAlert ? 'Posting...' : 'Post Alert'}
+                  <button type="button" onClick={createAlert} disabled={alertPostInFlightRef.current} style={{ ...buttonStyle(true), opacity: alertPostInFlightRef.current ? 0.7 : 1 }}>
+                    {alertPostInFlightRef.current ? 'Posting...' : 'Post Alert'}
                   </button>
                   <button type="button" onClick={resetAlertForm} style={secondaryButtonStyle()}>
                     Clear
@@ -1618,13 +1602,8 @@ export function AdminClient() {
                     )}
 
                     <div style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                      <button
-                        type="button"
-                        onClick={() => void setAlertActive(alert.id, false)}
-                        disabled={busyDeletingAlertId === alert.id}
-                        style={{ ...secondaryButtonStyle(), opacity: busyDeletingAlertId === alert.id ? 0.7 : 1 }}
-                      >
-                        {busyDeletingAlertId === alert.id ? 'Updating...' : 'Make Inactive'}
+                      <button type="button" onClick={() => openReactivateAlert(alert)} style={secondaryButtonStyle()}>
+                        Repost
                       </button>
                       <button
                         type="button"
@@ -1841,48 +1820,24 @@ export function AdminClient() {
             <section style={sectionStyle()}>
               <h2 style={{ marginTop: 0, marginBottom: 10, fontSize: 24, fontWeight: 800 }}>CQ / Staff Duty Upload</h2>
               <p style={{ marginTop: 0, marginBottom: 18, fontSize: 14, color: '#64748b' }}>
-                 
+
               </p>
 
               <div style={{ display: 'grid', gap: 14 }}>
                 <label style={labelStyle()}>
                   <span style={fieldLabelTextStyle()}>Roster Type</span>
-                  <select
-                    value={cqSubcategory}
-                    onChange={(e) => setCqSubcategory(e.target.value as CqRosterSubcategory)}
-                    style={inputStyle()}
-                  >
+                  <select value={cqSubcategory} onChange={(e) => setCqSubcategory(e.target.value as CqRosterSubcategory)} style={inputStyle()}>
                     <option value="cq">CQ</option>
                     <option value="staff_duty">Staff Duty</option>
                   </select>
                 </label>
 
                 <label style={labelStyle()}>
-                  <span style={fieldLabelTextStyle()}>Title</span>
+                  <span style={fieldLabelTextStyle()}>Month</span>
                   <input
-                    value={docTitle}
-                    onChange={(e) => setDocTitle(e.target.value)}
-                    placeholder={cqSubcategory === 'cq' ? 'Example: CQ Roster' : 'Example: Staff Duty Roster'}
-                    style={inputStyle()}
-                  />
-                </label>
-
-                <label style={labelStyle()}>
-                  <span style={fieldLabelTextStyle()}>Description (optional)</span>
-                  <textarea
-                    value={docDescription}
-                    onChange={(e) => setDocDescription(e.target.value)}
-                    placeholder="Add an optional note for this upload."
-                    style={textareaStyle()}
-                  />
-                </label>
-
-                <label style={labelStyle()}>
-                  <span style={fieldLabelTextStyle()}>Week / Title</span>
-                  <input
-                    value={docTitle}
-                    onChange={(e) => setDocTitle(e.target.value)}
-                    placeholder="Example: Week of Apr 8, 2026"
+                    value={cqMonthLabel}
+                    onChange={(e) => setCqMonthLabel(e.target.value)}
+                    placeholder="Example: April 2026"
                     style={inputStyle()}
                   />
                 </label>
@@ -1893,7 +1848,11 @@ export function AdminClient() {
                     type="file"
                     accept=".pdf,image/*"
                     multiple
-                    onChange={(e) => { appendSelectedFiles(e.target.files); e.currentTarget.value = ''; }}
+                    onChange={(e) => {
+                      const files = Array.from(e.currentTarget.files ?? []);
+                      appendSelectedFiles(files);
+                      e.currentTarget.value = '';
+                    }}
                     style={{ ...inputStyle(), padding: 12 }}
                   />
                 </label>
@@ -1910,9 +1869,27 @@ export function AdminClient() {
                     }}
                   >
                     {selectedFiles.map((file, index) => (
-                      <div key={`${file.name}-${index}`} style={{ fontSize: 14, color: '#334155', overflowWrap: 'anywhere' }}>
-                        {selectedFiles.length > 1 ? `${index + 1}. ` : ''}
-                        {file.name}
+                      <div
+                        key={`${file.name}-${index}`}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 12,
+                          flexWrap: 'wrap',
+                        }}
+                      >
+                        <div style={{ fontSize: 14, color: '#334155', overflowWrap: 'anywhere', flex: 1, minWidth: 0 }}>
+                          {selectedFiles.length > 1 ? `${index + 1}. ` : ''}
+                          {file.name}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeSelectedFile(index)}
+                          style={{ ...secondaryButtonStyle(), padding: '8px 12px' }}
+                        >
+                          Remove
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -1925,8 +1902,8 @@ export function AdminClient() {
                       void uploadDocumentPost({
                         category: 'cq_roster',
                         subcategory: cqSubcategory,
-                        title: docTitle.trim() || (cqSubcategory === 'cq' ? 'CQ Roster' : 'Staff Duty Roster'),
-                        description: docDescription,
+                        title: cqMonthLabel.trim() || (cqSubcategory === 'cq' ? 'CQ Roster' : 'Staff Duty Roster'),
+                        description: '',
                         allowMultiplePosts: true,
                       })
                     }
@@ -1993,7 +1970,7 @@ export function AdminClient() {
             <section style={sectionStyle()}>
               <h2 style={{ marginTop: 0, marginBottom: 10, fontSize: 24, fontWeight: 800 }}>PT Plan Upload</h2>
               <p style={{ marginTop: 0, marginBottom: 18, fontSize: 14, color: '#64748b' }}>
-               
+
               </p>
 
               <div style={{ display: 'grid', gap: 14 }}>
@@ -2008,12 +1985,26 @@ export function AdminClient() {
                 </label>
 
                 <label style={labelStyle()}>
+                  <span style={fieldLabelTextStyle()}>Week</span>
+                  <input
+                    value={ptWeekLabel}
+                    onChange={(e) => setPtWeekLabel(e.target.value)}
+                    placeholder="Example: Week of 15 APR 2026"
+                    style={inputStyle()}
+                  />
+                </label>
+
+                <label style={labelStyle()}>
                   <span style={fieldLabelTextStyle()}>Files</span>
                   <input
                     type="file"
                     accept=".pdf,image/*"
                     multiple
-                    onChange={(e) => { appendSelectedFiles(e.target.files); e.currentTarget.value = ''; }}
+                    onChange={(e) => {
+                      const files = Array.from(e.currentTarget.files ?? []);
+                      appendSelectedFiles(files);
+                      e.currentTarget.value = '';
+                    }}
                     style={{ ...inputStyle(), padding: 12 }}
                   />
                 </label>
@@ -2030,9 +2021,27 @@ export function AdminClient() {
                     }}
                   >
                     {selectedFiles.map((file, index) => (
-                      <div key={`${file.name}-${index}`} style={{ fontSize: 14, color: '#334155' }}>
-                        {selectedFiles.length > 1 ? `${index + 1}. ` : ''}
-                        {file.name}
+                      <div
+                        key={`${file.name}-${index}`}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 12,
+                          flexWrap: 'wrap',
+                        }}
+                      >
+                        <div style={{ fontSize: 14, color: '#334155', overflowWrap: 'anywhere', flex: 1, minWidth: 0 }}>
+                          {selectedFiles.length > 1 ? `${index + 1}. ` : ''}
+                          {file.name}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeSelectedFile(index)}
+                          style={{ ...secondaryButtonStyle(), padding: '8px 12px' }}
+                        >
+                          Remove
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -2045,8 +2054,8 @@ export function AdminClient() {
                       void uploadDocumentPost({
                         category: 'pt_plan',
                         subcategory: ptSubcategory,
-                        title: docTitle.trim() || `${ptSubcategory.replace(/_/g, ' ')} PT Plan`,
-                        description: docDescription,
+                        title: ptWeekLabel.trim() || `${ptSubcategory.replace(/_/g, ' ')} PT Plan`,
+                        description: '',
                         allowMultiplePosts: true,
                       })
                     }
