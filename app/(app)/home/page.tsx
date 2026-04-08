@@ -1,3 +1,4 @@
+
 export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
@@ -314,12 +315,6 @@ export default async function HomePage() {
                 </div>
               );
             })}
-          </div>
-
-          <div style={{ marginTop: 16 }}>
-            <Link href="/alerts" style={actionButtonStyle(true)}>
-              Open Alerts
-            </Link>
           </div>
         </section>
 
