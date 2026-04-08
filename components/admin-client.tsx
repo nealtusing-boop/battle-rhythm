@@ -110,7 +110,6 @@ function buttonStyle(primary = false, danger = false) {
       background: 'linear-gradient(180deg, #dc2626 0%, #b91c1c 100%)',
       color: '#ffffff',
       boxShadow: '0 14px 28px rgba(220,38,38,0.22)',
-      transition: 'transform 0.12s ease, opacity 0.12s ease, box-shadow 0.12s ease',
     } as const;
   }
 
@@ -125,7 +124,6 @@ function buttonStyle(primary = false, danger = false) {
       background: 'linear-gradient(180deg, #8b1538 0%, #6f102d 100%)',
       color: '#ffffff',
       boxShadow: '0 14px 28px rgba(139,21,56,0.24)',
-      transition: 'transform 0.12s ease, opacity 0.12s ease, box-shadow 0.12s ease',
     } as const;
   }
 
@@ -138,7 +136,6 @@ function buttonStyle(primary = false, danger = false) {
     cursor: 'pointer',
     background: '#f8fafc',
     color: '#334155',
-    transition: 'transform 0.12s ease, opacity 0.12s ease, background 0.12s ease',
   } as const;
 }
 
@@ -162,51 +159,6 @@ function fieldLabelTextStyle() {
     letterSpacing: '0.02em',
   } as const;
 }
-
-function statusTone(status: string) {
-  const normalized = status.toLowerCase();
-  const isError =
-    normalized.includes('failed') ||
-    normalized.includes('unable') ||
-    normalized.includes('error') ||
-    normalized.includes('invalid') ||
-    normalized.includes('select at least') ||
-    normalized.includes('could not');
-
-  if (isError) {
-    return {
-      background: 'linear-gradient(180deg, #dc2626 0%, #b91c1c 100%)',
-      border: '1px solid rgba(255,255,255,0.08)',
-      color: '#ffffff',
-      label: 'Issue',
-    } as const;
-  }
-
-  return {
-    background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)',
-    border: '1px solid rgba(255,255,255,0.08)',
-    color: '#ffffff',
-    label: 'Status',
-  } as const;
-}
-
-function toastStyle(status: string) {
-  const tone = statusTone(status);
-  return {
-    position: 'fixed',
-    right: 20,
-    bottom: 20,
-    zIndex: 2000,
-    width: 'min(360px, calc(100vw - 32px))',
-    borderRadius: 20,
-    padding: 16,
-    background: tone.background,
-    border: tone.border,
-    boxShadow: '0 18px 44px rgba(15,23,42,0.30)',
-    color: tone.color,
-  } as const;
-}
-
 
 function formatDateTime(value: string | null | undefined) {
   if (!value) return 'Unknown date';
@@ -624,6 +576,7 @@ export function AdminClient() {
   const [reactivationExpiresTime, setReactivationExpiresTime] = useState(defaultExpiry.time);
   const [busyDeletingAlertId, setBusyDeletingAlertId] = useState<string | null>(null);
   const [busyRepostingAlert, setBusyRepostingAlert] = useState(false);
+  const [busyPostingAlert, setBusyPostingAlert] = useState(false);
   const [busyUpdatingUserId, setBusyUpdatingUserId] = useState<string | null>(null);
 
   const [docTitle, setDocTitle] = useState('');
@@ -989,6 +942,7 @@ export function AdminClient() {
     if (alertPostInFlightRef.current) return;
 
     alertPostInFlightRef.current = true;
+    setBusyPostingAlert(true);
     setStatus(null);
 
     try {
@@ -1005,6 +959,7 @@ export function AdminClient() {
       setStatus('Alert posted.');
     } finally {
       alertPostInFlightRef.current = false;
+      setBusyPostingAlert(false);
     }
   }
 
@@ -1072,14 +1027,25 @@ export function AdminClient() {
 
   async function openAttachment(attachment: DocumentAttachment) {
     setStatus(null);
+
+    const previewWindow = window.open('', '_blank');
+
     const { data, error } = await supabase.storage.from(DOC_BUCKET).createSignedUrl(attachment.storage_path, 60);
 
     if (error || !data?.signedUrl) {
+      if (previewWindow && !previewWindow.closed) {
+        previewWindow.close();
+      }
       setStatus(error?.message || 'Unable to open file.');
       return;
     }
 
-    window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+    if (previewWindow && !previewWindow.closed) {
+      previewWindow.location.href = data.signedUrl;
+      return;
+    }
+
+    window.location.href = data.signedUrl;
   }
 
   async function deactivateExistingPosts(category: DocumentCategory, subcategory: string | null) {
@@ -1353,7 +1319,7 @@ export function AdminClient() {
                 disabled={busyUploading}
                 style={{ ...buttonStyle(true), opacity: busyUploading ? 0.7 : 1 }}
               >
-                {busyUploading ? 'Uploading… please wait' : buttonLabel}
+                {busyUploading ? 'Uploading...' : buttonLabel}
               </button>
 
               <button type="button" onClick={resetDocumentForm} style={secondaryButtonStyle()}>
@@ -1433,7 +1399,6 @@ export function AdminClient() {
                     textAlign: 'center',
                     cursor: 'pointer',
                     boxShadow: activeTab ? '0 14px 28px rgba(139,21,56,0.24)' : 'none',
-                    transition: 'transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease',
                     whiteSpace: 'normal',
                     overflowWrap: 'anywhere',
                   }}
@@ -1446,24 +1411,9 @@ export function AdminClient() {
         </section>
 
         {status && (
-          <div style={toastStyle(status)}>
-            <div
-              style={{
-                display: 'inline-flex',
-                marginBottom: 8,
-                borderRadius: 999,
-                padding: '5px 9px',
-                background: 'rgba(255,255,255,0.14)',
-                fontSize: 11,
-                fontWeight: 800,
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-              }}
-            >
-              {statusTone(status).label}
-            </div>
-            <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.45, overflowWrap: 'anywhere' }}>{status}</div>
-          </div>
+          <section style={{ ...sectionStyle(), padding: 18 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#334155', overflowWrap: 'anywhere' }}>{status}</div>
+          </section>
         )}
 
         {active === 'alerts' && (
@@ -1565,8 +1515,13 @@ export function AdminClient() {
                 )}
 
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  <button type="button" onClick={createAlert} disabled={alertPostInFlightRef.current} style={{ ...buttonStyle(true), opacity: alertPostInFlightRef.current ? 0.7 : 1 }}>
-                    {alertPostInFlightRef.current ? 'Posting...' : 'Post Alert'}
+                  <button
+                    type="button"
+                    onClick={createAlert}
+                    disabled={busyPostingAlert}
+                    style={{ ...buttonStyle(true), opacity: busyPostingAlert ? 0.7 : 1 }}
+                  >
+                    {busyPostingAlert ? 'Posting...' : 'Post Alert'}
                   </button>
                   <button type="button" onClick={resetAlertForm} style={secondaryButtonStyle()}>
                     Clear
@@ -1961,7 +1916,7 @@ export function AdminClient() {
                     disabled={busyUploading}
                     style={{ ...buttonStyle(true), opacity: busyUploading ? 0.7 : 1 }}
                   >
-                    {busyUploading ? 'Uploading… please wait' : `Upload ${cqSubcategory === 'cq' ? 'CQ' : 'Staff Duty'}`}
+                    {busyUploading ? 'Uploading...' : `Upload ${cqSubcategory === 'cq' ? 'CQ' : 'Staff Duty'}`}
                   </button>
 
                   <button type="button" onClick={resetDocumentForm} style={secondaryButtonStyle()}>
@@ -2074,7 +2029,7 @@ export function AdminClient() {
                     disabled={busyUploading}
                     style={{ ...buttonStyle(true), opacity: busyUploading ? 0.7 : 1 }}
                   >
-                    {busyUploading ? 'Uploading… please wait' : 'Upload PT Plan'}
+                    {busyUploading ? 'Uploading...' : 'Upload PT Plan'}
                   </button>
                   <button type="button" onClick={resetDocumentForm} style={secondaryButtonStyle()}>
                     Clear
