@@ -136,7 +136,7 @@ function ghostButtonStyle(selected = false, disabled = false) {
     fontSize: 13,
     cursor: disabled ? 'default' : 'pointer',
     opacity: disabled ? 0.65 : 1,
-    transition: 'transform 0.12s ease, opacity 0.12s ease, background 0.12s ease',
+    transition: 'transform 0.12s ease, opacity 0.12s ease, background 0.12s ease, box-shadow 0.12s ease',
   } as const;
 }
 
@@ -152,7 +152,8 @@ function triggerButtonStyle(disabled = false) {
     cursor: disabled ? 'default' : 'pointer',
     width: 'fit-content',
     opacity: disabled ? 0.7 : 1,
-    transition: 'transform 0.12s ease, opacity 0.12s ease',
+    transition: 'transform 0.12s ease, opacity 0.12s ease, box-shadow 0.12s ease',
+    boxShadow: disabled ? 'none' : '0 10px 22px rgba(15,23,42,0.08)',
   } as const;
 }
 
@@ -197,7 +198,7 @@ function PDFPreview({ url }: { url: string }) {
       </div>
 
       <div style={{ display: 'grid', justifyContent: 'center', gap: 16, padding: 16 }}>
-        <Document file={url} onLoadSuccess={({ numPages: pages }) => setNumPages(pages)} loading="Loading PDF...">
+        <Document file={url} onLoadSuccess={({ numPages: pages }) => setNumPages(pages)} loading="Loading PDF…">
           {Array.from({ length: numPages }, (_, i) => (
             <Page key={i + 1} pageNumber={i + 1} scale={zoom} />
           ))}
@@ -357,7 +358,7 @@ export function DocumentAttachmentViewer({
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} style={triggerButtonStyle(isPreparing)} disabled={isPreparing}>
-        {isPreparing ? 'Preparing file...' : currentButtonLabel}
+        {isPreparing ? 'Preparing file…' : currentButtonLabel}
       </button>
 
       {open && (
@@ -397,7 +398,7 @@ export function DocumentAttachmentViewer({
               }}
             >
               <div style={{ minWidth: 0, fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
-                {selected?.file_name || (loading ? 'Preparing attachment...' : 'Attachments')}
+                {selected?.file_name || (loading ? 'Preparing attachment…' : 'Attachments')}
               </div>
 
               <button type="button" onClick={() => setOpen(false)} style={ghostButtonStyle()}>
@@ -433,8 +434,26 @@ export function DocumentAttachmentViewer({
               {loading ? (
                 <ViewerLoadingState label="Loading attachment preview..." />
               ) : error ? (
-                <div style={{ padding: 24, display: 'grid', gap: 12, color: '#475569' }}>
-                  <div>{error}</div>
+                <div
+                  style={{
+                    padding: 24,
+                    display: 'grid',
+                    gap: 14,
+                    color: '#475569',
+                    alignContent: 'start',
+                  }}
+                >
+                  <div
+                    style={{
+                      borderRadius: 18,
+                      padding: 16,
+                      background: '#f8fafc',
+                      border: '1px solid rgba(15,23,42,0.08)',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {error}
+                  </div>
                   <button type="button" onClick={() => setOpen(false)} style={triggerButtonStyle()}>
                     Close
                   </button>
