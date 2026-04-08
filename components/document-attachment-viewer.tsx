@@ -38,7 +38,7 @@ type PinchHandlers = {
   onTouchCancel: () => void;
 };
 
-function getTouchDistance(touches: TouchList) {
+function getTouchDistance(touches: TouchEvent<HTMLElement>['touches']) {
   if (touches.length < 2) return 0;
 
   const first = touches[0];
