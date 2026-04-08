@@ -59,6 +59,12 @@ type DocumentPost = {
   attachments?: DocumentAttachment[] | null;
 };
 
+type AttachmentPreviewState = {
+  name: string;
+  url: string;
+  kind: 'pdf' | 'image' | 'other';
+};
+
 function sectionStyle() {
   return {
     background: '#ffffff',
@@ -67,11 +73,9 @@ function sectionStyle() {
     boxShadow: '0 18px 44px rgba(15,23,42,0.14)',
     color: '#0f172a',
     width: '100%',
-    minWidth: 0,
     maxWidth: '100%',
     overflowX: 'hidden',
     boxSizing: 'border-box',
-    justifySelf: 'stretch',
   } as const;
 }
 
@@ -177,6 +181,152 @@ function formatDateTime(value: string | null | undefined) {
     minute: '2-digit',
     hour12: false,
   });
+}
+
+function getAttachmentKind(fileName: string, fileType?: string | null): 'pdf' | 'image' | 'other' {
+  const lowerName = fileName.toLowerCase();
+  const lowerType = (fileType || '').toLowerCase();
+
+  if (lowerType.includes('pdf') || lowerName.endsWith('.pdf')) return 'pdf';
+  if (lowerType.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(lowerName)) return 'image';
+  return 'other';
+}
+
+function AttachmentPreviewOverlay({
+  preview,
+  onClose,
+}: {
+  preview: AttachmentPreviewState;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1400,
+        background: 'rgba(15,23,42,0.72)',
+        backdropFilter: 'blur(6px)',
+        padding: 16,
+        display: 'grid',
+      }}
+    >
+      <div
+        onClick={(event) => event.stopPropagation()}
+        style={{
+          position: 'relative',
+          width: '100%',
+          maxWidth: 1100,
+          height: '100%',
+          margin: '0 auto',
+          borderRadius: 24,
+          overflow: 'hidden',
+          background: '#ffffff',
+          boxShadow: '0 24px 60px rgba(15,23,42,0.28)',
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 2,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            padding: 'max(14px, env(safe-area-inset-top)) 16px 14px 16px',
+            background: 'rgba(255,255,255,0.96)',
+            borderBottom: '1px solid rgba(15,23,42,0.08)',
+          }}
+        >
+          <div
+            style={{
+              minWidth: 0,
+              fontSize: 15,
+              fontWeight: 800,
+              color: '#0f172a',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {preview.name}
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+            <a
+              href={preview.url}
+              target="_blank"
+              rel="noreferrer"
+              style={{ ...secondaryButtonStyle(), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+            >
+              Open
+            </a>
+            <button type="button" onClick={onClose} style={secondaryButtonStyle()}>
+              Close
+            </button>
+          </div>
+        </div>
+
+        <div
+          style={{
+            position: 'absolute',
+            top: 74,
+            right: 0,
+            bottom: 0,
+            left: 0,
+            background: '#e5e7eb',
+            overflow: 'auto',
+          }}
+        >
+          {preview.kind === 'image' ? (
+            <div style={{ minHeight: '100%', display: 'grid', placeItems: 'center', padding: 12 }}>
+              <img
+                src={preview.url}
+                alt={preview.name}
+                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 12, background: '#ffffff' }}
+              />
+            </div>
+          ) : preview.kind === 'pdf' ? (
+            <iframe title={preview.name} src={preview.url} style={{ width: '100%', height: '100%', border: 'none', background: '#ffffff' }} />
+          ) : (
+            <div style={{ minHeight: '100%', display: 'grid', placeItems: 'center', padding: 24 }}>
+              <div style={{ display: 'grid', gap: 12, justifyItems: 'start' }}>
+                <div style={{ color: '#475569' }}>Preview is not available for this file type.</div>
+                <a
+                  href={preview.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ ...buttonStyle(true, false), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+                >
+                  Open File
+                </a>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function isAlertCurrentlyActive(alert: ExistingAlert) {
@@ -384,9 +534,6 @@ function DocumentPostCard({
         border: '1px solid rgba(15,23,42,0.08)',
         padding: '18px 18px',
         minWidth: 0,
-        width: '100%',
-        maxWidth: '100%',
-        boxSizing: 'border-box',
       }}
     >
       <div
@@ -489,19 +636,17 @@ function DocumentPostCard({
                   background: '#ffffff',
                   border: '1px solid rgba(15,23,42,0.08)',
                   padding: 14,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
+                  display: 'grid',
                   gap: 12,
-                  flexWrap: 'wrap',
                 }}
               >
-                <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ minWidth: 0 }}>
                   <p
                     style={{
                       margin: 0,
                       fontSize: 14,
                       fontWeight: 700,
+                      lineHeight: 1.45,
                       color: '#0f172a',
                       overflowWrap: 'anywhere',
                     }}
@@ -513,9 +658,11 @@ function DocumentPostCard({
                     {attachment.file_type || 'Unknown file type'}
                   </p>
                 </div>
-                <button type="button" onClick={() => void onOpenAttachment(attachment)} style={secondaryButtonStyle()}>
-                  View File
-                </button>
+                <div>
+                  <button type="button" onClick={() => void onOpenAttachment(attachment)} style={secondaryButtonStyle()}>
+                    View File
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -569,6 +716,7 @@ export function AdminClient() {
 
   const [active, setActive] = useState<TabId>('alerts');
   const [status, setStatus] = useState<string | null>(null);
+  const [attachmentPreview, setAttachmentPreview] = useState<AttachmentPreviewState | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [soldiers, setSoldiers] = useState<ManagedProfile[]>([]);
   const [existingAlerts, setExistingAlerts] = useState<ExistingAlert[]>([]);
@@ -1036,25 +1184,18 @@ export function AdminClient() {
 
   async function openAttachment(attachment: DocumentAttachment) {
     setStatus(null);
-
-    const popup = typeof window !== 'undefined' ? window.open('', '_blank', 'noopener,noreferrer') : null;
-
-    const { data, error } = await supabase.storage.from(DOC_BUCKET).createSignedUrl(attachment.storage_path, 60);
+    const { data, error } = await supabase.storage.from(DOC_BUCKET).createSignedUrl(attachment.storage_path, 60 * 60);
 
     if (error || !data?.signedUrl) {
-      if (popup && !popup.closed) {
-        popup.close();
-      }
       setStatus(error?.message || 'Unable to open file.');
       return;
     }
 
-    if (popup && !popup.closed) {
-      popup.location.href = data.signedUrl;
-      return;
-    }
-
-    window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+    setAttachmentPreview({
+      name: attachment.file_name,
+      url: data.signedUrl,
+      kind: getAttachmentKind(attachment.file_name, attachment.file_type),
+    });
   }
 
   async function deactivateExistingPosts(category: DocumentCategory, subcategory: string | null) {
@@ -1355,6 +1496,7 @@ export function AdminClient() {
 
   return (
     <>
+      {attachmentPreview && <AttachmentPreviewOverlay preview={attachmentPreview} onClose={() => setAttachmentPreview(null)} />}
       <div style={{ display: 'grid', gap: 20, width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
         <section style={sectionStyle()}>
           <div style={{ marginBottom: 16, minWidth: 0 }}>
