@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/browser';
-import { DocumentAttachmentViewer } from '@/components/document-attachment-viewer';
 import type { Profile } from '@/lib/types';
 
 const DOC_BUCKET = 'battle-rhythm-docs';
@@ -361,10 +360,12 @@ function ModalShell({
 
 function DocumentPostCard({
   post,
+  onOpenAttachment,
   onDeletePost,
   busyDeleting,
 }: {
   post: DocumentPost;
+  onOpenAttachment: (attachment: DocumentAttachment) => Promise<void>;
   onDeletePost: (post: DocumentPost) => Promise<void>;
   busyDeleting: boolean;
 }) {
@@ -504,11 +505,9 @@ function DocumentPostCard({
                     {attachment.file_type || 'Unknown file type'}
                   </p>
                 </div>
-                <DocumentAttachmentViewer
-                  attachments={[attachment]}
-                  emptyMessage="No attachment."
-                  buttonLabel="View File"
-                />
+                <button type="button" onClick={() => void onOpenAttachment(attachment)} style={secondaryButtonStyle()}>
+                  View File
+                </button>
               </div>
             ))}
           </div>
@@ -690,19 +689,19 @@ export function AdminClient() {
     [documentPosts]
   );
 
-  const currentCqRosterPost = useMemo(
+  const activeCqRosterPosts = useMemo(
     () =>
-      documentPosts.find(
-        (post) => post.category === 'cq_roster' && post.subcategory === 'cq' && post.is_active
-      ) ?? null,
+      documentPosts
+        .filter((post) => post.category === 'cq_roster' && post.subcategory === 'cq' && post.is_active)
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
     [documentPosts]
   );
 
-  const currentStaffDutyPost = useMemo(
+  const activeStaffDutyPosts = useMemo(
     () =>
-      documentPosts.find(
-        (post) => post.category === 'cq_roster' && post.subcategory === 'staff_duty' && post.is_active
-      ) ?? null,
+      documentPosts
+        .filter((post) => post.category === 'cq_roster' && post.subcategory === 'staff_duty' && post.is_active)
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
     [documentPosts]
   );
 
@@ -1000,6 +999,23 @@ export function AdminClient() {
     await loadInitial();
   }
 
+  async function setAlertActive(alertId: string, nextActive: boolean) {
+    setStatus(null);
+    setBusyDeletingAlertId(alertId);
+
+    const { error } = await supabase.from('alerts').update({ is_active: nextActive }).eq('id', alertId);
+
+    if (error) {
+      setStatus(error.message);
+      setBusyDeletingAlertId(null);
+      return;
+    }
+
+    setBusyDeletingAlertId(null);
+    setStatus(nextActive ? 'Alert reactivated.' : 'Alert made inactive.');
+    await loadInitial();
+  }
+
   async function updateUser(userId: string, updates: Partial<ManagedProfile>) {
     setStatus(null);
     setBusyUpdatingUserId(userId);
@@ -1026,6 +1042,17 @@ export function AdminClient() {
     await updateUser(profile.id, { role: nextRole as ManagedProfile['role'] });
   }
 
+  async function openAttachment(attachment: DocumentAttachment) {
+    setStatus(null);
+    const { data, error } = await supabase.storage.from(DOC_BUCKET).createSignedUrl(attachment.storage_path, 60);
+
+    if (error || !data?.signedUrl) {
+      setStatus(error?.message || 'Unable to open file.');
+      return;
+    }
+
+    window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+  }
 
   async function deactivateExistingPosts(category: DocumentCategory, subcategory: string | null) {
     let query = supabase
@@ -1313,6 +1340,7 @@ export function AdminClient() {
             <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 24, fontWeight: 800 }}>Current Active Post</h2>
             <DocumentPostCard
               post={currentPost}
+              onOpenAttachment={openAttachment}
               onDeletePost={deleteDocumentPost}
               busyDeleting={busyDeletingPostId === currentPost.id}
             />
@@ -1577,19 +1605,26 @@ export function AdminClient() {
                                 {attachment.file_type || 'Unknown file type'}
                               </p>
                             </div>
-                            <DocumentAttachmentViewer
-                              attachments={[attachment]}
-                              emptyMessage="No attachment."
-                              buttonLabel="View File"
-                            />
+                            <button
+                              type="button"
+                              onClick={() => void openAttachment(attachment)}
+                              style={secondaryButtonStyle()}
+                            >
+                              View File
+                            </button>
                           </div>
                         ))}
                       </div>
                     )}
 
                     <div style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                      <button type="button" onClick={() => openReactivateAlert(alert)} style={secondaryButtonStyle()}>
-                        Repost
+                      <button
+                        type="button"
+                        onClick={() => void setAlertActive(alert.id, false)}
+                        disabled={busyDeletingAlertId === alert.id}
+                        style={{ ...secondaryButtonStyle(), opacity: busyDeletingAlertId === alert.id ? 0.7 : 1 }}
+                      >
+                        {busyDeletingAlertId === alert.id ? 'Updating...' : 'Make Inactive'}
                       </button>
                       <button
                         type="button"
@@ -1678,11 +1713,13 @@ export function AdminClient() {
                                 {attachment.file_type || 'Unknown file type'}
                               </p>
                             </div>
-                            <DocumentAttachmentViewer
-                              attachments={[attachment]}
-                              emptyMessage="No attachment."
-                              buttonLabel="View File"
-                            />
+                            <button
+                              type="button"
+                              onClick={() => void openAttachment(attachment)}
+                              style={secondaryButtonStyle()}
+                            >
+                              View File
+                            </button>
                           </div>
                         ))}
                       </div>
@@ -1744,6 +1781,7 @@ export function AdminClient() {
                   <DocumentPostCard
                     key={post.id}
                     post={post}
+                    onOpenAttachment={openAttachment}
                     onDeletePost={deleteDocumentPost}
                     busyDeleting={busyDeletingPostId === post.id}
                   />
@@ -1788,6 +1826,7 @@ export function AdminClient() {
                   <DocumentPostCard
                     key={post.id}
                     post={post}
+                    onOpenAttachment={openAttachment}
                     onDeletePost={deleteDocumentPost}
                     busyDeleting={busyDeletingPostId === post.id}
                   />
@@ -1839,6 +1878,16 @@ export function AdminClient() {
                 </label>
 
                 <label style={labelStyle()}>
+                  <span style={fieldLabelTextStyle()}>Week / Title</span>
+                  <input
+                    value={docTitle}
+                    onChange={(e) => setDocTitle(e.target.value)}
+                    placeholder="Example: Week of Apr 8, 2026"
+                    style={inputStyle()}
+                  />
+                </label>
+
+                <label style={labelStyle()}>
                   <span style={fieldLabelTextStyle()}>Files</span>
                   <input
                     type="file"
@@ -1876,8 +1925,9 @@ export function AdminClient() {
                       void uploadDocumentPost({
                         category: 'cq_roster',
                         subcategory: cqSubcategory,
-                        title: cqSubcategory === 'cq' ? 'CQ Roster' : 'Staff Duty Roster',
-                        description: '',
+                        title: docTitle.trim() || (cqSubcategory === 'cq' ? 'CQ Roster' : 'Staff Duty Roster'),
+                        description: docDescription,
+                        allowMultiplePosts: true,
                       })
                     }
                     disabled={busyUploading}
@@ -1898,12 +1948,16 @@ export function AdminClient() {
               <div style={{ display: 'grid', gap: 16 }}>
                 <div style={{ display: 'grid', gap: 12 }}>
                   <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748b' }}>CQ</div>
-                  {currentCqRosterPost ? (
-                    <DocumentPostCard
-                      post={currentCqRosterPost}
-                      onDeletePost={deleteDocumentPost}
-                      busyDeleting={busyDeletingPostId === currentCqRosterPost.id}
-                    />
+                  {activeCqRosterPosts.length > 0 ? (
+                    activeCqRosterPosts.map((post) => (
+                      <DocumentPostCard
+                        key={post.id}
+                        post={post}
+                        onOpenAttachment={openAttachment}
+                        onDeletePost={deleteDocumentPost}
+                        busyDeleting={busyDeletingPostId === post.id}
+                      />
+                    ))
                   ) : (
                     <div style={{ borderRadius: 22, background: '#f8fafc', padding: 16, border: '1px solid rgba(15,23,42,0.08)', fontSize: 14, color: '#475569' }}>
                       No CQ roster posted.
@@ -1913,12 +1967,16 @@ export function AdminClient() {
 
                 <div style={{ display: 'grid', gap: 12 }}>
                   <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748b' }}>Staff Duty</div>
-                  {currentStaffDutyPost ? (
-                    <DocumentPostCard
-                      post={currentStaffDutyPost}
-                      onDeletePost={deleteDocumentPost}
-                      busyDeleting={busyDeletingPostId === currentStaffDutyPost.id}
-                    />
+                  {activeStaffDutyPosts.length > 0 ? (
+                    activeStaffDutyPosts.map((post) => (
+                      <DocumentPostCard
+                        key={post.id}
+                        post={post}
+                        onOpenAttachment={openAttachment}
+                        onDeletePost={deleteDocumentPost}
+                        busyDeleting={busyDeletingPostId === post.id}
+                      />
+                    ))
                   ) : (
                     <div style={{ borderRadius: 22, background: '#f8fafc', padding: 16, border: '1px solid rgba(15,23,42,0.08)', fontSize: 14, color: '#475569' }}>
                       No Staff Duty roster posted.
@@ -1987,8 +2045,9 @@ export function AdminClient() {
                       void uploadDocumentPost({
                         category: 'pt_plan',
                         subcategory: ptSubcategory,
-                        title: `${ptSubcategory.replace(/_/g, ' ')} PT Plan`,
-                        description: '',
+                        title: docTitle.trim() || `${ptSubcategory.replace(/_/g, ' ')} PT Plan`,
+                        description: docDescription,
+                        allowMultiplePosts: true,
                       })
                     }
                     disabled={busyUploading}
@@ -2025,6 +2084,7 @@ export function AdminClient() {
                   <DocumentPostCard
                     key={post.id}
                     post={post}
+                    onOpenAttachment={openAttachment}
                     onDeletePost={deleteDocumentPost}
                     busyDeleting={busyDeletingPostId === post.id}
                   />
@@ -2069,6 +2129,7 @@ export function AdminClient() {
                   <DocumentPostCard
                     key={post.id}
                     post={post}
+                    onOpenAttachment={openAttachment}
                     onDeletePost={deleteDocumentPost}
                     busyDeleting={busyDeletingPostId === post.id}
                   />
