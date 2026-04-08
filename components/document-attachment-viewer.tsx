@@ -166,21 +166,16 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-type TouchPoint = { clientX: number; clientY: number };
-type TouchCollection = TouchEvent<HTMLElement>['touches'] | ArrayLike<TouchPoint>;
+type TouchLike = { clientX: number; clientY: number };
+type TouchListLike = {
+  length: number;
+  item(index: number): TouchLike | null;
+};
 
-function getTouchAt(touches: TouchCollection, index: number): TouchPoint | null {
-  const withItem = touches as TouchCollection & { item?: (index: number) => TouchPoint | null };
-  if (typeof withItem.item === 'function') {
-    return withItem.item(index);
-  }
-  return touches[index] ?? null;
-}
-
-function getDistance(touches: TouchCollection) {
+function getDistance(touches: TouchListLike) {
   if (touches.length < 2) return 0;
-  const a = getTouchAt(touches, 0);
-  const b = getTouchAt(touches, 1);
+  const a = touches.item(0);
+  const b = touches.item(1);
   if (!a || !b) return 0;
   return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
 }
