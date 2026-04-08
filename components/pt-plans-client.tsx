@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import { DocumentAttachmentViewer } from '@/components/document-attachment-viewer';
-import type { DocumentAttachment, PTSquadValue } from '@/lib/document-data';
-import { PT_SQUADS } from '@/lib/document-data';
+import type { DocumentAttachment, PTSquadValue } from '@/lib/document-shared';
+import { PT_SQUADS } from '@/lib/document-shared';
 
 function squadButtonStyle(isSelected: boolean, disabled = false) {
   return {
