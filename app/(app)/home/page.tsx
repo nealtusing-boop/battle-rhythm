@@ -188,7 +188,7 @@ export default async function HomePage() {
             style={{
               marginTop: 14,
               marginBottom: 0,
-              fontSize: 42,
+              fontSize: 35,
               lineHeight: 1.02,
               fontWeight: 800,
               letterSpacing: '-0.05em',
