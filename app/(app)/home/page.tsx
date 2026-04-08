@@ -62,7 +62,7 @@ function getAlertTitle(message: string) {
 function cardStyle() {
   return {
     background: '#ffffff',
-    borderRadius: 30,
+    borderRadius: 28,
     padding: 22,
     boxShadow: '0 18px 44px rgba(15,23,42,0.14)',
     color: '#0f172a',
@@ -80,9 +80,10 @@ function actionButtonStyle(primary = true) {
       ? 'linear-gradient(180deg, #8b1538 0%, #6f102d 100%)'
       : '#f8fafc',
     color: primary ? '#ffffff' : '#0f172a',
-    padding: '12px 16px',
-    fontSize: 14,
-    fontWeight: 700,
+    padding: '14px 18px',
+    minHeight: 50,
+    fontSize: 15,
+    fontWeight: 800,
     textDecoration: 'none',
     boxShadow: primary ? '0 14px 30px rgba(139,21,56,0.22)' : 'none',
     whiteSpace: 'nowrap' as const,
@@ -168,16 +169,16 @@ export default async function HomePage() {
   const displayName = [profile?.rank, profile?.full_name].filter(Boolean).join(' ').trim() || 'Soldier';
 
   return (
-    <div style={{ display: 'grid', gap: 20, paddingBottom: 8 }}>
+    <div style={{ display: 'grid', gap: 20, paddingBottom: 10 }}>
       <section style={{ padding: '4px 2px 0 2px' }}>
         <div style={{ maxWidth: 620 }}>
           <p
             style={{
               margin: 0,
-              fontSize: 15,
+              fontSize: 12,
               fontWeight: 800,
               textTransform: 'uppercase',
-              letterSpacing: '0.18em',
+              letterSpacing: '0.16em',
               color: 'rgba(255,255,255,0.72)',
             }}
           >
@@ -188,7 +189,7 @@ export default async function HomePage() {
             style={{
               marginTop: 14,
               marginBottom: 0,
-              fontSize: 30,
+              fontSize: 28,
               lineHeight: 1.02,
               fontWeight: 800,
               letterSpacing: '-0.05em',
@@ -210,7 +211,7 @@ export default async function HomePage() {
             <h2
               style={{
                 margin: 0,
-                fontSize: 25,
+                fontSize: 22,
                 lineHeight: 1.02,
                 fontWeight: 800,
                 letterSpacing: '-0.04em',
@@ -238,7 +239,7 @@ export default async function HomePage() {
                 style={{
                   borderRadius: 22,
                   background: '#f8fafc',
-                  padding: 18,
+                  padding: 16,
                   border: '1px solid rgba(15,23,42,0.08)',
                   fontSize: 14,
                   color: '#475569',
@@ -257,7 +258,7 @@ export default async function HomePage() {
                   style={{
                     borderRadius: 22,
                     background: '#f8fafc',
-                    padding: 18,
+                    padding: 16,
                     border: '1px solid rgba(15,23,42,0.08)',
                     minWidth: 0,
                   }}
@@ -265,7 +266,7 @@ export default async function HomePage() {
                   <p
                     style={{
                       margin: 0,
-                      fontSize: 17,
+                      fontSize: 16,
                       fontWeight: 800,
                       color: '#0f172a',
                       overflowWrap: 'anywhere',
@@ -278,7 +279,7 @@ export default async function HomePage() {
                     style={{
                       marginTop: 8,
                       marginBottom: 0,
-                      fontSize: 13,
+                      fontSize: 12,
                       color: '#64748b',
                       overflowWrap: 'anywhere',
                     }}
@@ -305,7 +306,7 @@ export default async function HomePage() {
             <h2
               style={{
                 margin: 0,
-                fontSize: 25,
+                fontSize: 22,
                 lineHeight: 1.02,
                 fontWeight: 800,
                 letterSpacing: '-0.04em',
@@ -337,7 +338,7 @@ export default async function HomePage() {
                   color: 'inherit',
                   borderRadius: 22,
                   background: '#f8fafc',
-                  padding: 18,
+                  padding: 16,
                   border: '1px solid rgba(15,23,42,0.08)',
                   display: 'block',
                 }}
@@ -355,7 +356,7 @@ export default async function HomePage() {
                     <p
                       style={{
                         margin: 0,
-                        fontSize: 17,
+                        fontSize: 16,
                         fontWeight: 800,
                         color: '#0f172a',
                         overflowWrap: 'anywhere',

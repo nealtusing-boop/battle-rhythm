@@ -90,28 +90,18 @@ export function EnablePushCard() {
   }
 
   return (
-    <div style={{ display: 'grid', gap: 12 }}>
+    <div style={{ display: 'grid', gap: 14 }}>
       <h3
         style={{
           margin: 0,
-          fontSize: 18,
-          fontWeight: 700,
+          fontSize: 16,
+          fontWeight: 800,
+          letterSpacing: '-0.02em',
           color: '#0f172a',
         }}
       >
         Push Notifications
       </h3>
-
-      <p
-        style={{
-          margin: 0,
-          fontSize: 14,
-          lineHeight: 1.5,
-          color: '#64748b',
-        }}
-      >
-        
-      </p>
 
       {!enabled && (
         <button
@@ -120,13 +110,15 @@ export function EnablePushCard() {
           disabled={loading}
           style={{
             width: '100%',
+            minHeight: 56,
             borderRadius: 18,
             border: 'none',
             background: 'linear-gradient(180deg, #8b1538 0%, #6f102d 100%)',
             color: '#ffffff',
-            padding: '14px 18px',
-            fontSize: 12,
-            fontWeight: 700,
+            padding: '16px 18px',
+            fontSize: 15,
+            fontWeight: 800,
+            letterSpacing: '-0.01em',
             cursor: 'pointer',
             boxShadow: '0 14px 30px rgba(139,21,56,0.28)',
             opacity: loading ? 0.7 : 1,
@@ -142,9 +134,10 @@ export function EnablePushCard() {
             borderRadius: 18,
             background: '#ecfdf5',
             color: '#065f46',
-            padding: '12px 14px',
-            fontSize: 12,
-            fontWeight: 600,
+            padding: '16px 18px',
+            fontSize: 14,
+            lineHeight: 1.45,
+            fontWeight: 700,
           }}
         >
           Notifications enabled on this device.
@@ -155,7 +148,8 @@ export function EnablePushCard() {
         <p
           style={{
             margin: 0,
-            fontSize: 14,
+            fontSize: 13,
+            lineHeight: 1.5,
             color: '#64748b',
           }}
         >

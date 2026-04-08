@@ -62,7 +62,7 @@ export function AppShell({
             width: '100%',
             maxWidth: 760,
             margin: '0 auto',
-            padding: '12px 16px 14px 16px',
+            padding: '12px 16px 16px 16px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -94,8 +94,8 @@ export function AppShell({
           <div style={{ textAlign: 'center', flex: 1, minWidth: 0 }}>
             <div
               style={{
-                fontSize: 28,
-                fontWeight: 700,
+                fontSize: 26,
+                fontWeight: 800,
                 letterSpacing: '-0.03em',
                 lineHeight: 1,
                 color: '#ffffff',
@@ -108,8 +108,8 @@ export function AppShell({
             </div>
             <div
               style={{
-                marginTop: 6,
-                fontSize: 12,
+                marginTop: 8,
+                fontSize: 13,
                 fontWeight: 500,
                 color: 'rgba(255,255,255,0.78)',
                 whiteSpace: 'nowrap',

@@ -7,13 +7,13 @@ import { PT_SQUADS } from '@/lib/document-shared';
 
 function squadButtonStyle(isSelected: boolean, disabled = false) {
   return {
-    padding: '10px 12px',
-    borderRadius: 14,
+    padding: '12px 16px',
+    borderRadius: 16,
     border: isSelected ? '1px solid #0f172a' : '1px solid rgba(15,23,42,0.10)',
     background: isSelected ? '#0f172a' : '#f8fafc',
     color: isSelected ? '#ffffff' : '#0f172a',
     fontWeight: 800,
-    fontSize: 13,
+    fontSize: 14,
     cursor: disabled ? 'default' : 'pointer',
     opacity: disabled ? 0.7 : 1,
     transition: 'transform 0.12s ease, opacity 0.12s ease, background 0.12s ease',

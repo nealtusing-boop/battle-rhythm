@@ -25,34 +25,40 @@ const squads = [
   { label: 'WPNS Squad', value: 'wpns_squad' },
 ] as const;
 
-function pageShellStyle() {
+function cardStyle() {
   return {
-    padding: 16,
-    display: 'grid',
-    gap: 16,
+    borderRadius: 28,
+    background: '#ffffff',
+    padding: 22,
+    boxShadow: '0 18px 40px rgba(15,23,42,0.14)',
+    color: '#0f172a',
   } as const;
 }
 
-function cardStyle() {
+function pageTitleStyle() {
   return {
-    borderRadius: 30,
-    background: '#ffffff',
-    padding: 22,
-    boxShadow: '0 18px 44px rgba(15,23,42,0.14)',
-    color: '#0f172a',
+    margin: 0,
+    fontSize: 28,
+    lineHeight: 1.04,
+    fontWeight: 800,
+    letterSpacing: '-0.05em',
+    color: '#ffffff',
   } as const;
 }
 
 function squadButtonStyle(isSelected: boolean) {
   return {
-    padding: '10px 12px',
-    borderRadius: 14,
+    padding: '12px 16px',
+    minHeight: 48,
+    borderRadius: 16,
     border: isSelected ? '1px solid #0f172a' : '1px solid rgba(15,23,42,0.10)',
     background: isSelected ? '#0f172a' : '#f8fafc',
     color: isSelected ? '#ffffff' : '#0f172a',
     fontWeight: 800,
-    fontSize: 13,
+    fontSize: 14,
+    letterSpacing: '-0.02em',
     cursor: 'pointer',
+    whiteSpace: 'nowrap' as const,
   } as const;
 }
 
@@ -108,15 +114,13 @@ export default function PTPlansPage() {
   }, [selectedSquad]);
 
   return (
-    <div style={pageShellStyle()}>
-      <section>
-        <h1 style={{ margin: 0, fontSize: 30, fontWeight: 800, letterSpacing: '-0.05em', color: '#ffffff' }}>
-          PT Plans
-        </h1>
+    <div style={{ display: 'grid', gap: 18 }}>
+      <section style={{ padding: '4px 2px 0 2px' }}>
+        <h1 style={{ ...pageTitleStyle(), maxWidth: 620 }}>PT Plans</h1>
       </section>
 
       <section style={cardStyle()}>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 18 }}>
           {squads.map((squad) => {
             const isSelected = selectedSquad === squad.value;
 
@@ -134,7 +138,7 @@ export default function PTPlansPage() {
         </div>
 
         {loading ? (
-          <p style={{ color: '#475569', margin: 0 }}>Loading...</p>
+          <p style={{ color: '#475569', margin: 0, fontSize: 14 }}>Loading...</p>
         ) : (
           <DocumentAttachmentListViewer
             items={posts}

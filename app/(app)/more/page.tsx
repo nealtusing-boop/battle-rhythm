@@ -13,6 +13,37 @@ type ProfileRow = {
   role: string | null;
 };
 
+function pageTitleStyle() {
+  return {
+    margin: 0,
+    fontSize: 28,
+    lineHeight: 1.04,
+    fontWeight: 800,
+    letterSpacing: '-0.05em',
+    color: '#ffffff',
+  } as const;
+}
+
+function cardStyle() {
+  return {
+    background: '#ffffff',
+    borderRadius: 28,
+    padding: 22,
+    boxShadow: '0 18px 40px rgba(15,23,42,0.14)',
+    color: '#0f172a',
+  } as const;
+}
+
+function sectionTitleStyle() {
+  return {
+    margin: 0,
+    fontSize: 18,
+    fontWeight: 800,
+    letterSpacing: '-0.03em',
+    color: '#0f172a',
+  } as const;
+}
+
 export default async function MorePage() {
   const supabase = await createClient();
 
@@ -39,39 +70,11 @@ export default async function MorePage() {
 
   return (
     <div style={{ display: 'grid', gap: 20 }}>
-      <section>
-        <h1
-          style={{
-            margin: 0,
-            fontSize: 35,
-            fontWeight: 800,
-            letterSpacing: '-0.05em',
-            color: '#ffffff',
-          }}
-        >
-          More
-        </h1>
-        <p
-          style={{
-            marginTop: 12,
-            marginBottom: 0,
-            fontSize: 15,
-            color: 'rgba(255,255,255,0.82)',
-          }}
-        >
-          
-        </p>
+      <section style={{ padding: '4px 2px 0 2px' }}>
+        <h1 style={pageTitleStyle()}>More</h1>
       </section>
 
-      <section
-        style={{
-          background: '#ffffff',
-          borderRadius: 30,
-          padding: 22,
-          boxShadow: '0 18px 44px rgba(15,23,42,0.14)',
-          color: '#0f172a',
-        }}
-      >
+      <section style={cardStyle()}>
         <div
           style={{
             display: 'flex',
@@ -80,7 +83,7 @@ export default async function MorePage() {
             gap: 12,
           }}
         >
-          <div>
+          <div style={{ minWidth: 0 }}>
             <div
               style={{
                 fontSize: 12,
@@ -97,9 +100,10 @@ export default async function MorePage() {
               style={{
                 marginTop: 10,
                 marginBottom: 0,
-                fontSize: 20,
+                fontSize: 18,
+                lineHeight: 1.2,
                 fontWeight: 800,
-                letterSpacing: '-0.04em',
+                letterSpacing: '-0.03em',
                 color: '#0f172a',
               }}
             >
@@ -108,27 +112,14 @@ export default async function MorePage() {
 
             <p
               style={{
-                marginTop: 8,
+                marginTop: 10,
                 marginBottom: 0,
-                fontSize: 12,
+                fontSize: 14,
                 color: '#64748b',
               }}
             >
               Role: {profile?.role ?? 'user'}
             </p>
-
-            {user?.email && (
-              <p
-                style={{
-                  marginTop: 4,
-                  marginBottom: 0,
-                  fontSize: 12,
-                  color: '#64748b',
-                }}
-              >
-                
-              </p>
-            )}
           </div>
 
           <div
@@ -136,10 +127,10 @@ export default async function MorePage() {
               borderRadius: 999,
               background: isAdmin ? '#ede9fe' : '#f8fafc',
               color: isAdmin ? '#6d28d9' : '#475569',
-              padding: '7px 12px',
-              fontSize: 12,
+              padding: '10px 14px',
+              fontSize: 11,
               fontWeight: 800,
-              letterSpacing: '0.12em',
+              letterSpacing: '0.14em',
               textTransform: 'uppercase',
               whiteSpace: 'nowrap',
             }}
@@ -149,15 +140,7 @@ export default async function MorePage() {
         </div>
       </section>
 
-      <section
-        style={{
-          background: '#ffffff',
-          borderRadius: 30,
-          padding: 22,
-          boxShadow: '0 18px 44px rgba(15,23,42,0.14)',
-          color: '#0f172a',
-        }}
-      >
+      <section style={cardStyle()}>
         <div
           style={{
             display: 'flex',
@@ -167,22 +150,12 @@ export default async function MorePage() {
           }}
         >
           <Bell size={18} color="#8b1538" />
-          <h2
-            style={{
-              margin: 0,
-              fontSize: 20,
-              fontWeight: 800,
-              letterSpacing: '-0.03em',
-              color: '#0f172a',
-            }}
-          >
-            Notifications
-          </h2>
+          <h2 style={sectionTitleStyle()}>Notifications</h2>
         </div>
 
         <div
           style={{
-            borderRadius: 22,
+            borderRadius: 20,
             background: '#f8fafc',
             padding: 16,
             border: '1px solid rgba(15,23,42,0.08)',
@@ -193,15 +166,7 @@ export default async function MorePage() {
       </section>
 
       {isAdmin && (
-        <section
-          style={{
-            background: '#ffffff',
-            borderRadius: 30,
-            padding: 22,
-            boxShadow: '0 18px 44px rgba(15,23,42,0.14)',
-            color: '#0f172a',
-          }}
-        >
+        <section style={cardStyle()}>
           <div
             style={{
               display: 'flex',
@@ -211,17 +176,7 @@ export default async function MorePage() {
             }}
           >
             <Shield size={18} color="#8b1538" />
-            <h2
-              style={{
-                margin: 0,
-                fontSize: 20,
-                fontWeight: 800,
-                letterSpacing: '-0.03em',
-                color: '#0f172a',
-              }}
-            >
-              Admin Access
-            </h2>
+            <h2 style={sectionTitleStyle()}>Admin Access</h2>
           </div>
 
           <Link
@@ -231,32 +186,24 @@ export default async function MorePage() {
               alignItems: 'center',
               justifyContent: 'space-between',
               gap: 12,
-              borderRadius: 22,
+              borderRadius: 20,
               background: 'linear-gradient(180deg, #fff1f2 0%, #ffffff 100%)',
-              padding: '16px 18px',
+              padding: '18px 18px',
               border: '1px solid #ffe4e6',
               textDecoration: 'none',
               color: '#0f172a',
             }}
           >
-            <div>
+            <div style={{ minWidth: 0 }}>
               <div
                 style={{
-                  fontSize: 12,
-                  fontWeight: 700,
+                  fontSize: 15,
+                  fontWeight: 800,
+                  letterSpacing: '-0.02em',
                   color: '#0f172a',
                 }}
               >
                 Open Admin Panel
-              </div>
-              <div
-                style={{
-                  marginTop: 6,
-                  fontSize: 12,
-                  color: '#64748b',
-                }}
-              >
-                
               </div>
             </div>
 
@@ -265,20 +212,12 @@ export default async function MorePage() {
         </section>
       )}
 
-      <section
-        style={{
-          background: '#ffffff',
-          borderRadius: 30,
-          padding: 22,
-          boxShadow: '0 18px 44px rgba(15,23,42,0.14)',
-          color: '#0f172a',
-        }}
-      >
+      <section style={cardStyle()}>
         <h2
           style={{
             marginTop: 0,
             marginBottom: 16,
-            fontSize: 20,
+            fontSize: 18,
             fontWeight: 800,
             letterSpacing: '-0.03em',
             color: '#0f172a',
@@ -289,7 +228,7 @@ export default async function MorePage() {
 
         <div
           style={{
-            borderRadius: 22,
+            borderRadius: 20,
             background: '#f8fafc',
             padding: 16,
             border: '1px solid rgba(15,23,42,0.08)',

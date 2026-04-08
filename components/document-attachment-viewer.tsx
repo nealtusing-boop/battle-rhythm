@@ -129,7 +129,7 @@ function ghostButtonStyle(selected = false, disabled = false) {
   return {
     border: selected ? '1px solid #0f172a' : '1px solid rgba(15,23,42,0.12)',
     borderRadius: 12,
-    padding: '10px 14px',
+    padding: '11px 14px',
     background: selected ? '#0f172a' : '#ffffff',
     color: selected ? '#ffffff' : '#0f172a',
     fontWeight: 700,
@@ -144,11 +144,11 @@ function triggerButtonStyle(disabled = false) {
   return {
     border: '1px solid rgba(15,23,42,0.12)',
     borderRadius: 14,
-    padding: '12px 16px',
+    padding: '14px 18px',
     background: '#ffffff',
     color: '#0f172a',
     fontWeight: 800,
-    fontSize: 14,
+    fontSize: 15,
     cursor: disabled ? 'default' : 'pointer',
     width: 'fit-content',
     opacity: disabled ? 0.7 : 1,
@@ -175,7 +175,7 @@ function PDFPreview({ url }: { url: string }) {
       <div
         style={{
           position: 'sticky',
-          top: 0,
+          top: 'env(safe-area-inset-top)',
           zIndex: 2,
           display: 'flex',
           justifyContent: 'flex-end',
@@ -215,7 +215,7 @@ function ImagePreview({ url, fileName }: { url: string; fileName: string }) {
       <div
         style={{
           position: 'sticky',
-          top: 0,
+          top: 'env(safe-area-inset-top)',
           zIndex: 2,
           display: 'flex',
           justifyContent: 'flex-end',
@@ -399,7 +399,7 @@ export function DocumentAttachmentViewer({
                 borderBottom: '1px solid rgba(15,23,42,0.08)',
               }}
             >
-              <div style={{ minWidth: 0, fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
+              <div style={{ minWidth: 0, fontSize: 15, fontWeight: 800, letterSpacing: '-0.02em', color: '#0f172a' }}>
                 {selected?.file_name || (loading ? 'Preparing attachment...' : 'Attachments')}
               </div>
 
@@ -498,7 +498,7 @@ export function DocumentAttachmentListViewer({
               gap: 12,
             }}
           >
-            <div style={{ color: '#0f172a', fontWeight: 800, fontSize: 16 }}>
+            <div style={{ color: '#0f172a', fontWeight: 800, fontSize: 15, letterSpacing: '-0.02em' }}>
               {item.title || 'Document'}
             </div>
 

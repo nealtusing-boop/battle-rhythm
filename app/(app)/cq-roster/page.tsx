@@ -19,33 +19,36 @@ type RosterPost = {
   attachments: Attachment[];
 };
 
-function pageShellStyle() {
+function cardStyle() {
   return {
-    padding: 16,
-    display: 'grid',
-    gap: 16,
+    borderRadius: 28,
+    background: '#ffffff',
+    padding: 22,
+    boxShadow: '0 18px 40px rgba(15,23,42,0.14)',
+    color: '#0f172a',
   } as const;
 }
 
-function cardStyle() {
+function pageTitleStyle() {
   return {
-    borderRadius: 30,
-    background: '#ffffff',
-    padding: 22,
-    boxShadow: '0 18px 44px rgba(15,23,42,0.14)',
-    color: '#0f172a',
+    margin: 0,
+    fontSize: 28,
+    lineHeight: 1.04,
+    fontWeight: 800,
+    letterSpacing: '-0.05em',
+    color: '#ffffff',
   } as const;
 }
 
 function sectionLabelStyle() {
   return {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: 800,
-    letterSpacing: '0.08em',
+    letterSpacing: '0.14em',
     textTransform: 'uppercase' as const,
     color: '#64748b',
     margin: 0,
-  };
+  } as const;
 }
 
 export default function CQRosterPage() {
@@ -103,18 +106,16 @@ export default function CQRosterPage() {
   }, []);
 
   return (
-    <div style={pageShellStyle()}>
-      <section>
-        <h1 style={{ margin: 0, fontSize: 30, fontWeight: 800, letterSpacing: '-0.05em', color: '#ffffff' }}>
-          CQ / Staff Duty Roster
-        </h1>
+    <div style={{ display: 'grid', gap: 18 }}>
+      <section style={{ padding: '4px 2px 0 2px' }}>
+        <h1 style={{ ...pageTitleStyle(), maxWidth: 620 }}>CQ / Staff Duty Roster</h1>
       </section>
 
       <section style={cardStyle()}>
         {loading ? (
-          <p style={{ color: '#475569', margin: 0 }}>Loading...</p>
+          <p style={{ color: '#475569', margin: 0, fontSize: 14 }}>Loading...</p>
         ) : (
-          <div style={{ display: 'grid', gap: 18 }}>
+          <div style={{ display: 'grid', gap: 20 }}>
             <div style={{ display: 'grid', gap: 10 }}>
               <p style={sectionLabelStyle()}>CQ</p>
               <DocumentAttachmentListViewer

@@ -62,7 +62,7 @@ type DocumentPost = {
 function sectionStyle() {
   return {
     background: '#ffffff',
-    borderRadius: 30,
+    borderRadius: 28,
     padding: 22,
     boxShadow: '0 18px 44px rgba(15,23,42,0.14)',
     color: '#0f172a',
@@ -103,8 +103,9 @@ function buttonStyle(primary = false, danger = false) {
     return {
       border: 'none',
       borderRadius: 18,
-      padding: '12px 16px',
-      fontSize: 14,
+      padding: '14px 18px',
+      minHeight: 50,
+      fontSize: 15,
       fontWeight: 800,
       cursor: 'pointer',
       background: 'linear-gradient(180deg, #dc2626 0%, #b91c1c 100%)',
@@ -117,8 +118,9 @@ function buttonStyle(primary = false, danger = false) {
     return {
       border: 'none',
       borderRadius: 18,
-      padding: '12px 16px',
-      fontSize: 14,
+      padding: '14px 18px',
+      minHeight: 50,
+      fontSize: 15,
       fontWeight: 800,
       cursor: 'pointer',
       background: 'linear-gradient(180deg, #8b1538 0%, #6f102d 100%)',
@@ -130,8 +132,9 @@ function buttonStyle(primary = false, danger = false) {
   return {
     border: '1px solid rgba(15,23,42,0.10)',
     borderRadius: 18,
-    padding: '12px 16px',
-    fontSize: 14,
+    padding: '14px 18px',
+    minHeight: 50,
+    fontSize: 15,
     fontWeight: 800,
     cursor: 'pointer',
     background: '#f8fafc',
@@ -156,7 +159,7 @@ function fieldLabelTextStyle() {
     fontSize: 13,
     fontWeight: 800,
     color: '#334155',
-    letterSpacing: '0.02em',
+    letterSpacing: '0.04em',
   } as const;
 }
 
@@ -316,7 +319,7 @@ function ModalShell({
           overflowY: 'auto',
           overflowX: 'hidden',
           background: '#ffffff',
-          borderRadius: 30,
+          borderRadius: 28,
           padding: 22,
           boxShadow: '0 24px 60px rgba(15,23,42,0.28)',
           boxSizing: 'border-box',
@@ -333,7 +336,7 @@ function ModalShell({
           }}
         >
           <div style={{ minWidth: 0 }}>
-            <h2 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: '#0f172a' }}>{title}</h2>
+            <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#0f172a' }}>{title}</h2>
             <p
               style={{
                 marginTop: 8,
@@ -429,7 +432,7 @@ function DocumentPostCard({
           <p
             style={{
               margin: 0,
-              fontSize: 18,
+              fontSize: 16,
               fontWeight: 800,
               color: '#0f172a',
               overflowWrap: 'anywhere',
@@ -1211,7 +1214,7 @@ export function AdminClient() {
     return (
       <>
         <section style={sectionStyle()}>
-          <h2 style={{ marginTop: 0, marginBottom: 10, fontSize: 24, fontWeight: 800 }}>{heading}</h2>
+          <h2 style={{ marginTop: 0, marginBottom: 10, fontSize: 22, fontWeight: 800 }}>{heading}</h2>
           <p style={{ marginTop: 0, marginBottom: 18, fontSize: 14, color: '#64748b' }}>{description}</p>
 
           <div style={{ display: 'grid', gap: 14 }}>
@@ -1321,7 +1324,7 @@ export function AdminClient() {
 
         {!allowMultiplePosts && currentPost && (
           <section style={sectionStyle()}>
-            <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 24, fontWeight: 800 }}>Current Active Post</h2>
+            <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 22, fontWeight: 800 }}>Current Active Post</h2>
             <DocumentPostCard
               post={currentPost}
               onOpenAttachment={openAttachment}
@@ -1342,7 +1345,7 @@ export function AdminClient() {
             <h2
               style={{
                 margin: 0,
-                fontSize: 30,
+                fontSize: 28,
                 fontWeight: 800,
                 letterSpacing: '-0.04em',
                 color: '#0f172a',
@@ -1409,7 +1412,7 @@ export function AdminClient() {
         {active === 'alerts' && (
           <>
             <section style={sectionStyle()}>
-              <h2 style={{ marginTop: 0, marginBottom: 10, fontSize: 24, fontWeight: 800 }}>Post Alert</h2>
+              <h2 style={{ marginTop: 0, marginBottom: 10, fontSize: 22, fontWeight: 800 }}>Post Alert</h2>
               <p style={{ marginTop: 0, marginBottom: 18, fontSize: 14, color: '#64748b' }}>
                  
               </p>
@@ -1516,7 +1519,7 @@ export function AdminClient() {
             </section>
 
             <section style={sectionStyle()}>
-              <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 24, fontWeight: 800 }}>Active Alerts</h2>
+              <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 22, fontWeight: 800 }}>Active Alerts</h2>
 
               <div style={{ display: 'grid', gap: 12 }}>
                 {activeAlerts.length === 0 && (
@@ -1548,7 +1551,7 @@ export function AdminClient() {
                     <p
                       style={{
                         margin: 0,
-                        fontSize: 17,
+                        fontSize: 16,
                         fontWeight: 700,
                         color: '#0f172a',
                         lineHeight: 1.5,
@@ -1620,7 +1623,7 @@ export function AdminClient() {
             </section>
 
             <section style={sectionStyle()}>
-              <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 24, fontWeight: 800 }}>Inactive / Expired Alerts</h2>
+              <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 22, fontWeight: 800 }}>Inactive / Expired Alerts</h2>
 
               <div style={{ display: 'grid', gap: 12 }}>
                 {inactiveAlerts.length === 0 && (
@@ -1652,7 +1655,7 @@ export function AdminClient() {
                     <p
                       style={{
                         margin: 0,
-                        fontSize: 17,
+                        fontSize: 16,
                         fontWeight: 700,
                         color: '#0f172a',
                         lineHeight: 1.5,
@@ -1739,7 +1742,7 @@ export function AdminClient() {
             })}
 
             <section style={sectionStyle()}>
-              <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 24, fontWeight: 800 }}>Current PLT Training Calendar Posts</h2>
+              <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 22, fontWeight: 800 }}>Current PLT Training Calendar Posts</h2>
               <div style={{ display: 'grid', gap: 12 }}>
                 {weeklyTrainingPosts.length === 0 && (
                   <div
@@ -1784,7 +1787,7 @@ export function AdminClient() {
             })}
 
             <section style={sectionStyle()}>
-              <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 24, fontWeight: 800 }}>Current Long Range Calendar Posts</h2>
+              <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 22, fontWeight: 800 }}>Current Long Range Calendar Posts</h2>
               <div style={{ display: 'grid', gap: 12 }}>
                 {longRangePosts.length === 0 && (
                   <div
@@ -1818,7 +1821,7 @@ export function AdminClient() {
         {active === 'cq_roster' && (
           <>
             <section style={sectionStyle()}>
-              <h2 style={{ marginTop: 0, marginBottom: 10, fontSize: 24, fontWeight: 800 }}>CQ / Staff Duty Upload</h2>
+              <h2 style={{ marginTop: 0, marginBottom: 10, fontSize: 22, fontWeight: 800 }}>CQ / Staff Duty Upload</h2>
               <p style={{ marginTop: 0, marginBottom: 18, fontSize: 14, color: '#64748b' }}>
 
               </p>
@@ -1921,7 +1924,7 @@ export function AdminClient() {
             </section>
 
             <section style={sectionStyle()}>
-              <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 24, fontWeight: 800 }}>Current Rosters</h2>
+              <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 22, fontWeight: 800 }}>Current Rosters</h2>
               <div style={{ display: 'grid', gap: 16 }}>
                 <div style={{ display: 'grid', gap: 12 }}>
                   <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748b' }}>CQ</div>
@@ -1968,7 +1971,7 @@ export function AdminClient() {
         {active === 'pt_plans' && (
           <>
             <section style={sectionStyle()}>
-              <h2 style={{ marginTop: 0, marginBottom: 10, fontSize: 24, fontWeight: 800 }}>PT Plan Upload</h2>
+              <h2 style={{ marginTop: 0, marginBottom: 10, fontSize: 22, fontWeight: 800 }}>PT Plan Upload</h2>
               <p style={{ marginTop: 0, marginBottom: 18, fontSize: 14, color: '#64748b' }}>
 
               </p>
@@ -2072,7 +2075,7 @@ export function AdminClient() {
             </section>
 
             <section style={sectionStyle()}>
-              <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 24, fontWeight: 800 }}>Current PT Plans</h2>
+              <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 22, fontWeight: 800 }}>Current PT Plans</h2>
               <div style={{ display: 'grid', gap: 12 }}>
                 {currentPtPosts.length === 0 && (
                   <div
@@ -2117,7 +2120,7 @@ export function AdminClient() {
             })}
 
             <section style={sectionStyle()}>
-              <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 24, fontWeight: 800 }}>Current SOP's & Resources</h2>
+              <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 22, fontWeight: 800 }}>Current SOP's & Resources</h2>
               <div style={{ display: 'grid', gap: 12 }}>
                 {resourcePosts.length === 0 && (
                   <div
@@ -2150,7 +2153,7 @@ export function AdminClient() {
 
         {active === 'users' && (
           <section style={sectionStyle()}>
-            <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 24, fontWeight: 800 }}>User Control</h2>
+            <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 22, fontWeight: 800 }}>User Control</h2>
             <p style={{ marginTop: 0, marginBottom: 16, fontSize: 14, color: '#64748b' }}>
             
             </p>
@@ -2197,7 +2200,7 @@ export function AdminClient() {
                         <p
                           style={{
                             margin: 0,
-                            fontSize: 17,
+                            fontSize: 16,
                             fontWeight: 700,
                             color: '#0f172a',
                             lineHeight: 1.3,
