@@ -110,7 +110,7 @@ export function EnablePushCard() {
           color: '#64748b',
         }}
       >
-        Receive new alerts instantly on this device.
+        
       </p>
 
       {!enabled && (

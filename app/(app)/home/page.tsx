@@ -84,27 +84,27 @@ const hubLinks = [
   {
     href: '/weekly-training',
     title: 'PLT Training Calendar',
-    description: 'View the current weekly training schedule.',
+
   },
   {
     href: '/long-range',
     title: 'Long Range Calendar',
-    description: 'View the current long-range calendar pages.',
+  
   },
   {
     href: '/cq-roster',
     title: 'CQ / Staff Duty Roster',
-    description: 'Open the current roster document.',
+  
   },
   {
     href: '/pt-plans',
     title: 'PT Plans',
-    description: 'Choose your squad and view the current PT plan.',
+  
   },
   {
     href: '/resources',
     title: "SOP's & Resources",
-    description: 'Access SOPs, packets, and reference documents.',
+  
   },
 ] as const;
 
@@ -222,7 +222,7 @@ export default async function HomePage() {
                 maxWidth: 560,
               }}
             >
-              All active alerts are listed here in order of the soonest expiration.
+              
             </p>
           </div>
 
@@ -310,7 +310,7 @@ export default async function HomePage() {
                 maxWidth: 560,
               }}
             >
-              Open the current operational documents, PT plans, rosters, and platoon resources.
+            
             </p>
           </div>
 
@@ -360,7 +360,7 @@ export default async function HomePage() {
                         color: '#64748b',
                       }}
                     >
-                      {item.description}
+                      
                     </p>
                   </div>
 

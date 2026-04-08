@@ -1304,7 +1304,7 @@ export function AdminClient() {
               Admin Controls
             </h2>
             <p style={{ marginTop: 8, marginBottom: 0, fontSize: 14, color: '#64748b' }}>
-              Manage alerts, uploaded documents, PT plans, SOP's & resources, and users in one place.
+              
             </p>
           </div>
 
@@ -1363,7 +1363,7 @@ export function AdminClient() {
             <section style={sectionStyle()}>
               <h2 style={{ marginTop: 0, marginBottom: 10, fontSize: 24, fontWeight: 800 }}>Post Alert</h2>
               <p style={{ marginTop: 0, marginBottom: 18, fontSize: 14, color: '#64748b' }}>
-                Use alerts for time-sensitive pinned information. Priority and acknowledgement are no longer used.
+                 
               </p>
 
               <div style={{ display: 'grid', gap: 14 }}>
@@ -1679,7 +1679,7 @@ export function AdminClient() {
           <>
             {renderDocumentUploader({
               heading: 'PLT Training Calendar Upload',
-              description: 'Upload one or more PLT training calendar files. Soldiers will see each upload as its own item, just like SOPs & resources.',
+              description:   '',
               category: 'weekly_training',
               currentPost: currentWeeklyPost,
               allowMultiplePosts: true,
@@ -1725,7 +1725,7 @@ export function AdminClient() {
           <>
             {renderDocumentUploader({
               heading: 'Long Range Calendar Upload',
-              description: 'Upload one or more long range calendar files. Soldiers will see each upload as its own item, just like SOPs & resources.',
+              description:  '',
               category: 'long_range',
               currentPost: currentLongRangePost,
               allowMultiplePosts: true,
@@ -1771,7 +1771,7 @@ export function AdminClient() {
             <section style={sectionStyle()}>
               <h2 style={{ marginTop: 0, marginBottom: 10, fontSize: 24, fontWeight: 800 }}>CQ / Staff Duty Upload</h2>
               <p style={{ marginTop: 0, marginBottom: 18, fontSize: 14, color: '#64748b' }}>
-                Choose whether this upload is for CQ or Staff Duty. Posting a new file only replaces the active post for that selected roster type.
+                 
               </p>
 
               <div style={{ display: 'grid', gap: 14 }}>
@@ -1906,7 +1906,7 @@ export function AdminClient() {
             <section style={sectionStyle()}>
               <h2 style={{ marginTop: 0, marginBottom: 10, fontSize: 24, fontWeight: 800 }}>PT Plan Upload</h2>
               <p style={{ marginTop: 0, marginBottom: 18, fontSize: 14, color: '#64748b' }}>
-                Choose a squad, upload its current PT plan, and the previous active plan for that squad will be replaced. Soldiers will only see a clean Open Document launcher.
+               
               </p>
 
               <div style={{ display: 'grid', gap: 14 }}>
@@ -2010,7 +2010,7 @@ export function AdminClient() {
           <>
             {renderDocumentUploader({
               heading: "SOP's & Resources Upload",
-              description: 'Upload SOPs, cherry packets, inspectable item references, or other standing documents. These stay listed by title and open fullscreen when tapped.',
+              description: ' ',
               category: 'resource',
               allowMultiplePosts: true,
               titlePlaceholder: 'Example: Platoon SOP',
@@ -2055,7 +2055,7 @@ export function AdminClient() {
           <section style={sectionStyle()}>
             <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 24, fontWeight: 800 }}>User Control</h2>
             <p style={{ marginTop: 0, marginBottom: 16, fontSize: 14, color: '#64748b' }}>
-              Disable users who should no longer have access and promote or demote admins without deleting account history.
+            
             </p>
 
             <div style={{ display: 'grid', gap: 12 }}>

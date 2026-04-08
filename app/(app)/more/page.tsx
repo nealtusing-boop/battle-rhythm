@@ -59,7 +59,7 @@ export default async function MorePage() {
             color: 'rgba(255,255,255,0.82)',
           }}
         >
-          Account settings, notifications, and admin access.
+          
         </p>
       </section>
 

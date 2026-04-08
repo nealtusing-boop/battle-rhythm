@@ -85,7 +85,7 @@ export default function CQRosterPage() {
           <div style={{ display: 'grid', gap: 10 }}>
             <p style={sectionLabelStyle()}>CQ</p>
             <DocumentAttachmentViewer
-              attachments={cqFiles}
+              DocumentAttachmentListViewer={cqFiles}
               emptyMessage="No CQ roster posted."
               buttonLabel="Open CQ Roster"
             />
@@ -94,7 +94,7 @@ export default function CQRosterPage() {
           <div style={{ display: 'grid', gap: 10 }}>
             <p style={sectionLabelStyle()}>Staff Duty</p>
             <DocumentAttachmentViewer
-              attachments={staffFiles}
+              DocumentAttachmentListViewer={staffFiles}
               emptyMessage="No Staff Duty roster posted."
               buttonLabel="Open Staff Duty Roster"
             />

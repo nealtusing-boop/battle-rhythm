@@ -101,7 +101,7 @@ export default function PTPlansPage() {
         <p style={{ color: '#ffffff', margin: 0 }}>Loading...</p>
       ) : (
         <DocumentAttachmentViewer
-          attachments={attachments}
+          DocumentAttachmentListViewer={attachments}
           emptyMessage="No PT plan posted for this squad."
           buttonLabel={`Open ${squads.find((squad) => squad.value === selectedSquad)?.label || 'PT'} Plan`}
         />
