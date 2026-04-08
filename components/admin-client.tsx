@@ -2188,22 +2188,20 @@ export function AdminClient() {
                   >
                     <div
                       style={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        justifyContent: 'space-between',
-                        gap: 16,
-                        flexWrap: 'wrap',
+                        display: 'grid',
+                        gap: 14,
                         minWidth: 0,
                       }}
                     >
-                      <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ minWidth: 0 }}>
                         <p
                           style={{
                             margin: 0,
                             fontSize: 17,
                             fontWeight: 700,
                             color: '#0f172a',
-                            overflowWrap: 'anywhere',
+                            lineHeight: 1.3,
+                            wordBreak: 'break-word',
                           }}
                         >
                           {[soldier.rank, soldier.full_name].filter(Boolean).join(' ')}
@@ -2244,12 +2242,25 @@ export function AdminClient() {
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                          gap: 10,
+                          width: '100%',
+                        }}
+                      >
                         <button
                           type="button"
                           onClick={() => void toggleUserRole(soldier)}
                           disabled={busy}
-                          style={{ ...secondaryButtonStyle(), opacity: busy ? 0.7 : 1 }}
+                          style={{
+                            ...secondaryButtonStyle(),
+                            opacity: busy ? 0.7 : 1,
+                            width: '100%',
+                            minWidth: 0,
+                            textAlign: 'center',
+                          }}
                         >
                           {soldier.role === 'admin' ? 'Make Soldier' : 'Make Admin'}
                         </button>
@@ -2261,6 +2272,9 @@ export function AdminClient() {
                           style={{
                             ...buttonStyle(true, !activeUser),
                             opacity: busy ? 0.7 : 1,
+                            width: '100%',
+                            minWidth: 0,
+                            textAlign: 'center',
                             background: activeUser
                               ? 'linear-gradient(180deg, #dc2626 0%, #b91c1c 100%)'
                               : 'linear-gradient(180deg, #16a34a 0%, #15803d 100%)',
