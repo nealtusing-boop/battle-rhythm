@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -47,9 +46,30 @@ function sortAttachments(attachments: Attachment[] | undefined | null) {
   return [...(attachments || [])].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 }
 
+function skeletonLineStyle(width: string) {
+  return {
+    width,
+    height: 12,
+    borderRadius: 999,
+    background: 'rgba(148,163,184,0.24)',
+  } as const;
+}
+
+function loadingPanelStyle() {
+  return {
+    height: '100%',
+    display: 'grid',
+    alignContent: 'start',
+    gap: 16,
+    padding: 20,
+    background: '#f8fafc',
+  } as const;
+}
+
 function useResolvedAttachments(attachments: Attachment[], open: boolean) {
   const [resolved, setResolved] = useState<ResolvedAttachment[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let isActive = true;
@@ -57,30 +77,42 @@ function useResolvedAttachments(attachments: Attachment[], open: boolean) {
     async function run() {
       if (!open || attachments.length === 0) {
         setResolved([]);
+        setLoading(false);
+        setError(null);
         return;
       }
 
       setLoading(true);
+      setError(null);
+
       const supabase = createClient();
+      const sortedAttachments = sortAttachments(attachments);
+      const paths = sortedAttachments.map((attachment) => attachment.storage_path);
 
-      const results = await Promise.all(
-        sortAttachments(attachments).map(async (attachment) => {
-          const { data } = await supabase.storage
-            .from(DOC_BUCKET)
-            .createSignedUrl(attachment.storage_path, 60 * 60);
+      const { data, error: signedUrlError } = await supabase.storage
+        .from(DOC_BUCKET)
+        .createSignedUrls(paths, 60 * 60);
 
-          return {
-            ...attachment,
-            signedUrl: data?.signedUrl || '',
-            kind: getFileKind(attachment.file_name, attachment.file_type),
-          } satisfies ResolvedAttachment;
-        })
-      );
+      if (!isActive) return;
 
-      if (isActive) {
-        setResolved(results.filter((item) => !!item.signedUrl));
+      if (signedUrlError) {
+        setResolved([]);
         setLoading(false);
+        setError('Could not load attachments. Please try again.');
+        return;
       }
+
+      const resolvedItems = sortedAttachments
+        .map((attachment, index) => ({
+          ...attachment,
+          signedUrl: data?.[index]?.signedUrl || '',
+          kind: getFileKind(attachment.file_name, attachment.file_type),
+        }))
+        .filter((item) => !!item.signedUrl) satisfies ResolvedAttachment[];
+
+      setResolved(resolvedItems);
+      setLoading(false);
+      setError(null);
     }
 
     void run();
@@ -90,10 +122,10 @@ function useResolvedAttachments(attachments: Attachment[], open: boolean) {
     };
   }, [attachments, open]);
 
-  return { resolved, loading };
+  return { resolved, loading, error };
 }
 
-function ghostButtonStyle(selected = false) {
+function ghostButtonStyle(selected = false, disabled = false) {
   return {
     border: selected ? '1px solid #0f172a' : '1px solid rgba(15,23,42,0.12)',
     borderRadius: 12,
@@ -102,11 +134,13 @@ function ghostButtonStyle(selected = false) {
     color: selected ? '#ffffff' : '#0f172a',
     fontWeight: 700,
     fontSize: 13,
-    cursor: 'pointer',
+    cursor: disabled ? 'default' : 'pointer',
+    opacity: disabled ? 0.65 : 1,
+    transition: 'transform 0.12s ease, opacity 0.12s ease, background 0.12s ease',
   } as const;
 }
 
-function triggerButtonStyle() {
+function triggerButtonStyle(disabled = false) {
   return {
     border: '1px solid rgba(15,23,42,0.12)',
     borderRadius: 14,
@@ -115,8 +149,10 @@ function triggerButtonStyle() {
     color: '#0f172a',
     fontWeight: 800,
     fontSize: 14,
-    cursor: 'pointer',
+    cursor: disabled ? 'default' : 'pointer',
     width: 'fit-content',
+    opacity: disabled ? 0.7 : 1,
+    transition: 'transform 0.12s ease, opacity 0.12s ease',
   } as const;
 }
 
@@ -245,6 +281,34 @@ function FilePreview({ file }: { file: ResolvedAttachment }) {
   );
 }
 
+function ViewerLoadingState({ label }: { label: string }) {
+  return (
+    <div style={loadingPanelStyle()}>
+      <div style={{ display: 'grid', gap: 10, maxWidth: 320 }}>
+        <div style={skeletonLineStyle('45%')} />
+        <div style={skeletonLineStyle('88%')} />
+        <div style={skeletonLineStyle('62%')} />
+      </div>
+      <div
+        style={{
+          borderRadius: 18,
+          minHeight: 320,
+          border: '1px solid rgba(15,23,42,0.08)',
+          background: '#ffffff',
+          display: 'grid',
+          placeItems: 'center',
+          color: '#475569',
+          fontWeight: 600,
+          textAlign: 'center',
+          padding: 24,
+        }}
+      >
+        {label}
+      </div>
+    </div>
+  );
+}
+
 export function DocumentAttachmentViewer({
   attachments,
   emptyMessage = 'No attachments.',
@@ -260,7 +324,7 @@ export function DocumentAttachmentViewer({
   const [open, setOpen] = useState(defaultOpen);
   const [hasAutoOpened, setHasAutoOpened] = useState(false);
   const initialAutoOpenDoneRef = useRef(false);
-  const { resolved, loading } = useResolvedAttachments(normalizedAttachments, open);
+  const { resolved, loading, error } = useResolvedAttachments(normalizedAttachments, open);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -284,6 +348,7 @@ export function DocumentAttachmentViewer({
 
   const selected = resolved.find((file) => file.id === selectedId) || resolved[0];
   const currentButtonLabel = hasAutoOpened && !open ? 'Open Attachment' : buttonLabel;
+  const isPreparing = open && loading;
 
   if (normalizedAttachments.length === 0) {
     return <div style={emptyStyle()}>{emptyMessage}</div>;
@@ -291,8 +356,8 @@ export function DocumentAttachmentViewer({
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} style={triggerButtonStyle()}>
-        {currentButtonLabel}
+      <button type="button" onClick={() => setOpen(true)} style={triggerButtonStyle(isPreparing)} disabled={isPreparing}>
+        {isPreparing ? 'Preparing file...' : currentButtonLabel}
       </button>
 
       {open && (
@@ -332,7 +397,7 @@ export function DocumentAttachmentViewer({
               }}
             >
               <div style={{ minWidth: 0, fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
-                {selected?.file_name || 'Attachments'}
+                {selected?.file_name || (loading ? 'Preparing attachment...' : 'Attachments')}
               </div>
 
               <button type="button" onClick={() => setOpen(false)} style={ghostButtonStyle()}>
@@ -366,7 +431,14 @@ export function DocumentAttachmentViewer({
 
             <div style={{ minHeight: 0 }}>
               {loading ? (
-                <div style={{ padding: 24, color: '#475569' }}>Loading attachments...</div>
+                <ViewerLoadingState label="Loading attachment preview..." />
+              ) : error ? (
+                <div style={{ padding: 24, display: 'grid', gap: 12, color: '#475569' }}>
+                  <div>{error}</div>
+                  <button type="button" onClick={() => setOpen(false)} style={triggerButtonStyle()}>
+                    Close
+                  </button>
+                </div>
               ) : selected ? (
                 <FilePreview file={selected} />
               ) : (

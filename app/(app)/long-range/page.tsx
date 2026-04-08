@@ -1,22 +1,5 @@
-'use client';
-
-import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/browser';
 import { DocumentAttachmentListViewer } from '@/components/document-attachment-viewer';
-
-type Attachment = {
-  id: string;
-  storage_path: string;
-  file_name: string;
-  sort_order: number;
-  file_type?: string | null;
-};
-
-type LongRangePost = {
-  id: string;
-  title: string;
-  attachments: Attachment[];
-};
+import { getActivePostsByCategory } from '@/lib/document-data';
 
 function pageShellStyle() {
   return {
@@ -36,54 +19,8 @@ function cardStyle() {
   } as const;
 }
 
-export default function LongRangePage() {
-  const [items, setItems] = useState<LongRangePost[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const supabase = createClient();
-
-    async function fetchLongRange() {
-      setLoading(true);
-
-      const { data, error } = await supabase
-        .from('document_posts')
-        .select(
-          `
-            id,
-            title,
-            created_at,
-            attachments:document_attachments (
-              id,
-              storage_path,
-              file_name,
-              sort_order,
-              file_type
-            )
-          `
-        )
-        .eq('category', 'long_range')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-
-      if (error || !data) {
-        setItems([]);
-        setLoading(false);
-        return;
-      }
-
-      const normalized = data.map((post) => ({
-        id: post.id,
-        title: post.title,
-        attachments: [...(post.attachments || [])].sort((a, b) => a.sort_order - b.sort_order),
-      }));
-
-      setItems(normalized);
-      setLoading(false);
-    }
-
-    void fetchLongRange();
-  }, []);
+export default async function LongRangePage() {
+  const items = await getActivePostsByCategory('long_range');
 
   return (
     <div style={pageShellStyle()}>
@@ -94,16 +31,12 @@ export default function LongRangePage() {
       </section>
 
       <section style={cardStyle()}>
-        {loading ? (
-          <p style={{ color: '#475569', margin: 0 }}>Loading...</p>
-        ) : (
-          <DocumentAttachmentListViewer
-            items={items}
-            emptyMessage="No long range calendar posted."
-            autoOpenSingle
-            buttonLabel="Open Long Range Calendar"
-          />
-        )}
+        <DocumentAttachmentListViewer
+          items={items}
+          emptyMessage="No long range calendar posted."
+          autoOpenSingle
+          buttonLabel="Open Long Range Calendar"
+        />
       </section>
     </div>
   );
