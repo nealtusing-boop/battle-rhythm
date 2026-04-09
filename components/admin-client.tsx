@@ -891,10 +891,12 @@ export function AdminClient() {
       return;
     }
 
-    const safeProfiles = ((profiles ?? []) as ManagedProfile[]).map((profile) => ({
-      ...profile,
-      is_active: profile.is_active ?? true,
-    }));
+    const safeProfiles = ((profiles ?? []) as ManagedProfile[])
+      .map((profile) => ({
+        ...profile,
+        is_active: profile.is_active ?? true,
+      }))
+      .filter((profile) => profile.is_active !== false);
 
     setCurrentUserId(user?.id ?? null);
     setSoldiers(safeProfiles);
@@ -1261,16 +1263,28 @@ export function AdminClient() {
 
   async function deleteUser(profile: ManagedProfile) {
     const label = [profile.rank, profile.full_name].filter(Boolean).join(' ') || 'this user';
+
+    if (profile.id === currentUserId) {
+      setStatus('You cannot delete your own account from the admin panel.');
+      return;
+    }
+
     const confirmed = typeof window === 'undefined'
       ? true
-      : window.confirm(`Delete ${label}? This removes the user profile from the app.`);
+      : window.confirm(`Delete ${label}? This will remove them from the app and revoke access.`);
 
     if (!confirmed) return;
 
     setStatus(null);
     setBusyUpdatingUserId(profile.id);
 
-    const { error } = await supabase.from('profiles').delete().eq('id', profile.id);
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        is_active: false,
+        role: 'soldier',
+      })
+      .eq('id', profile.id);
 
     if (error) {
       setStatus(error.message);
@@ -1278,6 +1292,7 @@ export function AdminClient() {
       return;
     }
 
+    setSoldiers((current) => current.filter((soldier) => soldier.id !== profile.id));
     setBusyUpdatingUserId(null);
     setStatus('User deleted.');
     await loadInitial();
