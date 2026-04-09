@@ -1197,17 +1197,39 @@ export function AdminClient() {
     setStatus(null);
     setBusyRepostingAlert(true);
 
-    const ok = await postAlert({
-      message: reactivationMessage,
-      expiresDate: reactivationExpiresDate,
-      expiresTime: reactivationExpiresTime,
-    });
+    const trimmed = reactivationMessage.trim();
+    if (!trimmed) {
+      setBusyRepostingAlert(false);
+      setStatus('Enter an alert message first.');
+      return;
+    }
+
+    const expiresAt = buildExpirationIso(reactivationExpiresDate, reactivationExpiresTime);
+    if (!expiresAt) {
+      setBusyRepostingAlert(false);
+      setStatus('Choose a valid expiration date and time.');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('alerts')
+      .update({
+        message: trimmed,
+        expires_at: expiresAt,
+        is_active: true,
+      })
+      .eq('id', reactivatingAlert.id);
 
     setBusyRepostingAlert(false);
-    if (!ok) return;
+
+    if (error) {
+      setStatus(error.message || 'Unable to reactivate alert.');
+      return;
+    }
 
     closeReactivateAlert();
-    setStatus('Alert reposted.');
+    setStatus('Alert reactivated.');
+    await loadInitial();
   }
 
   async function deactivateAlert(alertId: string) {

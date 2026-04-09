@@ -26,28 +26,112 @@ export function AppShell({
   const fullName = [profile.rank, profile.full_name].filter(Boolean).join(' ');
 
 
-
   useEffect(() => {
-    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+    if (typeof window === 'undefined') return;
 
-    const handleServiceWorkerMessage = (event: MessageEvent) => {
-      if (event.data?.type !== 'OPEN_HOME_FROM_NOTIFICATION') return;
+    const DB_NAME = 'battle-rhythm-push';
+    const STORE_NAME = 'meta';
+    const REDIRECT_KEY = 'pending_notification_redirect';
 
-      router.replace('/home');
+    function openPushDb() {
+      return new Promise<IDBDatabase>((resolve, reject) => {
+        const request = window.indexedDB.open(DB_NAME, 1);
+
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            db.createObjectStore(STORE_NAME);
+          }
+        };
+
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    async function getPendingNotificationRedirect() {
+      const db = await openPushDb();
+
+      return new Promise<string | null>((resolve, reject) => {
+        const transaction = db.transaction(STORE_NAME, 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.get(REDIRECT_KEY);
+
+        request.onsuccess = () => resolve(typeof request.result === 'string' ? request.result : null);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    async function clearPendingNotificationRedirect() {
+      const db = await openPushDb();
+
+      return new Promise<void>((resolve, reject) => {
+        const transaction = db.transaction(STORE_NAME, 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.delete(REDIRECT_KEY);
+
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    function goHomeFromNotification() {
       setOpen(false);
-    };
-
-    navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
-
-    if (window.location.pathname !== '/home') {
-      const url = new URL(window.location.href);
-      if (url.searchParams.get('fromNotification') === '1') {
+      if (window.location.pathname !== '/home') {
+        window.location.replace('/home');
+      } else {
         router.replace('/home');
       }
     }
 
+    const handleServiceWorkerMessage = (event: MessageEvent) => {
+      if (event.data?.type !== 'OPEN_HOME_FROM_NOTIFICATION') return;
+      void clearPendingNotificationRedirect().catch(() => undefined);
+      goHomeFromNotification();
+    };
+
+    async function consumePendingNotificationRedirect() {
+      try {
+        const pendingRedirect = await getPendingNotificationRedirect();
+        if (pendingRedirect !== '/home') return;
+        await clearPendingNotificationRedirect();
+        goHomeFromNotification();
+      } catch {
+        // ignore notification redirect errors
+      }
+    }
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
+    }
+
+    void consumePendingNotificationRedirect();
+
+    const handleFocus = () => {
+      void consumePendingNotificationRedirect();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void consumePendingNotificationRedirect();
+      }
+    };
+
+    const handlePageShow = () => {
+      void consumePendingNotificationRedirect();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('pageshow', handlePageShow);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
-      navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
+      }
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('pageshow', handlePageShow);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [router]);
 
