@@ -1259,8 +1259,28 @@ export function AdminClient() {
     await loadInitial();
   }
 
-  async function toggleUserActive(profile: ManagedProfile) {
-    await updateUser(profile.id, { is_active: !(profile.is_active ?? true) });
+  async function deleteUser(profile: ManagedProfile) {
+    const label = [profile.rank, profile.full_name].filter(Boolean).join(' ') || 'this user';
+    const confirmed = typeof window === 'undefined'
+      ? true
+      : window.confirm(`Delete ${label}? This removes the user profile from the app.`);
+
+    if (!confirmed) return;
+
+    setStatus(null);
+    setBusyUpdatingUserId(profile.id);
+
+    const { error } = await supabase.from('profiles').delete().eq('id', profile.id);
+
+    if (error) {
+      setStatus(error.message);
+      setBusyUpdatingUserId(null);
+      return;
+    }
+
+    setBusyUpdatingUserId(null);
+    setStatus('User deleted.');
+    await loadInitial();
   }
 
   async function toggleUserRole(profile: ManagedProfile) {
@@ -2498,11 +2518,11 @@ export function AdminClient() {
                               fontWeight: 800,
                               textTransform: 'uppercase',
                               letterSpacing: '0.12em',
-                              background: activeUser ? '#dcfce7' : '#fee2e2',
-                              color: activeUser ? '#166534' : '#991b1b',
+                              background: '#dcfce7',
+                              color: '#166534',
                             }}
                           >
-                            {activeUser ? 'Active' : 'Disabled'}
+                            Active
                           </div>
                         </div>
                       </div>
@@ -2532,23 +2552,17 @@ export function AdminClient() {
 
                         <button
                           type="button"
-                          onClick={() => void toggleUserActive(soldier)}
+                          onClick={() => void deleteUser(soldier)}
                           disabled={busy}
                           style={{
-                            ...buttonStyle(true, !activeUser),
+                            ...buttonStyle(true, true),
                             opacity: busy ? 0.7 : 1,
                             width: '100%',
                             minWidth: 0,
                             textAlign: 'center',
-                            background: activeUser
-                              ? 'linear-gradient(180deg, #dc2626 0%, #b91c1c 100%)'
-                              : 'linear-gradient(180deg, #16a34a 0%, #15803d 100%)',
-                            boxShadow: activeUser
-                              ? '0 14px 28px rgba(220,38,38,0.22)'
-                              : '0 14px 28px rgba(22,163,74,0.22)',
                           }}
                         >
-                          {activeUser ? 'Disable User' : 'Enable User'}
+                          Delete User
                         </button>
                       </div>
                     </div>
