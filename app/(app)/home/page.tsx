@@ -241,7 +241,7 @@ export default async function HomePage() {
                   color: '#475569',
                 }}
               >
-                No active alerts right now.
+                No active alerts.
               </div>
             )}
 
@@ -262,8 +262,8 @@ export default async function HomePage() {
                   <p
                     style={{
                       margin: 0,
-                      fontSize: 16,
-                      fontWeight: 800,
+                      fontSize: 14,
+                      fontWeight: 500,
                       color: '#0f172a',
                       overflowWrap: 'anywhere',
                       whiteSpace: 'pre-wrap',
