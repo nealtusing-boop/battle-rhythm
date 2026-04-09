@@ -797,6 +797,7 @@ export function AdminClient() {
   const [reactivationExpiresTime, setReactivationExpiresTime] = useState(defaultExpiry.time);
   const [busyDeletingAlertId, setBusyDeletingAlertId] = useState<string | null>(null);
   const [busyRepostingAlert, setBusyRepostingAlert] = useState(false);
+  const [busyUpdatingAlertId, setBusyUpdatingAlertId] = useState<string | null>(null);
   const [busyUpdatingUserId, setBusyUpdatingUserId] = useState<string | null>(null);
 
   const [docTitle, setDocTitle] = useState('');
@@ -1205,6 +1206,23 @@ export function AdminClient() {
 
     closeReactivateAlert();
     setStatus('Alert reposted.');
+  }
+
+  async function deactivateAlert(alertId: string) {
+    setStatus(null);
+    setBusyUpdatingAlertId(alertId);
+
+    const { error } = await supabase.from('alerts').update({ is_active: false }).eq('id', alertId);
+
+    if (error) {
+      setStatus(error.message);
+      setBusyUpdatingAlertId(null);
+      return;
+    }
+
+    setBusyUpdatingAlertId(null);
+    setStatus('Alert made inactive.');
+    await loadInitial();
   }
 
   async function deleteAlert(alertId: string) {
@@ -1797,10 +1815,12 @@ export function AdminClient() {
                       {alert.message}
                     </p>
 
-                    <p style={{ marginTop: 12, marginBottom: 0, fontSize: 13, color: '#64748b' }}>
-                      Posted {formatDateTime(alert.created_at)}
-                      {alert.expires_at ? ` • Expires ${formatDateTime(alert.expires_at)}` : ''}
-                    </p>
+                    <div style={{ marginTop: 12, display: 'grid', gap: 4, fontSize: 13, color: '#64748b' }}>
+                      <p style={{ margin: 0 }}>Posted - {formatDateTime(alert.created_at)}</p>
+                      <p style={{ margin: 0 }}>
+                        Expires - {alert.expires_at ? formatDateTime(alert.expires_at) : 'No expiration'}
+                      </p>
+                    </div>
 
                     {sortAttachments(alert.alert_attachments).length > 0 && (
                       <div style={{ marginTop: 14, display: 'grid', gap: 10 }}>
@@ -1840,8 +1860,13 @@ export function AdminClient() {
                     )}
 
                     <div style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                      <button type="button" onClick={() => openReactivateAlert(alert)} style={secondaryButtonStyle()}>
-                        Repost
+                      <button
+                        type="button"
+                        onClick={() => void deactivateAlert(alert.id)}
+                        disabled={busyUpdatingAlertId === alert.id}
+                        style={{ ...secondaryButtonStyle(), opacity: busyUpdatingAlertId === alert.id ? 0.7 : 1 }}
+                      >
+                        {busyUpdatingAlertId === alert.id ? 'Updating...' : 'Make Inactive'}
                       </button>
                       <button
                         type="button"
@@ -1900,10 +1925,12 @@ export function AdminClient() {
                     >
                       {alert.message}
                     </p>
-                    <p style={{ marginTop: 12, marginBottom: 0, fontSize: 13, color: '#64748b' }}>
-                      Posted {formatDateTime(alert.created_at)}
-                      {alert.expires_at ? ` • Expired ${formatDateTime(alert.expires_at)}` : ''}
-                    </p>
+                    <div style={{ marginTop: 12, display: 'grid', gap: 4, fontSize: 13, color: '#64748b' }}>
+                      <p style={{ margin: 0 }}>Posted - {formatDateTime(alert.created_at)}</p>
+                      <p style={{ margin: 0 }}>
+                        Expires - {alert.expires_at ? formatDateTime(alert.expires_at) : 'No expiration'}
+                      </p>
+                    </div>
 
                     {sortAttachments(alert.alert_attachments).length > 0 && (
                       <div style={{ marginTop: 14, display: 'grid', gap: 10 }}>

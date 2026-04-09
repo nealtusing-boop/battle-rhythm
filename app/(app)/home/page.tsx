@@ -44,10 +44,6 @@ function alertSortValue(alert: AlertRow) {
   return Number.MAX_SAFE_INTEGER;
 }
 
-function formatAlertDate(expiresAt: string | null) {
-  if (!expiresAt) return 'No expiration';
-  return `Expires ${format(new Date(expiresAt), 'MMM d, yyyy • HH:mm')}`;
-}
 
 function getAlertTitle(message: string) {
   const trimmed = message.trim();
@@ -273,18 +269,6 @@ export default async function HomePage() {
                     }}
                   >
                     {getAlertTitle(alert.message)}
-                  </p>
-
-                  <p
-                    style={{
-                      marginTop: 8,
-                      marginBottom: 0,
-                      fontSize: 12,
-                      color: '#64748b',
-                      overflowWrap: 'anywhere',
-                    }}
-                  >
-                    {formatAlertDate(alert.expires_at)}
                   </p>
 
                   {attachments.length > 0 && (

@@ -179,7 +179,7 @@ export default function LoginPage() {
                 color: '#0f172a',
               }}
             >
-              {mode === 'sign-in' ? 'Welcome back' : 'Create account'}
+              {mode === 'sign-in' ? '' : 'Create account'}
             </h2>
 
             <p
@@ -191,8 +191,8 @@ export default function LoginPage() {
               }}
             >
               {mode === 'sign-in'
-                ? 'Sign in to access your platoon dashboard.'
-                : 'Create your account to access schedules, alerts, and duties.'}
+                ? ''
+                : ''}
             </p>
           </div>
 

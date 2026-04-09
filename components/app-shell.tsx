@@ -35,6 +35,56 @@ export function AppShell({
     setOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    async function clearAlertBadge() {
+      if (typeof window === 'undefined') return;
+
+      try {
+        const nav = navigator as Navigator & {
+          clearAppBadge?: () => Promise<void>;
+          setAppBadge?: (count?: number) => Promise<void>;
+        };
+
+        if (nav.clearAppBadge) {
+          await nav.clearAppBadge();
+        } else if (nav.setAppBadge) {
+          await nav.setAppBadge(0);
+        }
+      } catch {
+        // ignore badge api errors
+      }
+
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        registrations.forEach((registration) => {
+          registration.active?.postMessage({ type: 'CLEAR_ALERT_BADGE' });
+        });
+      } catch {
+        // ignore service worker errors
+      }
+    }
+
+    void clearAlertBadge();
+
+    const handleFocus = () => {
+      void clearAlertBadge();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void clearAlertBadge();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [pathname]);
+
   return (
     <div
       style={{
