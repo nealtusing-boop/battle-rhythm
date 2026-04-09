@@ -78,7 +78,7 @@ self.addEventListener('push', (event) => {
         body: data.body || 'A new alert is available.',
         icon: '/icon-192.png',
         badge: '/icon-192.png',
-        data: { url: data.url || '/alerts' },
+        data: { url: '/home' },
       });
 
       await updateAppBadge(unreadCount);
@@ -91,7 +91,7 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      const targetUrl = event.notification.data?.url || '/alerts';
+      const targetUrl = '/home';
 
       for (const client of clientList) {
         if ('focus' in client) {
