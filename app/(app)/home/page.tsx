@@ -263,7 +263,7 @@ export default async function HomePage() {
                     style={{
                       margin: 0,
                       fontSize: 15,
-                      fontWeight: 600,
+                      fontWeight: 500,
                       color: '#0f172a',
                       overflowWrap: 'anywhere',
                       whiteSpace: 'pre-wrap',

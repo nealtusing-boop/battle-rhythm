@@ -124,7 +124,7 @@ function triggerButtonStyle(disabled = false) {
     padding: '14px 18px',
     background: '#ffffff',
     color: '#0f172a',
-    fontWeight: 600,
+    fontWeight: 700,
     fontSize: 13,
     cursor: disabled ? 'default' : 'pointer',
     width: 'fit-content',
