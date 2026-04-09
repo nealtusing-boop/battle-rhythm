@@ -57,7 +57,7 @@ export async function POST(request: Request) {
             title: 'Battle Rhythm Alert',
             body: alert.message,
             priority: alert.priority,
-            url: '/alerts',
+            url: '/home',
           }),
         );
       } catch {

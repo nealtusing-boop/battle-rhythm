@@ -1227,8 +1227,22 @@ export function AdminClient() {
       return;
     }
 
+    try {
+      await fetch('/api/push/alert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: trimmed,
+          priority: 'high',
+          url: '/home',
+        }),
+      });
+    } catch {
+      // notification delivery failure should not roll back the reactivation
+    }
+
     closeReactivateAlert();
-    setStatus('Alert reactivated.');
+    setStatus('Alert reactivated and notification sent.');
     await loadInitial();
   }
 

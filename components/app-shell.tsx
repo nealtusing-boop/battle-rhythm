@@ -25,12 +25,13 @@ export function AppShell({
 
   const fullName = [profile.rank, profile.full_name].filter(Boolean).join(' ');
 
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const DB_NAME = 'battle-rhythm-push';
     const STORE_NAME = 'meta';
-    const REDIRECT_KEYS = ['redirect_to_home', 'pending_notification_redirect'];
+    const REDIRECT_KEYS = ['redirect_to_home', 'pending_notification_redirect'] as const;
 
     function openPushDb() {
       return new Promise<IDBDatabase>((resolve, reject) => {
@@ -76,12 +77,13 @@ export function AppShell({
 
     function goHomeFromNotification() {
       setOpen(false);
-
-      if (window.location.pathname !== '/home') {
-        window.location.href = '/home';
-      } else {
-        router.refresh();
+      const targetUrl = '/home?notification=1';
+      if (window.location.pathname !== '/home' || !window.location.search.includes('notification=1')) {
+        window.location.replace(targetUrl);
+        return;
       }
+      router.replace('/home');
+      router.refresh();
     }
 
     const handleServiceWorkerMessage = (event: MessageEvent) => {
@@ -93,19 +95,18 @@ export function AppShell({
     async function consumePendingNotificationRedirect() {
       try {
         for (const key of REDIRECT_KEYS) {
-          const value = await getStoredValue(key);
-
+          const pendingRedirect = await getStoredValue(key);
           const shouldGoHome =
-            value === true ||
-            value === '/home' ||
-            value === 'true' ||
-            value === 'home';
+            pendingRedirect === true ||
+            pendingRedirect === 'true' ||
+            pendingRedirect === '/home' ||
+            pendingRedirect === 'home';
 
-          if (shouldGoHome) {
-            await clearStoredValue(key);
-            goHomeFromNotification();
-            return;
-          }
+          if (!shouldGoHome) continue;
+
+          await clearStoredValue(key);
+          goHomeFromNotification();
+          return;
         }
       } catch {
         // ignore notification redirect errors
@@ -249,34 +250,41 @@ export function AppShell({
               width: 46,
               height: 46,
               borderRadius: 16,
-              border: '1px solid rgba(255,255,255,0.12)',
-              background: 'rgba(255,255,255,0.08)',
+              border: '1px solid rgba(255,255,255,0.10)',
+              background: 'linear-gradient(180deg, #8b1538 0%, #6f102d 100%)',
               color: '#ffffff',
-              display: 'grid',
-              placeItems: 'center',
-              boxShadow: '0 10px 24px rgba(0,0,0,0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              boxShadow: '0 14px 30px rgba(139,21,56,0.32)',
+              flexShrink: 0,
             }}
           >
-            {open ? <X size={20} /> : <Menu size={20} />}
+            {open ? <X size={20} color="#ffffff" /> : <Menu size={20} color="#ffffff" />}
           </button>
 
-          <div style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
+          <div style={{ textAlign: 'center', flex: 1, minWidth: 0 }}>
             <div
               style={{
-                fontSize: 12,
-                letterSpacing: '0.18em',
-                textTransform: 'uppercase',
-                color: 'rgba(255,255,255,0.62)',
-                marginBottom: 2,
+                fontSize: 26,
+                fontWeight: 800,
+                letterSpacing: '-0.03em',
+                lineHeight: 1,
+                color: '#ffffff',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
               }}
             >
               Battle Rhythm
             </div>
             <div
               style={{
-                fontSize: 18,
-                fontWeight: 700,
-                lineHeight: 1.2,
+                marginTop: 8,
+                fontSize: 13,
+                fontWeight: 500,
+                color: 'rgba(255,255,255,0.78)',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -286,84 +294,82 @@ export function AppShell({
             </div>
           </div>
 
-          <div style={{ width: 46, height: 46 }} />
+          <div style={{ width: 46, height: 46, flexShrink: 0 }} />
         </div>
       </header>
 
       {open && (
-        <>
+        <div
+          onClick={() => setOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 999,
+            background: 'rgba(15, 23, 42, 0.32)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            padding: 'calc(env(safe-area-inset-top) + 72px) 16px 16px 16px',
+          }}
+        >
           <div
-            onClick={() => setOpen(false)}
             style={{
-              position: 'fixed',
-              inset: 0,
-              background: 'rgba(0,0,0,0.42)',
-              backdropFilter: 'blur(6px)',
-              WebkitBackdropFilter: 'blur(6px)',
-              zIndex: 45,
-            }}
-          />
-          <nav
-            style={{
-              position: 'fixed',
-              top: 'calc(env(safe-area-inset-top) + 86px)',
-              left: 16,
-              right: 16,
-              zIndex: 50,
+              width: '100%',
               maxWidth: 760,
               margin: '0 auto',
-              borderRadius: 24,
-              padding: 14,
-              background: 'rgba(18,18,22,0.92)',
-              border: '1px solid rgba(255,255,255,0.12)',
-              boxShadow: '0 24px 60px rgba(0,0,0,0.35)',
             }}
           >
-            <div style={{ display: 'grid', gap: 10 }}>
-              {navItems.map((item) => {
+            <nav
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                overflow: 'hidden',
+                borderRadius: 28,
+                border: '1px solid rgba(255,255,255,0.14)',
+                background: 'rgba(255,255,255,0.97)',
+                boxShadow: '0 24px 60px rgba(0,0,0,0.22)',
+              }}
+            >
+              {navItems.map((item, index) => {
                 const Icon = item.icon;
                 const active = pathname === item.href;
+
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
-                    onClick={() => setOpen(false)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       gap: 12,
-                      padding: '14px 16px',
-                      borderRadius: 18,
+                      padding: '16px 18px',
+                      borderBottom:
+                        index === navItems.length - 1
+                          ? 'none'
+                          : '1px solid rgba(15,23,42,0.06)',
                       textDecoration: 'none',
-                      color: '#ffffff',
-                      background: active ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.04)',
-                      border: active
-                        ? '1px solid rgba(255,255,255,0.16)'
-                        : '1px solid rgba(255,255,255,0.08)',
+                      color: '#0f172a',
+                      background: active ? '#f8fafc' : 'transparent',
+                      fontWeight: active ? 700 : 600,
+                      fontSize: 16,
                     }}
                   >
-                    <span
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: 12,
-                        display: 'grid',
-                        placeItems: 'center',
-                        background: 'rgba(255,255,255,0.08)',
-                      }}
-                    >
-                      <Icon size={18} />
-                    </span>
-                    <span style={{ fontSize: 16, fontWeight: 600 }}>{item.label}</span>
+                    <Icon size={18} color="#0f172a" />
+                    <span>{item.label}</span>
                   </Link>
                 );
               })}
-            </div>
-          </nav>
-        </>
+            </nav>
+          </div>
+        </div>
       )}
 
-      <main style={{ width: '100%', maxWidth: 760, margin: '0 auto', padding: '16px 16px 120px' }}>
+      <main
+        style={{
+          width: '100%',
+          maxWidth: 760,
+          margin: '0 auto',
+          padding: '24px 16px calc(40px + env(safe-area-inset-bottom)) 16px',
+        }}
+      >
         <PullToRefresh>{children}</PullToRefresh>
       </main>
     </div>

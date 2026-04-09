@@ -23,12 +23,12 @@ async function getValue(key) {
   const db = await openDb();
 
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readonly');
-    const store = tx.objectStore(STORE_NAME);
-    const req = store.get(key);
+    const transaction = db.transaction(STORE_NAME, 'readonly');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.get(key);
 
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
   });
 }
 
@@ -36,12 +36,12 @@ async function setValue(key, value) {
   const db = await openDb();
 
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    const store = tx.objectStore(STORE_NAME);
-    const req = store.put(value, key);
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.put(value, key);
 
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
   });
 }
 
@@ -87,6 +87,9 @@ self.addEventListener('push', (event) => {
         body: data.body || 'A new alert is available.',
         icon: '/icon-192.png',
         badge: '/icon-192.png',
+        data: {
+          url: data.url || '/home?notification=1',
+        },
       });
 
       await updateAppBadge(unreadCount);
@@ -94,25 +97,38 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// 🔥 STRONG iOS FIX
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
   event.waitUntil(
     (async () => {
-      // 👇 set redirect flag in IndexedDB
-      await setValue(REDIRECT_KEY, true);
+      const targetUrl = event.notification?.data?.url || '/home?notification=1';
 
-      const allClients = await clients.matchAll({
+      await setValue(REDIRECT_KEY, targetUrl);
+
+      const clientList = await clients.matchAll({
         type: 'window',
         includeUncontrolled: true,
       });
 
-      if (allClients.length > 0) {
-        return allClients[0].focus();
+      for (const client of clientList) {
+        if ('focus' in client) {
+          await client.focus();
+
+          if ('postMessage' in client) {
+            client.postMessage({
+              type: 'OPEN_HOME_FROM_NOTIFICATION',
+              url: targetUrl,
+            });
+          }
+
+          return;
+        }
       }
 
-      return clients.openWindow('/');
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
     })(),
   );
 });
@@ -123,6 +139,15 @@ self.addEventListener('message', (event) => {
       (async () => {
         await clearUnreadCount();
         await updateAppBadge(0);
+      })(),
+    );
+    return;
+  }
+
+  if (event.data?.type === 'CLEAR_NOTIFICATION_REDIRECT') {
+    event.waitUntil(
+      (async () => {
+        await setValue(REDIRECT_KEY, null);
       })(),
     );
   }
