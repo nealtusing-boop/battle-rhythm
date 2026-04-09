@@ -262,8 +262,8 @@ export default async function HomePage() {
                   <p
                     style={{
                       margin: 0,
-                      fontSize: 14,
-                      fontWeight: 500,
+                      fontSize: 15,
+                      fontWeight: 600,
                       color: '#0f172a',
                       overflowWrap: 'anywhere',
                       whiteSpace: 'pre-wrap',
