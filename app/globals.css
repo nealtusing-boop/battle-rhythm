@@ -34,6 +34,7 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 * {
@@ -50,6 +51,19 @@ input,
 textarea,
 select {
   font: inherit;
+}
+
+img,
+picture,
+video,
+canvas,
+svg,
+iframe {
+  max-width: 100%;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
 }
 
 .app-card {
@@ -99,4 +113,15 @@ select {
   width: 100%;
   max-width: 720px;
   margin: 0 auto;
+}
+
+.react-pdf__Page {
+  max-width: 100%;
+}
+
+.react-pdf__Page__canvas {
+  max-width: 100%;
+  height: auto !important;
+  border-radius: 16px;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12);
 }

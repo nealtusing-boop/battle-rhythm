@@ -46,26 +46,6 @@ function sortAttachments(attachments: Attachment[] | undefined | null) {
   return [...(attachments || [])].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 }
 
-function skeletonLineStyle(width: string) {
-  return {
-    width,
-    height: 12,
-    borderRadius: 999,
-    background: 'rgba(148,163,184,0.24)',
-  } as const;
-}
-
-function loadingPanelStyle() {
-  return {
-    height: '100%',
-    display: 'grid',
-    alignContent: 'start',
-    gap: 16,
-    padding: 20,
-    background: '#f8fafc',
-  } as const;
-}
-
 function useResolvedAttachments(attachments: Attachment[], open: boolean) {
   const [resolved, setResolved] = useState<ResolvedAttachment[]>([]);
   const [loading, setLoading] = useState(false);
@@ -166,40 +146,100 @@ function emptyStyle() {
   } as const;
 }
 
+function ViewerLoadingState({ label }: { label: string }) {
+  return (
+    <div
+      style={{
+        minHeight: '100%',
+        display: 'grid',
+        placeItems: 'center',
+        padding: 24,
+        background: '#f8fafc',
+        color: '#475569',
+        fontWeight: 700,
+        textAlign: 'center',
+      }}
+    >
+      {label}
+    </div>
+  );
+}
+
 function PDFPreview({ url }: { url: string }) {
   const [numPages, setNumPages] = useState(0);
   const [zoom, setZoom] = useState(1);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) return;
+
+    const updateWidth = () => {
+      setContainerWidth(element.clientWidth);
+    };
+
+    updateWidth();
+
+    const observer = new ResizeObserver(() => updateWidth());
+    observer.observe(element);
+
+    window.addEventListener('orientationchange', updateWidth);
+    window.addEventListener('resize', updateWidth);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('orientationchange', updateWidth);
+      window.removeEventListener('resize', updateWidth);
+    };
+  }, []);
+
+  const baseWidth = Math.max(280, Math.floor(containerWidth - 32));
+  const pageWidth = Math.max(280, Math.floor(baseWidth * zoom));
 
   return (
     <div style={{ height: '100%', overflow: 'auto', background: '#e5e7eb' }}>
       <div
         style={{
           position: 'sticky',
-          top: 'env(safe-area-inset-top)',
+          top: 0,
           zIndex: 2,
           display: 'flex',
           justifyContent: 'flex-end',
           gap: 8,
-          padding: '10px 10px max(10px, env(safe-area-inset-top)) 10px',
+          padding: '10px 10px 10px 10px',
           background: 'rgba(255,255,255,0.96)',
           borderBottom: '1px solid rgba(15,23,42,0.08)',
         }}
       >
-        <button type="button" onClick={() => setZoom((z) => clamp(Number((z - 0.15).toFixed(2)), 0.7, 3))} style={ghostButtonStyle()}>
+        <button type="button" onClick={() => setZoom((z) => clamp(Number((z - 0.15).toFixed(2)), 0.85, 2.5))} style={ghostButtonStyle()}>
           −
         </button>
         <div style={{ alignSelf: 'center', minWidth: 56, textAlign: 'center', color: '#475569', fontWeight: 700 }}>
           {Math.round(zoom * 100)}%
         </div>
-        <button type="button" onClick={() => setZoom((z) => clamp(Number((z + 0.15).toFixed(2)), 0.7, 3))} style={ghostButtonStyle()}>
+        <button type="button" onClick={() => setZoom((z) => clamp(Number((z + 0.15).toFixed(2)), 0.85, 2.5))} style={ghostButtonStyle()}>
           +
         </button>
       </div>
 
-      <div style={{ display: 'grid', justifyContent: 'center', gap: 16, padding: 16 }}>
-        <Document file={url} onLoadSuccess={({ numPages: pages }) => setNumPages(pages)} loading="Loading PDF...">
+      <div ref={containerRef} style={{ display: 'grid', justifyContent: 'center', gap: 16, padding: 16 }}>
+        <Document
+          file={url}
+          onLoadSuccess={({ numPages: pages }) => setNumPages(pages)}
+          loading="Loading PDF..."
+          error="Unable to load PDF preview."
+        >
           {Array.from({ length: numPages }, (_, i) => (
-            <Page key={i + 1} pageNumber={i + 1} scale={zoom} />
+            <div key={i + 1} style={{ display: 'grid', justifyContent: 'center' }}>
+              <Page
+                pageNumber={i + 1}
+                width={pageWidth}
+                renderAnnotationLayer
+                renderTextLayer
+                loading="Loading page..."
+              />
+            </div>
           ))}
         </Document>
       </div>
@@ -215,28 +255,28 @@ function ImagePreview({ url, fileName }: { url: string; fileName: string }) {
       <div
         style={{
           position: 'sticky',
-          top: 'env(safe-area-inset-top)',
+          top: 0,
           zIndex: 2,
           display: 'flex',
           justifyContent: 'flex-end',
           gap: 8,
-          padding: '10px 10px max(10px, env(safe-area-inset-top)) 10px',
+          padding: '10px 10px 10px 10px',
           background: 'rgba(255,255,255,0.96)',
           borderBottom: '1px solid rgba(15,23,42,0.08)',
         }}
       >
-        <button type="button" onClick={() => setZoom((z) => clamp(Number((z - 0.15).toFixed(2)), 0.7, 4))} style={ghostButtonStyle()}>
+        <button type="button" onClick={() => setZoom((z) => clamp(Number((z - 0.15).toFixed(2)), 0.85, 4))} style={ghostButtonStyle()}>
           −
         </button>
         <div style={{ alignSelf: 'center', minWidth: 56, textAlign: 'center', color: '#475569', fontWeight: 700 }}>
           {Math.round(zoom * 100)}%
         </div>
-        <button type="button" onClick={() => setZoom((z) => clamp(Number((z + 0.15).toFixed(2)), 0.7, 4))} style={ghostButtonStyle()}>
+        <button type="button" onClick={() => setZoom((z) => clamp(Number((z + 0.15).toFixed(2)), 0.85, 4))} style={ghostButtonStyle()}>
           +
         </button>
       </div>
 
-      <div style={{ display: 'grid', justifyContent: 'center', padding: 16 }}>
+      <div style={{ display: 'grid', justifyContent: 'center', padding: 16, overflow: 'auto' }}>
         <img
           src={url}
           alt={fileName}
@@ -246,6 +286,7 @@ function ImagePreview({ url, fileName }: { url: string; fileName: string }) {
             transform: `scale(${zoom})`,
             transformOrigin: 'top center',
             transition: 'transform 0.15s ease',
+            touchAction: 'manipulation',
           }}
         />
       </div>
@@ -281,34 +322,6 @@ function FilePreview({ file }: { file: ResolvedAttachment }) {
   );
 }
 
-function ViewerLoadingState({ label }: { label: string }) {
-  return (
-    <div style={loadingPanelStyle()}>
-      <div style={{ display: 'grid', gap: 10, maxWidth: 320 }}>
-        <div style={skeletonLineStyle('45%')} />
-        <div style={skeletonLineStyle('88%')} />
-        <div style={skeletonLineStyle('62%')} />
-      </div>
-      <div
-        style={{
-          borderRadius: 18,
-          minHeight: 320,
-          border: '1px solid rgba(15,23,42,0.08)',
-          background: '#ffffff',
-          display: 'grid',
-          placeItems: 'center',
-          color: '#475569',
-          fontWeight: 600,
-          textAlign: 'center',
-          padding: 24,
-        }}
-      >
-        {label}
-      </div>
-    </div>
-  );
-}
-
 export function DocumentAttachmentViewer({
   attachments,
   emptyMessage = 'No attachments.',
@@ -334,6 +347,17 @@ export function DocumentAttachmentViewer({
       initialAutoOpenDoneRef.current = true;
     }
   }, [defaultOpen, normalizedAttachments.length]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!resolved.length) {
@@ -368,10 +392,10 @@ export function DocumentAttachmentViewer({
             zIndex: 1000,
             background: 'rgba(15,23,42,0.82)',
             backdropFilter: 'blur(6px)',
-            paddingTop: 'max(16px, env(safe-area-inset-top))',
-            paddingRight: 16,
-            paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
-            paddingLeft: 16,
+            paddingTop: 'max(12px, env(safe-area-inset-top))',
+            paddingRight: 12,
+            paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
+            paddingLeft: 12,
             display: 'grid',
           }}
         >
@@ -391,15 +415,19 @@ export function DocumentAttachmentViewer({
           >
             <div
               style={{
+                position: 'sticky',
+                top: 0,
+                zIndex: 3,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 gap: 12,
                 padding: 'max(14px, env(safe-area-inset-top)) 16px 14px 16px',
                 borderBottom: '1px solid rgba(15,23,42,0.08)',
+                background: 'rgba(255,255,255,0.98)',
               }}
             >
-              <div style={{ minWidth: 0, fontSize: 15, fontWeight: 800, letterSpacing: '-0.02em', color: '#0f172a' }}>
+              <div style={{ minWidth: 0, fontSize: 15, fontWeight: 800, letterSpacing: '-0.02em', color: '#0f172a', overflowWrap: 'anywhere' }}>
                 {selected?.file_name || (loading ? 'Preparing attachment...' : 'Attachments')}
               </div>
 
@@ -417,6 +445,7 @@ export function DocumentAttachmentViewer({
                   padding: '12px 16px',
                   borderBottom: '1px solid rgba(15,23,42,0.08)',
                   overflowX: 'auto',
+                  background: '#ffffff',
                 }}
               >
                 {resolved.map((file) => (
@@ -519,7 +548,6 @@ export function DocumentAttachmentListViewer({
         attachments={sortAttachments(attachments)}
         emptyMessage={emptyMessage}
         buttonLabel={buttonLabel || (attachments.length === 1 ? 'Open Attachment' : 'Open Attachments')}
-        defaultOpen={autoOpenSingle && attachments.length === 1}
       />
     );
   }

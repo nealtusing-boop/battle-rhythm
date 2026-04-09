@@ -217,6 +217,16 @@ function sortAttachments(items: DocumentAttachment[] | null | undefined) {
   return [...(items ?? [])].sort((a, b) => a.sort_order - b.sort_order || a.file_name.localeCompare(b.file_name));
 }
 
+
+function getAttachmentKind(fileName: string, fileType?: string | null): 'pdf' | 'image' | 'other' {
+  const lowerName = fileName.toLowerCase();
+  const lowerType = (fileType || '').toLowerCase();
+
+  if (lowerType.includes('pdf') || lowerName.endsWith('.pdf')) return 'pdf';
+  if (lowerType.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(lowerName)) return 'image';
+  return 'other';
+}
+
 function toLocalDateInputValue(date = new Date()) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -484,14 +494,11 @@ function DocumentPostCard({
                   background: '#ffffff',
                   border: '1px solid rgba(15,23,42,0.08)',
                   padding: 14,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
+                  display: 'grid',
                   gap: 12,
-                  flexWrap: 'wrap',
                 }}
               >
-                <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ minWidth: 0 }}>
                   <p
                     style={{
                       margin: 0,
@@ -508,7 +515,7 @@ function DocumentPostCard({
                     {attachment.file_type || 'Unknown file type'}
                   </p>
                 </div>
-                <button type="button" onClick={() => void onOpenAttachment(attachment)} style={secondaryButtonStyle()}>
+                <button type="button" onClick={() => void onOpenAttachment(attachment)} style={{ ...secondaryButtonStyle(), width: '100%' }}>
                   View File
                 </button>
               </div>
@@ -525,6 +532,148 @@ function DocumentPostCard({
           >
             {busyDeleting ? 'Deleting...' : 'Delete'}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+function AttachmentPreviewOverlay({
+  fileName,
+  fileType,
+  signedUrl,
+  busy,
+  onClose,
+}: {
+  fileName: string;
+  fileType?: string | null;
+  signedUrl: string | null;
+  busy: boolean;
+  onClose: () => void;
+}) {
+  const kind = getAttachmentKind(fileName, fileType);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1000,
+        background: 'rgba(15,23,42,0.82)',
+        backdropFilter: 'blur(6px)',
+        paddingTop: 'max(12px, env(safe-area-inset-top))',
+        paddingRight: 12,
+        paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
+        paddingLeft: 12,
+        display: 'grid',
+      }}
+    >
+      <div
+        style={{
+          width: '100%',
+          maxWidth: 1100,
+          height: '100%',
+          margin: '0 auto',
+          borderRadius: 24,
+          background: '#ffffff',
+          overflow: 'hidden',
+          display: 'grid',
+          gridTemplateRows: 'auto 1fr',
+          boxShadow: '0 24px 80px rgba(15,23,42,0.35)',
+        }}
+      >
+        <div
+          style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 2,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            padding: 'max(14px, env(safe-area-inset-top)) 16px 14px 16px',
+            borderBottom: '1px solid rgba(15,23,42,0.08)',
+            background: 'rgba(255,255,255,0.98)',
+          }}
+        >
+          <div style={{ minWidth: 0 }}>
+            <div
+              style={{
+                fontSize: 15,
+                fontWeight: 800,
+                letterSpacing: '-0.02em',
+                color: '#0f172a',
+                overflowWrap: 'anywhere',
+              }}
+            >
+              {fileName}
+            </div>
+            <div style={{ marginTop: 4, fontSize: 12, color: '#64748b' }}>{fileType || 'Unknown file type'}</div>
+          </div>
+
+          <button type="button" onClick={onClose} style={{ ...secondaryButtonStyle(), padding: '10px 14px' }}>
+            Close
+          </button>
+        </div>
+
+        <div style={{ minHeight: 0, overflow: 'auto', background: '#e5e7eb' }}>
+          {busy || !signedUrl ? (
+            <div style={{ display: 'grid', placeItems: 'center', minHeight: '100%', padding: 24, color: '#475569', fontWeight: 700 }}>
+              Loading attachment...
+            </div>
+          ) : kind === 'image' ? (
+            <div style={{ minHeight: '100%', display: 'grid', placeItems: 'start center', padding: 16 }}>
+              <img
+                src={signedUrl}
+                alt={fileName}
+                style={{
+                  width: '100%',
+                  maxWidth: 980,
+                  height: 'auto',
+                  objectFit: 'contain',
+                  borderRadius: 18,
+                  background: '#ffffff',
+                }}
+              />
+            </div>
+          ) : kind === 'pdf' ? (
+            <iframe
+              src={signedUrl}
+              title={fileName}
+              style={{ width: '100%', height: '100%', minHeight: '100%', border: 'none', background: '#ffffff' }}
+            />
+          ) : (
+            <div style={{ display: 'grid', gap: 12, padding: 24, color: '#475569' }}>
+              <div>Preview is not available for this file type.</div>
+              <a
+                href={signedUrl}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  display: 'inline-block',
+                  width: 'fit-content',
+                  borderRadius: 12,
+                  padding: '10px 14px',
+                  background: '#0f172a',
+                  color: '#ffffff',
+                  textDecoration: 'none',
+                  fontWeight: 800,
+                }}
+              >
+                Open File
+              </a>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -591,6 +740,9 @@ export function AdminClient() {
   const [alertSelectedFiles, setAlertSelectedFiles] = useState<File[]>([]);
   const [busyUploading, setBusyUploading] = useState(false);
   const [busyDeletingPostId, setBusyDeletingPostId] = useState<string | null>(null);
+  const [previewAttachment, setPreviewAttachment] = useState<DocumentAttachment | null>(null);
+  const [previewSignedUrl, setPreviewSignedUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   const selectedFilesRef = useRef<File[]>([]);
   const alertSelectedFilesRef = useRef<File[]>([]);
@@ -1031,14 +1183,28 @@ export function AdminClient() {
 
   async function openAttachment(attachment: DocumentAttachment) {
     setStatus(null);
-    const { data, error } = await supabase.storage.from(DOC_BUCKET).createSignedUrl(attachment.storage_path, 60);
+    setPreviewAttachment(attachment);
+    setPreviewSignedUrl(null);
+    setPreviewLoading(true);
+
+    const { data, error } = await supabase.storage.from(DOC_BUCKET).createSignedUrl(attachment.storage_path, 60 * 60);
 
     if (error || !data?.signedUrl) {
+      setPreviewAttachment(null);
+      setPreviewSignedUrl(null);
+      setPreviewLoading(false);
       setStatus(error?.message || 'Unable to open file.');
       return;
     }
 
-    window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+    setPreviewSignedUrl(data.signedUrl);
+    setPreviewLoading(false);
+  }
+
+  function closeAttachmentPreview() {
+    setPreviewAttachment(null);
+    setPreviewSignedUrl(null);
+    setPreviewLoading(false);
   }
 
   async function deactivateExistingPosts(category: DocumentCategory, subcategory: string | null) {
@@ -1584,7 +1750,7 @@ export function AdminClient() {
                               flexWrap: 'wrap',
                             }}
                           >
-                            <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ minWidth: 0 }}>
                               <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#0f172a', overflowWrap: 'anywhere' }}>
                                 {attachment.file_name}
                               </p>
@@ -1595,7 +1761,7 @@ export function AdminClient() {
                             <button
                               type="button"
                               onClick={() => void openAttachment(attachment)}
-                              style={secondaryButtonStyle()}
+                              style={{ ...secondaryButtonStyle(), width: '100%' }}
                             >
                               View File
                             </button>
@@ -1687,7 +1853,7 @@ export function AdminClient() {
                               flexWrap: 'wrap',
                             }}
                           >
-                            <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ minWidth: 0 }}>
                               <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#0f172a', overflowWrap: 'anywhere' }}>
                                 {attachment.file_name}
                               </p>
@@ -1698,7 +1864,7 @@ export function AdminClient() {
                             <button
                               type="button"
                               onClick={() => void openAttachment(attachment)}
-                              style={secondaryButtonStyle()}
+                              style={{ ...secondaryButtonStyle(), width: '100%' }}
                             >
                               View File
                             </button>
@@ -2297,6 +2463,16 @@ export function AdminClient() {
           </section>
         )}
       </div>
+
+      {previewAttachment && (
+        <AttachmentPreviewOverlay
+          fileName={previewAttachment.file_name}
+          fileType={previewAttachment.file_type}
+          signedUrl={previewSignedUrl}
+          busy={previewLoading}
+          onClose={closeAttachmentPreview}
+        />
+      )}
 
       {reactivatingAlert && (
         <ModalShell
