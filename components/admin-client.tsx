@@ -1598,7 +1598,7 @@ export function AdminClient() {
                 overflowWrap: 'anywhere',
               }}
             >
-              Admin Controls
+              
             </h2>
             <p style={{ marginTop: 8, marginBottom: 0, fontSize: 14, color: '#64748b' }}>
               
