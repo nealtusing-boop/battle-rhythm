@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode, type TouchEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/browser';
 import type { Profile } from '@/lib/types';
@@ -361,7 +361,6 @@ function ModalShell({
   );
 }
 
-
 function DocumentPostCard({
   post,
   onOpenAttachment,
@@ -381,22 +380,37 @@ function DocumentPostCard({
         borderRadius: 22,
         background: '#f8fafc',
         border: '1px solid rgba(15,23,42,0.08)',
-        padding: 18,
+        padding: '18px 18px',
         minWidth: 0,
-        width: '100%',
       }}
     >
-      <div style={{ display: 'grid', gap: 14 }}>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'minmax(0, 1fr) auto',
-            alignItems: 'start',
-            gap: 12,
-          }}
-        >
-          <div style={{ minWidth: 0 }}>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: 16,
+          flexWrap: 'wrap',
+        }}
+      >
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+            <div
+              style={{
+                display: 'inline-flex',
+                borderRadius: 999,
+                padding: '6px 10px',
+                fontSize: 11,
+                fontWeight: 800,
+                textTransform: 'uppercase',
+                letterSpacing: '0.12em',
+                background: post.is_active ? '#dcfce7' : '#e2e8f0',
+                color: post.is_active ? '#166534' : '#334155',
+              }}
+            >
+              {post.is_active ? 'Active' : 'Inactive'}
+            </div>
+            {post.subcategory && (
               <div
                 style={{
                   display: 'inline-flex',
@@ -406,136 +420,116 @@ function DocumentPostCard({
                   fontWeight: 800,
                   textTransform: 'uppercase',
                   letterSpacing: '0.12em',
-                  background: post.is_active ? '#dcfce7' : '#e2e8f0',
-                  color: post.is_active ? '#166534' : '#334155',
+                  background: '#ede9fe',
+                  color: '#6d28d9',
                 }}
               >
-                {post.is_active ? 'Active' : 'Inactive'}
+                {post.subcategory.replace(/_/g, ' ')}
               </div>
-              {post.subcategory && (
-                <div
-                  style={{
-                    display: 'inline-flex',
-                    borderRadius: 999,
-                    padding: '6px 10px',
-                    fontSize: 11,
-                    fontWeight: 800,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.12em',
-                    background: '#ede9fe',
-                    color: '#6d28d9',
-                  }}
-                >
-                  {post.subcategory.replace(/_/g, ' ')}
-                </div>
-              )}
-            </div>
+            )}
+          </div>
 
+          <p
+            style={{
+              margin: 0,
+              fontSize: 16,
+              fontWeight: 800,
+              color: '#0f172a',
+              overflowWrap: 'anywhere',
+            }}
+          >
+            {post.title}
+          </p>
+
+          {post.description && (
             <p
               style={{
-                margin: 0,
-                fontSize: 16,
-                fontWeight: 800,
-                color: '#0f172a',
+                marginTop: 10,
+                marginBottom: 0,
+                fontSize: 14,
+                lineHeight: 1.55,
+                color: '#475569',
                 overflowWrap: 'anywhere',
               }}
             >
-              {post.title}
+              {post.description}
             </p>
-
-            {post.description && (
-              <p
-                style={{
-                  marginTop: 10,
-                  marginBottom: 0,
-                  fontSize: 14,
-                  lineHeight: 1.55,
-                  color: '#475569',
-                  overflowWrap: 'anywhere',
-                }}
-              >
-                {post.description}
-              </p>
-            )}
-
-            <p style={{ marginTop: 10, marginBottom: 0, fontSize: 13, color: '#64748b' }}>
-              Posted {formatDateTime(post.created_at)}
-            </p>
-          </div>
-
-          <div style={{ justifySelf: 'end' }}>
-            <button
-              type="button"
-              onClick={() => void onDeletePost(post)}
-              disabled={busyDeleting}
-              style={{ ...buttonStyle(false, true), opacity: busyDeleting ? 0.7 : 1 }}
-            >
-              {busyDeleting ? 'Deleting...' : 'Delete'}
-            </button>
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gap: 10, width: '100%' }}>
-          {attachments.length === 0 && (
-            <div
-              style={{
-                borderRadius: 18,
-                background: '#ffffff',
-                border: '1px solid rgba(15,23,42,0.08)',
-                padding: 14,
-                fontSize: 14,
-                color: '#475569',
-              }}
-            >
-              No files attached.
-            </div>
           )}
 
-          {attachments.map((attachment, index) => (
-            <div
-              key={attachment.id}
-              style={{
-                borderRadius: 18,
-                background: '#ffffff',
-                border: '1px solid rgba(15,23,42,0.08)',
-                padding: 14,
-                display: 'grid',
-                gap: 12,
-                width: '100%',
-              }}
-            >
-              <div style={{ minWidth: 0, width: '100%' }}>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: 14,
-                    fontWeight: 700,
-                    lineHeight: 1.45,
-                    color: '#0f172a',
-                    overflowWrap: 'anywhere',
-                    wordBreak: 'break-word',
-                  }}
-                >
-                  {attachments.length > 1 ? `Page ${index + 1}: ` : ''}
-                  {attachment.file_name}
-                </p>
-                <p style={{ marginTop: 6, marginBottom: 0, fontSize: 12, color: '#64748b' }}>
-                  {attachment.file_type || 'Unknown file type'}
-                </p>
+          <p style={{ marginTop: 10, marginBottom: 0, fontSize: 13, color: '#64748b' }}>
+            Posted {formatDateTime(post.created_at)}
+          </p>
+
+          <div style={{ marginTop: 14, display: 'grid', gap: 10 }}>
+            {attachments.length === 0 && (
+              <div
+                style={{
+                  borderRadius: 18,
+                  background: '#ffffff',
+                  border: '1px solid rgba(15,23,42,0.08)',
+                  padding: 14,
+                  fontSize: 14,
+                  color: '#475569',
+                }}
+              >
+                No files attached.
               </div>
-              <div>
+            )}
+
+            {attachments.map((attachment, index) => (
+              <div
+                key={attachment.id}
+                style={{
+                  borderRadius: 18,
+                  background: '#ffffff',
+                  border: '1px solid rgba(15,23,42,0.08)',
+                  padding: 14,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: 14,
+                      fontWeight: 700,
+                      color: '#0f172a',
+                      overflowWrap: 'anywhere',
+                    }}
+                  >
+                    {attachments.length > 1 ? `Page ${index + 1}: ` : ''}
+                    {attachment.file_name}
+                  </p>
+                  <p style={{ marginTop: 6, marginBottom: 0, fontSize: 12, color: '#64748b' }}>
+                    {attachment.file_type || 'Unknown file type'}
+                  </p>
+                </div>
                 <button type="button" onClick={() => void onOpenAttachment(attachment)} style={secondaryButtonStyle()}>
                   View File
                 </button>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => void onDeletePost(post)}
+            disabled={busyDeleting}
+            style={{ ...buttonStyle(false, true), opacity: busyDeleting ? 0.7 : 1 }}
+          >
+            {busyDeleting ? 'Deleting...' : 'Delete'}
+          </button>
         </div>
       </div>
     </div>
   );
 }
-
 
 function normalizeDocumentPosts(rows: any[] | null | undefined): DocumentPost[] {
   return (rows ?? []).map((row) => ({
