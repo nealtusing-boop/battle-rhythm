@@ -266,9 +266,10 @@ export default async function HomePage() {
                       fontWeight: 800,
                       color: '#0f172a',
                       overflowWrap: 'anywhere',
+                      whiteSpace: 'pre-wrap',
                     }}
                   >
-                    {getAlertTitle(alert.message)}
+                    {alert.message.trim() || 'Untitled alert'}
                   </p>
 
                   {attachments.length > 0 && (
