@@ -1,11 +1,17 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/browser';
 import type { Profile } from '@/lib/types';
 
 const DOC_BUCKET = 'battle-rhythm-docs';
+
+
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 const tabs = [
   { id: 'alerts', label: 'Alerts' },
@@ -345,7 +351,7 @@ function ModalShell({
             flexWrap: 'wrap',
           }}
         >
-          <div style={{ minWidth: 0 }}>
+          <div style={{ minWidth: 0, flex: 1, width: '100%' }}>
             <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#0f172a' }}>{title}</h2>
             <p
               style={{
@@ -396,11 +402,8 @@ function DocumentPostCard({
     >
       <div
         style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
+          display: 'grid',
           gap: 16,
-          flexWrap: 'wrap',
         }}
       >
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -495,10 +498,12 @@ function DocumentPostCard({
                   border: '1px solid rgba(15,23,42,0.08)',
                   padding: 14,
                   display: 'grid',
+                  gridTemplateColumns: 'minmax(0,1fr) auto',
+                  alignItems: 'center',
                   gap: 12,
                 }}
               >
-                <div style={{ minWidth: 0 }}>
+                <div style={{ minWidth: 0, width: '100%' }}>
                   <p
                     style={{
                       margin: 0,
@@ -515,7 +520,11 @@ function DocumentPostCard({
                     {attachment.file_type || 'Unknown file type'}
                   </p>
                 </div>
-                <button type="button" onClick={() => void onOpenAttachment(attachment)} style={{ ...secondaryButtonStyle(), width: '100%' }}>
+                <button
+                  type="button"
+                  onClick={() => void onOpenAttachment(attachment)}
+                  style={{ ...secondaryButtonStyle(), width: 136, minWidth: 136, padding: '12px 14px' }}
+                >
                   View File
                 </button>
               </div>
@@ -523,7 +532,7 @@ function DocumentPostCard({
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <button
             type="button"
             onClick={() => void onDeletePost(post)}
@@ -538,6 +547,81 @@ function DocumentPostCard({
   );
 }
 
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function AdminPdfPreview({ url }: { url: string }) {
+  const [numPages, setNumPages] = useState(0);
+  const [zoom, setZoom] = useState(1);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) return;
+
+    const updateWidth = () => {
+      setContainerWidth(element.clientWidth);
+    };
+
+    updateWidth();
+
+    const observer = new ResizeObserver(() => updateWidth());
+    observer.observe(element);
+
+    window.addEventListener('orientationchange', updateWidth);
+    window.addEventListener('resize', updateWidth);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('orientationchange', updateWidth);
+      window.removeEventListener('resize', updateWidth);
+    };
+  }, []);
+
+  const baseWidth = Math.max(260, Math.floor(containerWidth - 24));
+  const pageWidth = Math.max(260, Math.floor(baseWidth * zoom));
+
+  return (
+    <div style={{ height: '100%', overflow: 'auto', background: '#e5e7eb' }}>
+      <div
+        style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 2,
+          display: 'flex',
+          justifyContent: 'flex-end',
+          gap: 8,
+          padding: '10px',
+          background: 'rgba(255,255,255,0.96)',
+          borderBottom: '1px solid rgba(15,23,42,0.08)',
+        }}
+      >
+        <button type="button" onClick={() => setZoom((z) => clamp(Number((z - 0.15).toFixed(2)), 0.85, 2.5))} style={secondaryButtonStyle()}>
+          −
+        </button>
+        <div style={{ alignSelf: 'center', minWidth: 56, textAlign: 'center', color: '#475569', fontWeight: 700 }}>
+          {Math.round(zoom * 100)}%
+        </div>
+        <button type="button" onClick={() => setZoom((z) => clamp(Number((z + 0.15).toFixed(2)), 0.85, 2.5))} style={secondaryButtonStyle()}>
+          +
+        </button>
+      </div>
+
+      <div ref={containerRef} style={{ display: 'grid', justifyContent: 'center', gap: 16, padding: 12 }}>
+        <Document file={url} onLoadSuccess={({ numPages: pages }) => setNumPages(pages)} loading="Loading PDF..." error="Unable to load PDF preview.">
+          {Array.from({ length: numPages }, (_, i) => (
+            <div key={i + 1} style={{ display: 'grid', justifyContent: 'center' }}>
+              <Page pageNumber={i + 1} width={pageWidth} renderAnnotationLayer renderTextLayer loading="Loading page..." />
+            </div>
+          ))}
+        </Document>
+      </div>
+    </div>
+  );
+}
 
 function AttachmentPreviewOverlay({
   fileName,
@@ -581,7 +665,7 @@ function AttachmentPreviewOverlay({
       <div
         style={{
           width: '100%',
-          maxWidth: 1100,
+          maxWidth: 980,
           height: '100%',
           margin: '0 auto',
           borderRadius: 24,
@@ -606,7 +690,7 @@ function AttachmentPreviewOverlay({
             background: 'rgba(255,255,255,0.98)',
           }}
         >
-          <div style={{ minWidth: 0 }}>
+          <div style={{ minWidth: 0, flex: 1, width: '100%' }}>
             <div
               style={{
                 fontSize: 15,
@@ -647,11 +731,7 @@ function AttachmentPreviewOverlay({
               />
             </div>
           ) : kind === 'pdf' ? (
-            <iframe
-              src={signedUrl}
-              title={fileName}
-              style={{ width: '100%', height: '100%', minHeight: '100%', border: 'none', background: '#ffffff' }}
-            />
+            <AdminPdfPreview url={signedUrl} />
           ) : (
             <div style={{ display: 'grid', gap: 12, padding: 24, color: '#475569' }}>
               <div>Preview is not available for this file type.</div>
@@ -1750,7 +1830,7 @@ export function AdminClient() {
                               flexWrap: 'wrap',
                             }}
                           >
-                            <div style={{ minWidth: 0 }}>
+                            <div style={{ minWidth: 0, flex: 1, width: '100%' }}>
                               <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#0f172a', overflowWrap: 'anywhere' }}>
                                 {attachment.file_name}
                               </p>
@@ -1761,7 +1841,7 @@ export function AdminClient() {
                             <button
                               type="button"
                               onClick={() => void openAttachment(attachment)}
-                              style={{ ...secondaryButtonStyle(), width: '100%' }}
+                              style={{ ...secondaryButtonStyle(), width: 136, minWidth: 136, padding: '12px 14px' }}
                             >
                               View File
                             </button>
@@ -1853,7 +1933,7 @@ export function AdminClient() {
                               flexWrap: 'wrap',
                             }}
                           >
-                            <div style={{ minWidth: 0 }}>
+                            <div style={{ minWidth: 0, flex: 1, width: '100%' }}>
                               <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#0f172a', overflowWrap: 'anywhere' }}>
                                 {attachment.file_name}
                               </p>
@@ -1864,7 +1944,7 @@ export function AdminClient() {
                             <button
                               type="button"
                               onClick={() => void openAttachment(attachment)}
-                              style={{ ...secondaryButtonStyle(), width: '100%' }}
+                              style={{ ...secondaryButtonStyle(), width: 136, minWidth: 136, padding: '12px 14px' }}
                             >
                               View File
                             </button>
@@ -2362,7 +2442,7 @@ export function AdminClient() {
                         minWidth: 0,
                       }}
                     >
-                      <div style={{ minWidth: 0 }}>
+                      <div style={{ minWidth: 0, flex: 1, width: '100%' }}>
                         <p
                           style={{
                             margin: 0,

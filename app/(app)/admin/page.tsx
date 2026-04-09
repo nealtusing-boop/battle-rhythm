@@ -10,7 +10,7 @@ export default async function AdminPage() {
         <h1
           style={{
             margin: 0,
-            fontSize: 40,
+            fontSize: 28,
             fontWeight: 800,
             letterSpacing: '-0.05em',
             color: '#ffffff',
@@ -22,7 +22,7 @@ export default async function AdminPage() {
           style={{
             marginTop: 12,
             marginBottom: 0,
-            fontSize: 15,
+            fontSize: 14,
             color: 'rgba(255,255,255,0.82)',
           }}
         >
