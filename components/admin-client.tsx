@@ -298,6 +298,7 @@ function buildExpirationIso(dateValue: string, timeValue: string) {
   if (!dateValue || !finalTime) return null;
   const combined = new Date(`${dateValue}T${finalTime}`);
   if (Number.isNaN(combined.getTime())) return null;
+  if (combined.getTime() <= Date.now()) return null;
   return combined.toISOString();
 }
 
@@ -1057,7 +1058,8 @@ export function AdminClient() {
   }
 
   function openReactivateAlert(alert: ExistingAlert) {
-    const split = splitExpirationForForm(alert.expires_at);
+    const isExpired = !alert.expires_at || new Date(alert.expires_at).getTime() <= Date.now();
+    const split = splitExpirationForForm(isExpired ? null : alert.expires_at);
     setReactivatingAlert(alert);
     setReactivationMessage(alert.message);
     setReactivationExpiresDate(split.date);

@@ -75,37 +75,44 @@ export function AppShell({
       });
     }
 
-    function goHomeFromNotification() {
+    function goHomeFromNotification(rawUrl?: string) {
       setOpen(false);
-      const targetUrl = '/home?notification=1';
+      const targetUrl = rawUrl && rawUrl.startsWith('/home')
+        ? (rawUrl.includes('notification=1') ? rawUrl : '/home?notification=1')
+        : '/home?notification=1';
+
       if (window.location.pathname !== '/home' || !window.location.search.includes('notification=1')) {
-        window.location.replace(targetUrl);
+        window.location.assign(targetUrl);
         return;
       }
-      router.replace('/home');
+
+      router.replace('/home?notification=1');
       router.refresh();
     }
 
     const handleServiceWorkerMessage = (event: MessageEvent) => {
       if (event.data?.type !== 'OPEN_HOME_FROM_NOTIFICATION') return;
+      const targetUrl = typeof event.data?.url === 'string' ? event.data.url : '/home?notification=1';
       void Promise.all(REDIRECT_KEYS.map((key) => clearStoredValue(key).catch(() => undefined)));
-      goHomeFromNotification();
+      goHomeFromNotification(targetUrl);
     };
 
     async function consumePendingNotificationRedirect() {
       try {
         for (const key of REDIRECT_KEYS) {
           const pendingRedirect = await getStoredValue(key);
+          const redirectValue = typeof pendingRedirect === 'string' ? pendingRedirect : '';
           const shouldGoHome =
             pendingRedirect === true ||
             pendingRedirect === 'true' ||
-            pendingRedirect === '/home' ||
-            pendingRedirect === 'home';
+            redirectValue === '/home' ||
+            redirectValue === 'home' ||
+            redirectValue.startsWith('/home?');
 
           if (!shouldGoHome) continue;
 
           await clearStoredValue(key);
-          goHomeFromNotification();
+          goHomeFromNotification(redirectValue || '/home?notification=1');
           return;
         }
       } catch {

@@ -76,8 +76,17 @@ async function updateAppBadge(count) {
   }
 }
 
+function normalizeTargetUrl(url) {
+  if (!url || typeof url !== 'string') return '/home?notification=1';
+  if (url.startsWith('/home')) {
+    return url.includes('notification=1') ? url : '/home?notification=1';
+  }
+  return url;
+}
+
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : {};
+  const targetUrl = normalizeTargetUrl(data.url);
 
   event.waitUntil(
     (async () => {
@@ -88,7 +97,7 @@ self.addEventListener('push', (event) => {
         icon: '/icon-192.png',
         badge: '/icon-192.png',
         data: {
-          url: data.url || '/home?notification=1',
+          url: targetUrl,
         },
       });
 
@@ -102,7 +111,7 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     (async () => {
-      const targetUrl = event.notification?.data?.url || '/home?notification=1';
+      const targetUrl = normalizeTargetUrl(event.notification?.data?.url);
 
       await setValue(REDIRECT_KEY, targetUrl);
 
@@ -112,8 +121,14 @@ self.addEventListener('notificationclick', (event) => {
       });
 
       for (const client of clientList) {
-        if ('focus' in client) {
-          await client.focus();
+        try {
+          if ('navigate' in client) {
+            await client.navigate(targetUrl);
+          }
+
+          if ('focus' in client) {
+            await client.focus();
+          }
 
           if ('postMessage' in client) {
             client.postMessage({
@@ -123,6 +138,8 @@ self.addEventListener('notificationclick', (event) => {
           }
 
           return;
+        } catch {
+          // keep trying other clients
         }
       }
 
