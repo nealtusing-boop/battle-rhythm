@@ -548,13 +548,8 @@ function DocumentPostCard({
 }
 
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}
-
-function AdminPdfPreview({ url }: { url: string }) {
+function AdminPdfPreview({ url, chromeVisible = true }: { url: string; chromeVisible?: boolean }) {
   const [numPages, setNumPages] = useState(0);
-  const [zoom, setZoom] = useState(1);
   const [containerWidth, setContainerWidth] = useState(0);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -581,36 +576,11 @@ function AdminPdfPreview({ url }: { url: string }) {
     };
   }, []);
 
-  const baseWidth = Math.max(260, Math.floor(containerWidth - 24));
-  const pageWidth = Math.max(260, Math.floor(baseWidth * zoom));
+  const pageWidth = Math.max(280, Math.floor(containerWidth - (chromeVisible ? 32 : 20)));
 
   return (
     <div style={{ height: '100%', overflow: 'auto', background: '#e5e7eb' }}>
-      <div
-        style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 2,
-          display: 'flex',
-          justifyContent: 'flex-end',
-          gap: 8,
-          padding: '10px',
-          background: 'rgba(255,255,255,0.96)',
-          borderBottom: '1px solid rgba(15,23,42,0.08)',
-        }}
-      >
-        <button type="button" onClick={() => setZoom((z) => clamp(Number((z - 0.15).toFixed(2)), 0.85, 2.5))} style={secondaryButtonStyle()}>
-          −
-        </button>
-        <div style={{ alignSelf: 'center', minWidth: 56, textAlign: 'center', color: '#475569', fontWeight: 700 }}>
-          {Math.round(zoom * 100)}%
-        </div>
-        <button type="button" onClick={() => setZoom((z) => clamp(Number((z + 0.15).toFixed(2)), 0.85, 2.5))} style={secondaryButtonStyle()}>
-          +
-        </button>
-      </div>
-
-      <div ref={containerRef} style={{ display: 'grid', justifyContent: 'center', gap: 16, padding: 12 }}>
+      <div ref={containerRef} style={{ display: 'grid', justifyContent: 'center', gap: chromeVisible ? 16 : 12, padding: chromeVisible ? 16 : 10 }}>
         <Document file={url} onLoadSuccess={({ numPages: pages }) => setNumPages(pages)} loading="Loading PDF..." error="Unable to load PDF preview.">
           {Array.from({ length: numPages }, (_, i) => (
             <div key={i + 1} style={{ display: 'grid', justifyContent: 'center' }}>
@@ -637,15 +607,21 @@ function AttachmentPreviewOverlay({
   onClose: () => void;
 }) {
   const kind = getAttachmentKind(fileName, fileType);
+  const [chromeVisible, setChromeVisible] = useState(true);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    setChromeVisible(true);
 
     return () => {
       document.body.style.overflow = previousOverflow;
     };
   }, []);
+
+  const toggleChrome = () => {
+    setChromeVisible((value) => !value);
+  };
 
   return (
     <div
@@ -655,12 +631,13 @@ function AttachmentPreviewOverlay({
         zIndex: 1000,
         background: 'rgba(15,23,42,0.82)',
         backdropFilter: 'blur(6px)',
-        paddingTop: 'max(12px, env(safe-area-inset-top))',
-        paddingRight: 12,
-        paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
-        paddingLeft: 12,
+        paddingTop: 'max(8px, env(safe-area-inset-top))',
+        paddingRight: 8,
+        paddingBottom: 'max(8px, env(safe-area-inset-bottom))',
+        paddingLeft: 8,
         display: 'grid',
       }}
+      onClick={toggleChrome}
     >
       <div
         style={{
@@ -672,51 +649,63 @@ function AttachmentPreviewOverlay({
           background: '#ffffff',
           overflow: 'hidden',
           display: 'grid',
-          gridTemplateRows: 'auto 1fr',
+          gridTemplateRows: `${chromeVisible ? 'auto ' : ''}1fr`,
           boxShadow: '0 24px 80px rgba(15,23,42,0.35)',
         }}
+        onClick={(event) => event.stopPropagation()}
       >
-        <div
-          style={{
-            position: 'sticky',
-            top: 0,
-            zIndex: 2,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 12,
-            padding: 'max(14px, env(safe-area-inset-top)) 16px 14px 16px',
-            borderBottom: '1px solid rgba(15,23,42,0.08)',
-            background: 'rgba(255,255,255,0.98)',
-          }}
-        >
-          <div style={{ minWidth: 0, flex: 1, width: '100%' }}>
-            <div
-              style={{
-                fontSize: 15,
-                fontWeight: 800,
-                letterSpacing: '-0.02em',
-                color: '#0f172a',
-                overflowWrap: 'anywhere',
-              }}
-            >
-              {fileName}
+        {chromeVisible && (
+          <div
+            onClick={toggleChrome}
+            style={{
+              position: 'sticky',
+              top: 0,
+              zIndex: 2,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              padding: 'max(8px, env(safe-area-inset-top)) 14px 8px 14px',
+              borderBottom: '1px solid rgba(15,23,42,0.08)',
+              background: 'rgba(255,255,255,0.98)',
+            }}
+          >
+            <div style={{ minWidth: 0, flex: 1, width: '100%' }}>
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 800,
+                  letterSpacing: '-0.02em',
+                  color: '#0f172a',
+                  overflowWrap: 'anywhere',
+                  lineHeight: 1.2,
+                }}
+              >
+                {fileName}
+              </div>
+              <div style={{ marginTop: 2, fontSize: 11, color: '#64748b', lineHeight: 1.2 }}>{fileType || 'Unknown file type'}</div>
             </div>
-            <div style={{ marginTop: 4, fontSize: 12, color: '#64748b' }}>{fileType || 'Unknown file type'}</div>
+
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onClose();
+              }}
+              style={{ ...secondaryButtonStyle(), padding: '10px 14px', fontSize: 13 }}
+            >
+              Close
+            </button>
           </div>
+        )}
 
-          <button type="button" onClick={onClose} style={{ ...secondaryButtonStyle(), padding: '10px 14px' }}>
-            Close
-          </button>
-        </div>
-
-        <div style={{ minHeight: 0, overflow: 'auto', background: '#e5e7eb' }}>
+        <div style={{ minHeight: 0, overflow: 'auto', background: '#e5e7eb' }} onClick={toggleChrome}>
           {busy || !signedUrl ? (
             <div style={{ display: 'grid', placeItems: 'center', minHeight: '100%', padding: 24, color: '#475569', fontWeight: 700 }}>
               Loading attachment...
             </div>
           ) : kind === 'image' ? (
-            <div style={{ minHeight: '100%', display: 'grid', placeItems: 'start center', padding: 16 }}>
+            <div style={{ minHeight: '100%', display: 'grid', placeItems: 'start center', padding: chromeVisible ? 16 : 10 }}>
               <img
                 src={signedUrl}
                 alt={fileName}
@@ -731,9 +720,9 @@ function AttachmentPreviewOverlay({
               />
             </div>
           ) : kind === 'pdf' ? (
-            <AdminPdfPreview url={signedUrl} />
+            <AdminPdfPreview url={signedUrl} chromeVisible={chromeVisible} />
           ) : (
-            <div style={{ display: 'grid', gap: 12, padding: 24, color: '#475569' }}>
+            <div style={{ display: 'grid', gap: 12, padding: 24, color: '#475569' }} onClick={(event) => event.stopPropagation()}>
               <div>Preview is not available for this file type.</div>
               <a
                 href={signedUrl}
