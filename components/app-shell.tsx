@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Menu, X, House, Ellipsis } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { Profile } from '@/lib/types';
@@ -20,9 +20,36 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
 
   const fullName = [profile.rank, profile.full_name].filter(Boolean).join(' ');
+
+
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+
+    const handleServiceWorkerMessage = (event: MessageEvent) => {
+      if (event.data?.type !== 'OPEN_HOME_FROM_NOTIFICATION') return;
+
+      router.replace('/home');
+      setOpen(false);
+    };
+
+    navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
+
+    if (window.location.pathname !== '/home') {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('fromNotification') === '1') {
+        router.replace('/home');
+      }
+    }
+
+    return () => {
+      navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
+    };
+  }, [router]);
 
   useEffect(() => {
     document.body.style.overflow = open ? 'hidden' : '';

@@ -78,7 +78,8 @@ self.addEventListener('push', (event) => {
         body: data.body || 'A new alert is available.',
         icon: '/icon-192.png',
         badge: '/icon-192.png',
-        data: { url: '/home' },
+        // 👇 IMPORTANT
+        data: { forceHome: true },
       });
 
       await updateAppBadge(unreadCount);
@@ -86,34 +87,39 @@ self.addEventListener('push', (event) => {
   );
 });
 
+// 🔥 THIS IS THE FIX THAT ACTUALLY WORKS ON iOS
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      const targetUrl = '/home';
+    (async () => {
+      const allClients = await clients.matchAll({
+        type: 'window',
+        includeUncontrolled: true,
+      });
 
-      for (const client of clientList) {
-        if ('focus' in client) {
-          client.navigate(targetUrl);
-          return client.focus();
-        }
+      if (allClients.length > 0) {
+        const client = allClients[0];
+
+        // 👇 SEND MESSAGE TO APP TO FORCE NAVIGATION
+        client.postMessage({ type: 'OPEN_HOME_FROM_NOTIFICATION' });
+
+        return client.focus();
       }
 
-      if (clients.openWindow) {
-        return clients.openWindow(targetUrl);
-      }
-    }),
+      // fallback if app is closed
+      return clients.openWindow('/home');
+    })(),
   );
 });
 
 self.addEventListener('message', (event) => {
-  if (event.data?.type !== 'CLEAR_ALERT_BADGE') return;
-
-  event.waitUntil(
-    (async () => {
-      await clearUnreadCount();
-      await updateAppBadge(0);
-    })(),
-  );
+  if (event.data?.type === 'CLEAR_ALERT_BADGE') {
+    event.waitUntil(
+      (async () => {
+        await clearUnreadCount();
+        await updateAppBadge(0);
+      })(),
+    );
+  }
 });
