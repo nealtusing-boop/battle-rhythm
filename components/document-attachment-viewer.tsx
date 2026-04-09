@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { MouseEvent, TouchEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/browser';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -28,6 +28,7 @@ type ResolvedAttachment = Attachment & {
   signedUrl: string;
   kind: 'pdf' | 'image' | 'other';
 };
+
 
 function getFileKind(fileName: string, fileType?: string | null): 'pdf' | 'image' | 'other' {
   const lowerName = fileName.toLowerCase();
@@ -161,7 +162,7 @@ function ViewerLoadingState({ label }: { label: string }) {
   );
 }
 
-function PDFPreview({ url, onToggleChrome }: { url: string; onToggleChrome: () => void }) {
+function PDFPreview({ url, chromeVisible = true }: { url: string; chromeVisible?: boolean }) {
   const [numPages, setNumPages] = useState(0);
   const [containerWidth, setContainerWidth] = useState(0);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -189,14 +190,11 @@ function PDFPreview({ url, onToggleChrome }: { url: string; onToggleChrome: () =
     };
   }, []);
 
-  const pageWidth = Math.max(280, Math.floor(containerWidth - 24));
+  const pageWidth = Math.max(280, Math.floor(containerWidth - (chromeVisible ? 32 : 20)));
 
   return (
-    <div
-      onClick={onToggleChrome}
-      style={{ height: '100%', overflow: 'auto', background: '#e5e7eb', WebkitOverflowScrolling: 'touch' }}
-    >
-      <div ref={containerRef} style={{ display: 'grid', justifyContent: 'center', gap: 14, padding: 12 }}>
+    <div style={{ height: '100%', overflow: 'auto', background: '#e5e7eb' }}>
+      <div ref={containerRef} style={{ display: 'grid', justifyContent: 'center', gap: chromeVisible ? 16 : 12, padding: chromeVisible ? 16 : 10 }}>
         <Document
           file={url}
           onLoadSuccess={({ numPages: pages }) => setNumPages(pages)}
@@ -220,13 +218,10 @@ function PDFPreview({ url, onToggleChrome }: { url: string; onToggleChrome: () =
   );
 }
 
-function ImagePreview({ url, fileName, onToggleChrome }: { url: string; fileName: string; onToggleChrome: () => void }) {
+function ImagePreview({ url, fileName, chromeVisible = true }: { url: string; fileName: string; chromeVisible?: boolean }) {
   return (
-    <div
-      onClick={onToggleChrome}
-      style={{ height: '100%', overflow: 'auto', background: '#e5e7eb', WebkitOverflowScrolling: 'touch' }}
-    >
-      <div style={{ display: 'grid', justifyContent: 'center', padding: 12, overflow: 'auto' }}>
+    <div style={{ height: '100%', overflow: 'auto', background: '#e5e7eb' }}>
+      <div style={{ display: 'grid', justifyContent: 'center', padding: chromeVisible ? 16 : 10, overflow: 'auto' }}>
         <img
           src={url}
           alt={fileName}
@@ -242,9 +237,9 @@ function ImagePreview({ url, fileName, onToggleChrome }: { url: string; fileName
   );
 }
 
-function FilePreview({ file, onToggleChrome }: { file: ResolvedAttachment; onToggleChrome: () => void }) {
-  if (file.kind === 'pdf') return <PDFPreview url={file.signedUrl} onToggleChrome={onToggleChrome} />;
-  if (file.kind === 'image') return <ImagePreview url={file.signedUrl} fileName={file.file_name} onToggleChrome={onToggleChrome} />;
+function FilePreview({ file, chromeVisible = true }: { file: ResolvedAttachment; chromeVisible?: boolean }) {
+  if (file.kind === 'pdf') return <PDFPreview url={file.signedUrl} chromeVisible={chromeVisible} />;
+  if (file.kind === 'image') return <ImagePreview url={file.signedUrl} fileName={file.file_name} chromeVisible={chromeVisible} />;
 
   return (
     <div style={{ padding: 24, display: 'grid', gap: 12 }}>
@@ -287,7 +282,15 @@ export function DocumentAttachmentViewer({
   const initialAutoOpenDoneRef = useRef(false);
   const { resolved, loading, error } = useResolvedAttachments(normalizedAttachments, open);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [controlsVisible, setControlsVisible] = useState(true);
+  const [chromeVisible, setChromeVisible] = useState(true);
+
+  const toggleChrome = () => {
+    setChromeVisible((value) => !value);
+  };
+
+  const stopToggle = (event: MouseEvent<HTMLElement> | TouchEvent<HTMLElement>) => {
+    event.stopPropagation();
+  };
 
   useEffect(() => {
     if (defaultOpen && normalizedAttachments.length > 0 && !initialAutoOpenDoneRef.current) {
@@ -299,6 +302,8 @@ export function DocumentAttachmentViewer({
 
   useEffect(() => {
     if (!open) return;
+
+    setChromeVisible(true);
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -318,10 +323,6 @@ export function DocumentAttachmentViewer({
       setSelectedId(resolved[0].id);
     }
   }, [resolved, selectedId]);
-
-  useEffect(() => {
-    if (open) setControlsVisible(true);
-  }, [open, selectedId]);
 
   const selected = resolved.find((file) => file.id === selectedId) || resolved[0];
   const currentButtonLabel = hasAutoOpened && !open ? 'Open Attachment' : buttonLabel;
@@ -345,12 +346,13 @@ export function DocumentAttachmentViewer({
             zIndex: 1000,
             background: 'rgba(15,23,42,0.82)',
             backdropFilter: 'blur(6px)',
-            paddingTop: 'max(12px, env(safe-area-inset-top))',
-            paddingRight: 12,
-            paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
-            paddingLeft: 12,
+            paddingTop: 'max(8px, env(safe-area-inset-top))',
+            paddingRight: 8,
+            paddingBottom: 'max(8px, env(safe-area-inset-bottom))',
+            paddingLeft: 8,
             display: 'grid',
           }}
+          onClick={toggleChrome}
         >
           <div
             style={{
@@ -362,12 +364,15 @@ export function DocumentAttachmentViewer({
               background: '#ffffff',
               overflow: 'hidden',
               display: 'grid',
-              gridTemplateRows: '1fr',
+              gridTemplateRows: `${chromeVisible ? 'auto ' : ''}${chromeVisible && resolved.length > 1 ? 'auto ' : ''}1fr`,
               boxShadow: '0 24px 80px rgba(15,23,42,0.35)',
             }}
+            onClick={stopToggle}
+            onTouchEnd={stopToggle}
           >
-            {controlsVisible && (
+            {chromeVisible && (
               <div
+                onClick={toggleChrome}
                 style={{
                   position: 'sticky',
                   top: 0,
@@ -376,45 +381,33 @@ export function DocumentAttachmentViewer({
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   gap: 12,
-                  padding: 'max(8px, env(safe-area-inset-top)) 12px 8px 12px',
+                  padding: 'max(8px, env(safe-area-inset-top)) 14px 8px 14px',
                   borderBottom: '1px solid rgba(15,23,42,0.08)',
                   background: 'rgba(255,255,255,0.98)',
                 }}
               >
-                <div style={{ minWidth: 0, flex: 1, fontSize: 13, fontWeight: 800, letterSpacing: '-0.02em', color: '#0f172a', overflowWrap: 'anywhere', lineHeight: 1.25 }}>
-                  {selected?.file_name || (loading ? 'Preparing attachment...' : 'Attachments')}
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: '-0.02em', color: '#0f172a', overflowWrap: 'anywhere', lineHeight: 1.2 }}>
+                    {selected?.file_name || (loading ? 'Preparing attachment...' : 'Attachments')}
+                  </div>
                   {selected?.file_type ? (
-                    <div style={{ marginTop: 4, fontSize: 11, fontWeight: 500, color: '#64748b' }}>{selected.file_type}</div>
+                    <div style={{ marginTop: 2, fontSize: 11, color: '#64748b', lineHeight: 1.2 }}>{selected.file_type}</div>
                   ) : null}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  style={{
-                    border: '1px solid rgba(15,23,42,0.12)',
-                    borderRadius: 12,
-                    padding: '10px 14px',
-                    background: '#ffffff',
-                    color: '#334155',
-                    fontWeight: 800,
-                    fontSize: 13,
-                    cursor: 'pointer',
-                    flexShrink: 0,
-                  }}
-                >
+                <button type="button" onClick={(event) => { event.stopPropagation(); setOpen(false); }} style={{ ...ghostButtonStyle(), padding: '10px 14px', fontSize: 13 }}>
                   Close
                 </button>
               </div>
             )}
 
-            {controlsVisible && resolved.length > 1 && (
+            {chromeVisible && resolved.length > 1 && (
               <div
                 style={{
                   display: 'flex',
                   gap: 8,
-                  flexWrap: 'wrap',
-                  padding: '12px 16px',
+                  flexWrap: 'nowrap',
+                  padding: '8px 14px',
                   borderBottom: '1px solid rgba(15,23,42,0.08)',
                   overflowX: 'auto',
                   background: '#ffffff',
@@ -425,7 +418,7 @@ export function DocumentAttachmentViewer({
                     key={file.id}
                     type="button"
                     onClick={() => setSelectedId(file.id)}
-                    style={ghostButtonStyle(selected?.id === file.id)}
+                    style={{ ...ghostButtonStyle(selected?.id === file.id), whiteSpace: 'nowrap', flex: '0 0 auto', padding: '9px 12px', fontSize: 12 }}
                   >
                     {file.file_name}
                   </button>
@@ -433,18 +426,18 @@ export function DocumentAttachmentViewer({
               </div>
             )}
 
-            <div style={{ minHeight: 0 }}>
+            <div style={{ minHeight: 0 }} onClick={toggleChrome}>
               {loading ? (
                 <ViewerLoadingState label="Loading attachment preview..." />
               ) : error ? (
-                <div style={{ padding: 24, display: 'grid', gap: 12, color: '#475569' }}>
+                <div style={{ padding: 24, display: 'grid', gap: 12, color: '#475569' }} onClick={stopToggle}>
                   <div>{error}</div>
                   <button type="button" onClick={() => setOpen(false)} style={triggerButtonStyle()}>
                     Close
                   </button>
                 </div>
               ) : selected ? (
-                <FilePreview file={selected} onToggleChrome={() => setControlsVisible((value) => !value)} />
+                <FilePreview file={selected} chromeVisible={chromeVisible} />
               ) : (
                 <div style={{ padding: 24, color: '#475569' }}>{emptyMessage}</div>
               )}
