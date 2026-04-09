@@ -1866,7 +1866,7 @@ export function AdminClient() {
                         disabled={busyUpdatingAlertId === alert.id}
                         style={{ ...secondaryButtonStyle(), opacity: busyUpdatingAlertId === alert.id ? 0.7 : 1 }}
                       >
-                        {busyUpdatingAlertId === alert.id ? 'Updating...' : 'Make Inactive'}
+                        {busyUpdatingAlertId === alert.id ? 'Updating...' : 'Deactivate'}
                       </button>
                       <button
                         type="button"
