@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode, type TouchEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/browser';
 import type { Profile } from '@/lib/types';
@@ -57,12 +57,6 @@ type DocumentPost = {
   created_at: string;
   updated_at: string;
   attachments?: DocumentAttachment[] | null;
-};
-
-type AttachmentPreviewState = {
-  name: string;
-  url: string;
-  kind: 'pdf' | 'image' | 'other';
 };
 
 function sectionStyle() {
@@ -181,152 +175,6 @@ function formatDateTime(value: string | null | undefined) {
     minute: '2-digit',
     hour12: false,
   });
-}
-
-function getAttachmentKind(fileName: string, fileType?: string | null): 'pdf' | 'image' | 'other' {
-  const lowerName = fileName.toLowerCase();
-  const lowerType = (fileType || '').toLowerCase();
-
-  if (lowerType.includes('pdf') || lowerName.endsWith('.pdf')) return 'pdf';
-  if (lowerType.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(lowerName)) return 'image';
-  return 'other';
-}
-
-function AttachmentPreviewOverlay({
-  preview,
-  onClose,
-}: {
-  preview: AttachmentPreviewState;
-  onClose: () => void;
-}) {
-  useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-
-    window.addEventListener('keydown', onKeyDown);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener('keydown', onKeyDown);
-    };
-  }, [onClose]);
-
-  return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 1400,
-        background: 'rgba(15,23,42,0.72)',
-        backdropFilter: 'blur(6px)',
-        padding: 16,
-        display: 'grid',
-      }}
-    >
-      <div
-        onClick={(event) => event.stopPropagation()}
-        style={{
-          position: 'relative',
-          width: '100%',
-          maxWidth: 1100,
-          height: '100%',
-          margin: '0 auto',
-          borderRadius: 24,
-          overflow: 'hidden',
-          background: '#ffffff',
-          boxShadow: '0 24px 60px rgba(15,23,42,0.28)',
-        }}
-      >
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            zIndex: 2,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 12,
-            padding: 'max(14px, env(safe-area-inset-top)) 16px 14px 16px',
-            background: 'rgba(255,255,255,0.96)',
-            borderBottom: '1px solid rgba(15,23,42,0.08)',
-          }}
-        >
-          <div
-            style={{
-              minWidth: 0,
-              fontSize: 15,
-              fontWeight: 800,
-              color: '#0f172a',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {preview.name}
-          </div>
-
-          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-            <a
-              href={preview.url}
-              target="_blank"
-              rel="noreferrer"
-              style={{ ...secondaryButtonStyle(), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
-            >
-              Open
-            </a>
-            <button type="button" onClick={onClose} style={secondaryButtonStyle()}>
-              Close
-            </button>
-          </div>
-        </div>
-
-        <div
-          style={{
-            position: 'absolute',
-            top: 74,
-            right: 0,
-            bottom: 0,
-            left: 0,
-            background: '#e5e7eb',
-            overflow: 'auto',
-          }}
-        >
-          {preview.kind === 'image' ? (
-            <div style={{ minHeight: '100%', display: 'grid', placeItems: 'center', padding: 12 }}>
-              <img
-                src={preview.url}
-                alt={preview.name}
-                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 12, background: '#ffffff' }}
-              />
-            </div>
-          ) : preview.kind === 'pdf' ? (
-            <iframe title={preview.name} src={preview.url} style={{ width: '100%', height: '100%', border: 'none', background: '#ffffff' }} />
-          ) : (
-            <div style={{ minHeight: '100%', display: 'grid', placeItems: 'center', padding: 24 }}>
-              <div style={{ display: 'grid', gap: 12, justifyItems: 'start' }}>
-                <div style={{ color: '#475569' }}>Preview is not available for this file type.</div>
-                <a
-                  href={preview.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ ...buttonStyle(true, false), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
-                >
-                  Open File
-                </a>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
 }
 
 function isAlertCurrentlyActive(alert: ExistingAlert) {
@@ -513,6 +361,7 @@ function ModalShell({
   );
 }
 
+
 function DocumentPostCard({
   post,
   onOpenAttachment,
@@ -532,37 +381,22 @@ function DocumentPostCard({
         borderRadius: 22,
         background: '#f8fafc',
         border: '1px solid rgba(15,23,42,0.08)',
-        padding: '18px 18px',
+        padding: 18,
         minWidth: 0,
+        width: '100%',
       }}
     >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          gap: 16,
-          flexWrap: 'wrap',
-        }}
-      >
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
-            <div
-              style={{
-                display: 'inline-flex',
-                borderRadius: 999,
-                padding: '6px 10px',
-                fontSize: 11,
-                fontWeight: 800,
-                textTransform: 'uppercase',
-                letterSpacing: '0.12em',
-                background: post.is_active ? '#dcfce7' : '#e2e8f0',
-                color: post.is_active ? '#166534' : '#334155',
-              }}
-            >
-              {post.is_active ? 'Active' : 'Inactive'}
-            </div>
-            {post.subcategory && (
+      <div style={{ display: 'grid', gap: 14 }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0, 1fr) auto',
+            alignItems: 'start',
+            gap: 12,
+          }}
+        >
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
               <div
                 style={{
                   display: 'inline-flex',
@@ -572,116 +406,136 @@ function DocumentPostCard({
                   fontWeight: 800,
                   textTransform: 'uppercase',
                   letterSpacing: '0.12em',
-                  background: '#ede9fe',
-                  color: '#6d28d9',
+                  background: post.is_active ? '#dcfce7' : '#e2e8f0',
+                  color: post.is_active ? '#166534' : '#334155',
                 }}
               >
-                {post.subcategory.replace(/_/g, ' ')}
+                {post.is_active ? 'Active' : 'Inactive'}
               </div>
-            )}
-          </div>
+              {post.subcategory && (
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    borderRadius: 999,
+                    padding: '6px 10px',
+                    fontSize: 11,
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.12em',
+                    background: '#ede9fe',
+                    color: '#6d28d9',
+                  }}
+                >
+                  {post.subcategory.replace(/_/g, ' ')}
+                </div>
+              )}
+            </div>
 
-          <p
-            style={{
-              margin: 0,
-              fontSize: 16,
-              fontWeight: 800,
-              color: '#0f172a',
-              overflowWrap: 'anywhere',
-            }}
-          >
-            {post.title}
-          </p>
-
-          {post.description && (
             <p
               style={{
-                marginTop: 10,
-                marginBottom: 0,
-                fontSize: 14,
-                lineHeight: 1.55,
-                color: '#475569',
+                margin: 0,
+                fontSize: 16,
+                fontWeight: 800,
+                color: '#0f172a',
                 overflowWrap: 'anywhere',
               }}
             >
-              {post.description}
+              {post.title}
             </p>
-          )}
 
-          <p style={{ marginTop: 10, marginBottom: 0, fontSize: 13, color: '#64748b' }}>
-            Posted {formatDateTime(post.created_at)}
-          </p>
-
-          <div style={{ marginTop: 14, display: 'grid', gap: 10 }}>
-            {attachments.length === 0 && (
-              <div
+            {post.description && (
+              <p
                 style={{
-                  borderRadius: 18,
-                  background: '#ffffff',
-                  border: '1px solid rgba(15,23,42,0.08)',
-                  padding: 14,
+                  marginTop: 10,
+                  marginBottom: 0,
                   fontSize: 14,
+                  lineHeight: 1.55,
                   color: '#475569',
+                  overflowWrap: 'anywhere',
                 }}
               >
-                No files attached.
-              </div>
+                {post.description}
+              </p>
             )}
 
-            {attachments.map((attachment, index) => (
-              <div
-                key={attachment.id}
-                style={{
-                  borderRadius: 18,
-                  background: '#ffffff',
-                  border: '1px solid rgba(15,23,42,0.08)',
-                  padding: 14,
-                  display: 'grid',
-                  gap: 12,
-                }}
-              >
-                <div style={{ minWidth: 0 }}>
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: 14,
-                      fontWeight: 700,
-                      lineHeight: 1.45,
-                      color: '#0f172a',
-                      overflowWrap: 'anywhere',
-                    }}
-                  >
-                    {attachments.length > 1 ? `Page ${index + 1}: ` : ''}
-                    {attachment.file_name}
-                  </p>
-                  <p style={{ marginTop: 6, marginBottom: 0, fontSize: 12, color: '#64748b' }}>
-                    {attachment.file_type || 'Unknown file type'}
-                  </p>
-                </div>
-                <div>
-                  <button type="button" onClick={() => void onOpenAttachment(attachment)} style={secondaryButtonStyle()}>
-                    View File
-                  </button>
-                </div>
-              </div>
-            ))}
+            <p style={{ marginTop: 10, marginBottom: 0, fontSize: 13, color: '#64748b' }}>
+              Posted {formatDateTime(post.created_at)}
+            </p>
+          </div>
+
+          <div style={{ justifySelf: 'end' }}>
+            <button
+              type="button"
+              onClick={() => void onDeletePost(post)}
+              disabled={busyDeleting}
+              style={{ ...buttonStyle(false, true), opacity: busyDeleting ? 0.7 : 1 }}
+            >
+              {busyDeleting ? 'Deleting...' : 'Delete'}
+            </button>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            onClick={() => void onDeletePost(post)}
-            disabled={busyDeleting}
-            style={{ ...buttonStyle(false, true), opacity: busyDeleting ? 0.7 : 1 }}
-          >
-            {busyDeleting ? 'Deleting...' : 'Delete'}
-          </button>
+        <div style={{ display: 'grid', gap: 10, width: '100%' }}>
+          {attachments.length === 0 && (
+            <div
+              style={{
+                borderRadius: 18,
+                background: '#ffffff',
+                border: '1px solid rgba(15,23,42,0.08)',
+                padding: 14,
+                fontSize: 14,
+                color: '#475569',
+              }}
+            >
+              No files attached.
+            </div>
+          )}
+
+          {attachments.map((attachment, index) => (
+            <div
+              key={attachment.id}
+              style={{
+                borderRadius: 18,
+                background: '#ffffff',
+                border: '1px solid rgba(15,23,42,0.08)',
+                padding: 14,
+                display: 'grid',
+                gap: 12,
+                width: '100%',
+              }}
+            >
+              <div style={{ minWidth: 0, width: '100%' }}>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 14,
+                    fontWeight: 700,
+                    lineHeight: 1.45,
+                    color: '#0f172a',
+                    overflowWrap: 'anywhere',
+                    wordBreak: 'break-word',
+                  }}
+                >
+                  {attachments.length > 1 ? `Page ${index + 1}: ` : ''}
+                  {attachment.file_name}
+                </p>
+                <p style={{ marginTop: 6, marginBottom: 0, fontSize: 12, color: '#64748b' }}>
+                  {attachment.file_type || 'Unknown file type'}
+                </p>
+              </div>
+              <div>
+                <button type="button" onClick={() => void onOpenAttachment(attachment)} style={secondaryButtonStyle()}>
+                  View File
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
   );
 }
+
 
 function normalizeDocumentPosts(rows: any[] | null | undefined): DocumentPost[] {
   return (rows ?? []).map((row) => ({
@@ -716,7 +570,6 @@ export function AdminClient() {
 
   const [active, setActive] = useState<TabId>('alerts');
   const [status, setStatus] = useState<string | null>(null);
-  const [attachmentPreview, setAttachmentPreview] = useState<AttachmentPreviewState | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [soldiers, setSoldiers] = useState<ManagedProfile[]>([]);
   const [existingAlerts, setExistingAlerts] = useState<ExistingAlert[]>([]);
@@ -1184,18 +1037,14 @@ export function AdminClient() {
 
   async function openAttachment(attachment: DocumentAttachment) {
     setStatus(null);
-    const { data, error } = await supabase.storage.from(DOC_BUCKET).createSignedUrl(attachment.storage_path, 60 * 60);
+    const { data, error } = await supabase.storage.from(DOC_BUCKET).createSignedUrl(attachment.storage_path, 60);
 
     if (error || !data?.signedUrl) {
       setStatus(error?.message || 'Unable to open file.');
       return;
     }
 
-    setAttachmentPreview({
-      name: attachment.file_name,
-      url: data.signedUrl,
-      kind: getAttachmentKind(attachment.file_name, attachment.file_type),
-    });
+    window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
   }
 
   async function deactivateExistingPosts(category: DocumentCategory, subcategory: string | null) {
@@ -1496,7 +1345,6 @@ export function AdminClient() {
 
   return (
     <>
-      {attachmentPreview && <AttachmentPreviewOverlay preview={attachmentPreview} onClose={() => setAttachmentPreview(null)} />}
       <div style={{ display: 'grid', gap: 20, width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
         <section style={sectionStyle()}>
           <div style={{ marginBottom: 16, minWidth: 0 }}>
