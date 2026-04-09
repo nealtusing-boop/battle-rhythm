@@ -31,7 +31,7 @@ export function AppShell({
 
     const DB_NAME = 'battle-rhythm-push';
     const STORE_NAME = 'meta';
-    const REDIRECT_KEY = 'pending_notification_redirect';
+    const REDIRECT_KEYS = ['redirect_to_home', 'pending_notification_redirect'] as const;
 
     function openPushDb() {
       return new Promise<IDBDatabase>((resolve, reject) => {
@@ -55,10 +55,31 @@ export function AppShell({
       return new Promise<string | null>((resolve, reject) => {
         const transaction = db.transaction(STORE_NAME, 'readonly');
         const store = transaction.objectStore(STORE_NAME);
-        const request = store.get(REDIRECT_KEY);
 
-        request.onsuccess = () => resolve(typeof request.result === 'string' ? request.result : null);
-        request.onerror = () => reject(request.error);
+        const legacyRequest = store.get(REDIRECT_KEYS[1]);
+
+        legacyRequest.onsuccess = () => {
+          if (typeof legacyRequest.result === 'string') {
+            resolve(legacyRequest.result);
+            return;
+          }
+
+          const currentRequest = store.get(REDIRECT_KEYS[0]);
+
+          currentRequest.onsuccess = () => {
+            if (currentRequest.result === true) {
+              resolve('/home');
+            } else if (typeof currentRequest.result === 'string') {
+              resolve(currentRequest.result);
+            } else {
+              resolve(null);
+            }
+          };
+
+          currentRequest.onerror = () => reject(currentRequest.error);
+        };
+
+        legacyRequest.onerror = () => reject(legacyRequest.error);
       });
     }
 
@@ -68,7 +89,9 @@ export function AppShell({
       return new Promise<void>((resolve, reject) => {
         const transaction = db.transaction(STORE_NAME, 'readwrite');
         const store = transaction.objectStore(STORE_NAME);
-        const request = store.delete(REDIRECT_KEY);
+
+        store.delete(REDIRECT_KEYS[0]);
+        const request = store.delete(REDIRECT_KEYS[1]);
 
         request.onsuccess = () => resolve();
         request.onerror = () => reject(request.error);
