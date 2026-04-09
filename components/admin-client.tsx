@@ -1591,7 +1591,7 @@ export function AdminClient() {
             <h2
               style={{
                 margin: 0,
-                fontSize: 28,
+                fontSize: 20,
                 fontWeight: 800,
                 letterSpacing: '-0.04em',
                 color: '#0f172a',
