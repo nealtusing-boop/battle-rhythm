@@ -42,6 +42,12 @@ type ManagedProfile = Profile & {
   is_active?: boolean;
 };
 
+type EditUserFormState = {
+  full_name: string;
+  rank: string;
+  role: ManagedProfile['role'];
+};
+
 type DocumentAttachment = {
   id: string;
   post_id: string;
@@ -800,6 +806,12 @@ export function AdminClient() {
   const [busyRepostingAlert, setBusyRepostingAlert] = useState(false);
   const [busyUpdatingAlertId, setBusyUpdatingAlertId] = useState<string | null>(null);
   const [busyUpdatingUserId, setBusyUpdatingUserId] = useState<string | null>(null);
+  const [editingUser, setEditingUser] = useState<ManagedProfile | null>(null);
+  const [editUserForm, setEditUserForm] = useState<EditUserFormState>({
+    full_name: '',
+    rank: '',
+    role: 'soldier',
+  });
 
   const [docTitle, setDocTitle] = useState('');
   const [docDescription, setDocDescription] = useState('');
@@ -1291,12 +1303,59 @@ export function AdminClient() {
     if (error) {
       setStatus(error.message);
       setBusyUpdatingUserId(null);
-      return;
+      return false;
     }
 
     setBusyUpdatingUserId(null);
     setStatus('User updated.');
     await loadInitial();
+    return true;
+  }
+
+  function openEditUser(profile: ManagedProfile) {
+    setStatus(null);
+    setEditingUser(profile);
+    setEditUserForm({
+      full_name: profile.full_name ?? '',
+      rank: profile.rank ?? '',
+      role: (profile.role ?? 'soldier') as ManagedProfile['role'],
+    });
+  }
+
+  function closeEditUser() {
+    setEditingUser(null);
+    setEditUserForm({
+      full_name: '',
+      rank: '',
+      role: 'soldier',
+    });
+  }
+
+  async function saveEditedUser() {
+    if (!editingUser) return;
+
+    const fullName = editUserForm.full_name.trim();
+    const rank = editUserForm.rank.trim();
+
+    if (!fullName) {
+      setStatus('Enter a name for this user.');
+      return;
+    }
+
+    if (!rank) {
+      setStatus('Enter a rank for this user.');
+      return;
+    }
+
+    const ok = await updateUser(editingUser.id, {
+      full_name: fullName,
+      rank,
+      role: editUserForm.role,
+    });
+
+    if (ok) {
+      closeEditUser();
+    }
   }
 
   async function deleteUser(profile: ManagedProfile) {
@@ -2510,7 +2569,6 @@ export function AdminClient() {
               )}
 
               {soldiers.map((soldier) => {
-                const activeUser = soldier.is_active !== false;
                 const busy = busyUpdatingUserId === soldier.id;
 
                 return (
@@ -2590,6 +2648,21 @@ export function AdminClient() {
                       >
                         <button
                           type="button"
+                          onClick={() => openEditUser(soldier)}
+                          disabled={busy}
+                          style={{
+                            ...secondaryButtonStyle(),
+                            opacity: busy ? 0.7 : 1,
+                            width: '100%',
+                            minWidth: 0,
+                            textAlign: 'center',
+                          }}
+                        >
+                          Edit User
+                        </button>
+
+                        <button
+                          type="button"
                           onClick={() => void toggleUserRole(soldier)}
                           disabled={busy}
                           style={{
@@ -2613,6 +2686,7 @@ export function AdminClient() {
                             width: '100%',
                             minWidth: 0,
                             textAlign: 'center',
+                            gridColumn: '1 / -1',
                           }}
                         >
                           Delete User
@@ -2635,6 +2709,83 @@ export function AdminClient() {
           busy={previewLoading}
           onClose={closeAttachmentPreview}
         />
+      )}
+
+      {editingUser && (
+        <ModalShell
+          title="Edit User"
+          description="Update this soldier's name, rank, or role."
+          onClose={closeEditUser}
+        >
+          <div style={{ display: 'grid', gap: 14 }}>
+            <label style={labelStyle()}>
+              <span style={fieldLabelTextStyle()}>Full name</span>
+              <input
+                type="text"
+                value={editUserForm.full_name}
+                onChange={(e) =>
+                  setEditUserForm((current) => ({
+                    ...current,
+                    full_name: e.target.value,
+                  }))
+                }
+                placeholder="Enter full name"
+                style={inputStyle()}
+              />
+            </label>
+
+            <label style={labelStyle()}>
+              <span style={fieldLabelTextStyle()}>Rank</span>
+              <input
+                type="text"
+                value={editUserForm.rank}
+                onChange={(e) =>
+                  setEditUserForm((current) => ({
+                    ...current,
+                    rank: e.target.value.toUpperCase(),
+                  }))
+                }
+                placeholder="Enter rank"
+                style={inputStyle()}
+              />
+            </label>
+
+            <label style={labelStyle()}>
+              <span style={fieldLabelTextStyle()}>Role</span>
+              <select
+                value={editUserForm.role}
+                onChange={(e) =>
+                  setEditUserForm((current) => ({
+                    ...current,
+                    role: e.target.value as ManagedProfile['role'],
+                  }))
+                }
+                style={inputStyle()}
+              >
+                <option value="soldier">Soldier</option>
+                <option value="admin">Admin</option>
+              </select>
+            </label>
+
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => void saveEditedUser()}
+                disabled={busyUpdatingUserId === editingUser.id}
+                style={{
+                  ...buttonStyle(true),
+                  opacity: busyUpdatingUserId === editingUser.id ? 0.7 : 1,
+                }}
+              >
+                {busyUpdatingUserId === editingUser.id ? 'Saving...' : 'Save Changes'}
+              </button>
+
+              <button type="button" onClick={closeEditUser} style={secondaryButtonStyle()}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </ModalShell>
       )}
 
       {reactivatingAlert && (
