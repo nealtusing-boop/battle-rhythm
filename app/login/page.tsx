@@ -4,6 +4,38 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/browser';
 
+const RANK_OPTIONS = [
+  'PVT',
+  'PV2',
+  'PFC',
+  'SPC',
+  'CPL',
+  'SGT',
+  'SSG',
+  'SFC',
+  'MSG',
+  '1SG',
+  'SGM',
+  'CSM',
+  '2LT',
+  '1LT',
+  'CPT',
+  'MAJ',
+  'LTC',
+  'COL',
+] as const;
+
+const fieldStyle = {
+  width: '100%',
+  borderRadius: 18,
+  border: '1px solid rgba(15,23,42,0.10)',
+  background: '#f8fafc',
+  padding: '14px 16px',
+  fontSize: 15,
+  color: '#0f172a',
+  outline: 'none',
+} as const;
+
 export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
@@ -24,12 +56,24 @@ export default function LoginPage() {
 
     try {
       if (mode === 'sign-up') {
+        if (!fullName.trim()) {
+          setMessage('Enter a full name.');
+          setLoading(false);
+          return;
+        }
+
+        if (!rank) {
+          setMessage('Select a rank.');
+          setLoading(false);
+          return;
+        }
+
         const { error } = await supabase.auth.signUp({
           email,
           password,
           options: {
             data: {
-              full_name: fullName,
+              full_name: fullName.trim(),
               rank,
             },
           },
@@ -41,8 +85,9 @@ export default function LoginPage() {
           return;
         }
 
-        setMessage('Account created. Check your email if confirmation is enabled, then sign in.');
+        setMessage('Account created. You can sign in now.');
         setMode('sign-in');
+        setPassword('');
         setLoading(false);
         return;
       }
@@ -124,7 +169,10 @@ export default function LoginPage() {
           >
             <button
               type="button"
-              onClick={() => setMode('sign-in')}
+              onClick={() => {
+                setMode('sign-in');
+                setMessage(null);
+              }}
               style={{
                 flex: 1,
                 borderRadius: 18,
@@ -147,7 +195,10 @@ export default function LoginPage() {
 
             <button
               type="button"
-              onClick={() => setMode('sign-up')}
+              onClick={() => {
+                setMode('sign-up');
+                setMessage(null);
+              }}
               style={{
                 flex: 1,
                 borderRadius: 18,
@@ -190,9 +241,7 @@ export default function LoginPage() {
                 color: '#64748b',
               }}
             >
-              {mode === 'sign-in'
-                ? ''
-                : ''}
+              {mode === 'sign-in' ? '' : ''}
             </p>
           </div>
 
@@ -204,34 +253,24 @@ export default function LoginPage() {
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Full name"
                   required
-                  style={{
-                    width: '100%',
-                    borderRadius: 18,
-                    border: '1px solid rgba(15,23,42,0.10)',
-                    background: '#f8fafc',
-                    padding: '14px 16px',
-                    fontSize: 15,
-                    color: '#0f172a',
-                    outline: 'none',
-                  }}
+                  style={fieldStyle}
                 />
 
-                <input
+                <select
                   value={rank}
                   onChange={(e) => setRank(e.target.value)}
-                  placeholder="Rank"
                   required
-                  style={{
-                    width: '100%',
-                    borderRadius: 18,
-                    border: '1px solid rgba(15,23,42,0.10)',
-                    background: '#f8fafc',
-                    padding: '14px 16px',
-                    fontSize: 15,
-                    color: '#0f172a',
-                    outline: 'none',
-                  }}
-                />
+                  style={fieldStyle}
+                >
+                  <option value="" disabled>
+                    Select rank
+                  </option>
+                  {RANK_OPTIONS.map((rankOption) => (
+                    <option key={rankOption} value={rankOption}>
+                      {rankOption}
+                    </option>
+                  ))}
+                </select>
               </>
             )}
 
@@ -241,16 +280,7 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Email"
               required
-              style={{
-                width: '100%',
-                borderRadius: 18,
-                border: '1px solid rgba(15,23,42,0.10)',
-                background: '#f8fafc',
-                padding: '14px 16px',
-                fontSize: 15,
-                color: '#0f172a',
-                outline: 'none',
-              }}
+              style={fieldStyle}
             />
 
             <input
@@ -259,16 +289,7 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Password"
               required
-              style={{
-                width: '100%',
-                borderRadius: 18,
-                border: '1px solid rgba(15,23,42,0.10)',
-                background: '#f8fafc',
-                padding: '14px 16px',
-                fontSize: 15,
-                color: '#0f172a',
-                outline: 'none',
-              }}
+              style={fieldStyle}
             />
 
             {message && (
