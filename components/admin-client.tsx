@@ -23,6 +23,27 @@ const tabs = [
   { id: 'users', label: 'Users' },
 ] as const;
 
+const RANK_OPTIONS = [
+  'PVT',
+  'PV2',
+  'PFC',
+  'SPC',
+  'CPL',
+  'SGT',
+  'SSG',
+  'SFC',
+  'MSG',
+  '1SG',
+  'SGM',
+  'CSM',
+  '2LT',
+  '1LT',
+  'CPT',
+  'MAJ',
+  'LTC',
+  'COL',
+] as const;
+
 type TabId = (typeof tabs)[number]['id'];
 type DocumentCategory = 'weekly_training' | 'long_range' | 'cq_roster' | 'pt_plan' | 'resource';
 type PtSubcategory = '1st_squad' | '2nd_squad' | '3rd_squad' | 'wpns_squad';
@@ -43,7 +64,8 @@ type ManagedProfile = Profile & {
 };
 
 type EditUserFormState = {
-  full_name: string;
+  first_name: string;
+  last_name: string;
   rank: string;
   role: ManagedProfile['role'];
 };
@@ -808,7 +830,8 @@ export function AdminClient() {
   const [busyUpdatingUserId, setBusyUpdatingUserId] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<ManagedProfile | null>(null);
   const [editUserForm, setEditUserForm] = useState<EditUserFormState>({
-    full_name: '',
+    first_name: '',
+    last_name: '',
     rank: '',
     role: 'soldier',
   });
@@ -1315,8 +1338,12 @@ export function AdminClient() {
   function openEditUser(profile: ManagedProfile) {
     setStatus(null);
     setEditingUser(profile);
+
+    const nameParts = (profile.full_name ?? '').trim().split(/\s+/).filter(Boolean);
+
     setEditUserForm({
-      full_name: profile.full_name ?? '',
+      first_name: nameParts[0] ?? '',
+      last_name: nameParts.slice(1).join(' '),
       rank: profile.rank ?? '',
       role: (profile.role ?? 'soldier') as ManagedProfile['role'],
     });
@@ -1325,7 +1352,8 @@ export function AdminClient() {
   function closeEditUser() {
     setEditingUser(null);
     setEditUserForm({
-      full_name: '',
+      first_name: '',
+      last_name: '',
       rank: '',
       role: 'soldier',
     });
@@ -1334,16 +1362,23 @@ export function AdminClient() {
   async function saveEditedUser() {
     if (!editingUser) return;
 
-    const fullName = editUserForm.full_name.trim();
+    const firstName = editUserForm.first_name.trim();
+    const lastName = editUserForm.last_name.trim();
     const rank = editUserForm.rank.trim();
+    const fullName = `${firstName} ${lastName}`.trim();
 
-    if (!fullName) {
-      setStatus('Enter a name for this user.');
+    if (!firstName) {
+      setStatus('Enter a first name for this user.');
+      return;
+    }
+
+    if (!lastName) {
+      setStatus('Enter a last name for this user.');
       return;
     }
 
     if (!rank) {
-      setStatus('Enter a rank for this user.');
+      setStatus('Select a rank for this user.');
       return;
     }
 
@@ -2718,36 +2753,65 @@ export function AdminClient() {
           onClose={closeEditUser}
         >
           <div style={{ display: 'grid', gap: 14 }}>
-            <label style={labelStyle()}>
-              <span style={fieldLabelTextStyle()}>Full name</span>
-              <input
-                type="text"
-                value={editUserForm.full_name}
-                onChange={(e) =>
-                  setEditUserForm((current) => ({
-                    ...current,
-                    full_name: e.target.value,
-                  }))
-                }
-                placeholder="Enter full name"
-                style={inputStyle()}
-              />
-            </label>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                gap: 12,
+              }}
+            >
+              <label style={labelStyle()}>
+                <span style={fieldLabelTextStyle()}>First Name</span>
+                <input
+                  type="text"
+                  value={editUserForm.first_name}
+                  onChange={(e) =>
+                    setEditUserForm((current) => ({
+                      ...current,
+                      first_name: e.target.value,
+                    }))
+                  }
+                  placeholder="Enter first name"
+                  style={inputStyle()}
+                />
+              </label>
+
+              <label style={labelStyle()}>
+                <span style={fieldLabelTextStyle()}>Last Name</span>
+                <input
+                  type="text"
+                  value={editUserForm.last_name}
+                  onChange={(e) =>
+                    setEditUserForm((current) => ({
+                      ...current,
+                      last_name: e.target.value,
+                    }))
+                  }
+                  placeholder="Enter last name"
+                  style={inputStyle()}
+                />
+              </label>
+            </div>
 
             <label style={labelStyle()}>
               <span style={fieldLabelTextStyle()}>Rank</span>
-              <input
-                type="text"
+              <select
                 value={editUserForm.rank}
                 onChange={(e) =>
                   setEditUserForm((current) => ({
                     ...current,
-                    rank: e.target.value.toUpperCase(),
+                    rank: e.target.value,
                   }))
                 }
-                placeholder="Enter rank"
                 style={inputStyle()}
-              />
+              >
+                <option value="">Select rank</option>
+                {RANK_OPTIONS.map((rankOption) => (
+                  <option key={rankOption} value={rankOption}>
+                    {rankOption}
+                  </option>
+                ))}
+              </select>
             </label>
 
             <label style={labelStyle()}>
